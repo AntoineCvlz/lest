@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY --chown=app:app . .
 # Caches d'outils (ruff, pytest, coverage) écrits dans /app par l'utilisateur non-root.
 RUN chown app:app /app
-USER app
+USER 10001:10001
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
@@ -50,7 +50,7 @@ RUN DJANGO_SETTINGS_MODULE=config.settings.prod \
 FROM base AS prod
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build --chown=app:app /app /app
-USER app
+USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=4).status == 200 else 1)"]

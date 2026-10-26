@@ -11,7 +11,7 @@ RUN npm install --global corepack@0.36.0 \
  && mkdir /app && chown node:node /app
 WORKDIR /app
 # Tout le reste (install, dev, build) tourne en utilisateur non-root.
-USER node
+USER 1000:1000
 
 FROM base AS deps
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -38,6 +38,6 @@ ENV NODE_ENV=production \
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
-USER node
+USER 1000:1000
 EXPOSE 3000
 CMD ["node", "server.js"]
