@@ -82,3 +82,9 @@ filterwarnings = ["error"]
 branch = true
 source = ["."]
 omit = ["*/migrations/*", "*/tests/*", "manage.py", "config/wsgi.py", "config/asgi.py"]
+
+[tool.coverage.report]
+# Seuil contractuel (CLAUDE.md) : 85 % sur la couche métier (services + selectors).
+include = ["*/services.py", "*/selectors.py", "*/services/*", "*/selectors/*"]
+fail_under = 85
+skip_covered = false
