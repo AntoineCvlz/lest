@@ -1,0 +1,85 @@
+# Mêmes vérifications qu'en CI, en local avant chaque commit.
+# Installation (une fois) : `uv tool install pre-commit` puis `just hooks`.
+# Les `rev` sont figés sur un SHA de commit (supply chain) : mise à jour via
+# `pre-commit autoupdate --freeze`, relue en PR.
+
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+
+repos:
+  # --- Hygiène générale --------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+        exclude: ^backend/openapi\.json$ # généré (`just typegen`), garanti par le test de contrat
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+        exclude: ^frontend/pnpm-lock\.yaml$ # multi-documents (pnpm 12), validé par pnpm
+      - id: check-toml
+      - id: check-json
+        exclude: ^frontend/tsconfig\.json$ # JSONC (commentaires autorisés)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: detect-private-key
+
+  # --- Secrets -------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 2ca41cc1372d1e939a6a879f18cdc19fc1cac1ce  # frozen: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # --- Python (back) -------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: f368fb366ff7f2f808dd324b83a6d32267799e19  # frozen: v0.17.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (strict, back)
+        language: system
+        entry: uv run --directory backend --frozen mypy .
+        files: ^backend/.*\.py$
+        pass_filenames: false
+
+  # --- TypeScript (front) : projets entiers, comme en CI ---------------------------------
+      - id: eslint
+        name: eslint (front)
+        language: system
+        entry: pnpm --dir frontend run lint
+        files: ^frontend/.*\.(ts|tsx|mts|mjs)$
+        pass_filenames: false
+      - id: prettier
+        name: prettier (front)
+        language: system
+        entry: pnpm --dir frontend run format:check
+        files: ^frontend/
+        pass_filenames: false
+      - id: tsc
+        name: tsc (front)
+        language: system
+        entry: pnpm --dir frontend run typecheck
+        files: ^frontend/.*\.(ts|tsx|mts)$
+        pass_filenames: false
+
+  # --- Conteneurs ----------------------------------------------------------------------
+  - repo: https://github.com/hadolint/hadolint
+    rev: 2eece55955ced00200be9729e9728cb7dacca505  # frozen: v2.15.1
+    hooks:
+      - id: hadolint-docker
+
+  # --- Messages de commit (Conventional Commits) ---------------------------------------
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: 1f1ac45c93d1c2ce36b71330252c489a5f4f2724  # frozen: v9.27.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        additional_dependencies: ["@commitlint/config-conventional@21.2.4"]

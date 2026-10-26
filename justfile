@@ -12,6 +12,14 @@ web_rw := "docker compose run --rm --no-deps -v ./frontend:/app -v /app/node_mod
 default:
     @just --list
 
+# Installe les hooks git (pre-commit + commit-msg) ; prérequis : `uv tool install pre-commit`
+hooks:
+    pre-commit install
+
+# Lance toutes les vérifications pre-commit sur tout le dépôt
+check:
+    pre-commit run --all-files
+
 # Lance toute la stack avec rechargement à chaud (Ctrl+C pour arrêter)
 up:
     docker compose up --build --watch
