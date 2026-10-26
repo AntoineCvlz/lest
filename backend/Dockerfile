@@ -48,6 +48,9 @@ RUN DJANGO_SETTINGS_MODULE=config.settings.prod \
 
 # --- Prod --------------------------------------------------------------------------------
 FROM base AS prod
+# uv gère les dépendances : pip n'a aucun usage à l'exécution. Retiré avec ses copies
+# embarquées (urllib3, msgpack…) que Trivy signalait vulnérables.
+RUN python -m pip uninstall --yes pip
 COPY --from=build /opt/venv /opt/venv
 COPY --from=build --chown=app:app /app /app
 USER 10001:10001
