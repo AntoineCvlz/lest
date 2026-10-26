@@ -1,0 +1,51 @@
+name: Lighthouse
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI (avertissement)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # Non bloquant (CLAUDE.md) : les scores fluctuent sur des runners partagés.
+    continue-on-error: true
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configuration de la stack (secrets éphémères)
+        run: |
+          cp .env.example .env
+          sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n/+=')|" .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
+      - name: Démarrage de la stack (images de prod)
+        run: docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait --wait-timeout 300
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.22.1"
+          package-manager-cache: false
+      - name: Lighthouse CI (mobile)
+        run: npx --yes @lhci/cli@0.15.1 autorun --config=.lighthouserc.json
+      # Rapports gardés en artefacts privés, jamais sur un stockage public.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: lighthouse
+          path: .lighthouseci/reports
+          retention-days: 14
+      - name: Arrêt de la stack
+        if: always()
+        run: docker compose -f compose.yaml -f compose.e2e.yaml down --volumes

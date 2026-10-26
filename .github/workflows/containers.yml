@@ -1,0 +1,92 @@
+name: Conteneurs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "23 5 * * 1" # chaque lundi : nouvelles CVE dans les images de base
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  TRIVY_IMAGE: aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+
+jobs:
+  hadolint:
+    name: Hadolint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Hadolint (backend, frontend)
+        run: |
+          for dockerfile in backend/Dockerfile frontend/Dockerfile; do
+            echo "::group::$dockerfile"
+            docker run --rm -i -v "$PWD/.hadolint.yaml:/.config/hadolint.yaml:ro" \
+              hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d \
+              < "$dockerfile"
+            echo "::endgroup::"
+          done
+
+  trivy-config:
+    name: Trivy (configuration)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Dockerfiles et Compose (rapport HIGH, échec sur CRITICAL)
+        run: |
+          docker run --rm -v "$PWD:/src:ro" "$TRIVY_IMAGE" config --severity HIGH,CRITICAL /src
+          docker run --rm -v "$PWD:/src:ro" "$TRIVY_IMAGE" config --severity CRITICAL --exit-code 1 /src
+
+  images:
+    name: Image ${{ matrix.service }} (Trivy + SBOM)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build (cible prod)
+        run: docker build --target prod --tag "lest-${{ matrix.service }}:ci" "${{ matrix.service }}"
+      - name: Trivy image (rapport HIGH, échec sur CRITICAL corrigeable)
+        run: |
+          run_trivy() {
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
+              -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" "$TRIVY_IMAGE" image "$@"
+          }
+          run_trivy --severity HIGH,CRITICAL "lest-${{ matrix.service }}:ci"
+          run_trivy --severity CRITICAL --ignore-unfixed --exit-code 1 "lest-${{ matrix.service }}:ci"
+      - name: SBOM (SPDX, Syft)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
+            anchore/syft:v1.55.0@sha256:4cc92b64ca74ffca4c94d4c8fcc01f217731375300be14d0b6eeb2e82eaa110a \
+            "lest-${{ matrix.service }}:ci" --output spdx-json > "sbom-${{ matrix.service }}.spdx.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.spdx.json
+          retention-days: 90
