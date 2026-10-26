@@ -1,0 +1,84 @@
+[project]
+name = "lest-backend"
+version = "0.1.0"
+description = "API Django Ninja de Lest"
+requires-python = ">=3.13,<3.14"
+license = { text = "Proprietary" }
+classifiers = ["Private :: Do Not Upload"]
+dependencies = [
+    "argon2-cffi>=25.1.0",
+    "celery[redis]>=5.6.3",
+    "django>=5.2,<5.3",
+    "django-environ>=0.14.0",
+    "django-ninja>=1.7.1",
+    "psycopg[binary]>=3.3.6",
+    "redis>=6.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "celery-types>=0.26.0",
+    "django-stubs[compatible-mypy]>=6.1.2",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.14.0",
+    "ruff>=0.17.2",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",  # pycodestyle, pyflakes
+    "I",            # isort
+    "UP",           # pyupgrade
+    "B",            # bugbear
+    "S",            # bandit
+    "DJ",           # django
+    "N",            # pep8-naming
+    "SIM",          # simplify
+    "PTH",          # pathlib
+    "RUF",
+    "T20",          # print
+    "PT",           # pytest style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101", "S105", "S106"]  # assert et faux secrets autorisés dans les tests
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+plugins = ["mypy_django_plugin.main", "pydantic.mypy"]
+exclude = ["/migrations/"]
+
+[[tool.mypy.overrides]]
+# django-environ ne publie ni stubs ni py.typed ; seul module tiers concerné.
+module = ["environ"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+addopts = "--strict-markers --cov --cov-report=term-missing"
+testpaths = ["apps", "common", "config"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["."]
+omit = ["*/migrations/*", "*/tests/*", "manage.py", "config/wsgi.py", "config/asgi.py"]
