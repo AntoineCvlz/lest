@@ -25,7 +25,8 @@
     "format:check": "prettier --check .",
     "typegen": "openapi-typescript ../backend/openapi.json -o src/shared/api/schema.d.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.5",
@@ -36,6 +37,8 @@
     "react-dom": "19.3.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/turbopack": "4.3.3",
     "@testing-library/dom": "10.4.2",
     "@testing-library/jest-dom": "7.0.1",

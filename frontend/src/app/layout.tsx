@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 
 import { QueryProvider } from "@/shared/api/query-provider";
 
@@ -13,7 +14,10 @@ export const viewport: Viewport = {
   colorScheme: "dark light",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Rendu à chaque requête : c'est la condition pour que Next.js applique le nonce de la CSP.
+  await connection();
+
   return (
     <html lang="fr">
       <body>
