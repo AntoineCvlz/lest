@@ -1,0 +1,15 @@
+# Dépendances, environnements et artefacts : jamais analysés.
+node_modules/
+.venv/
+.next/
+out/
+coverage/
+test-results/
+playwright-report/
+staticfiles/
+
+# Fichiers générés
+backend/openapi.json
+frontend/src/shared/api/schema.d.ts
+frontend/pnpm-lock.yaml
+backend/uv.lock
