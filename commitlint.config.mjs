@@ -17,6 +17,7 @@ export default {
         "infra",
         "ci",
         "deps",
+        "deps-dev", // Dependabot (dépendances de dev)
         "claude",
         // Domaines métier (CLAUDE.md)
         "accounts",

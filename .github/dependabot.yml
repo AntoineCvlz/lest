@@ -1,6 +1,9 @@
 # Mises à jour de dépendances : hebdomadaires, groupées, avec un délai de 3 jours après
 # publication (cohérent avec `minimumReleaseAge` de pnpm : défense supply chain).
-# Messages au format Conventional Commits : `chore(deps): …`.
+# Messages au format Conventional Commits : `chore(deps): …` / `chore(deps-dev): …`.
+#
+# Les versions majeures fixées par décision (CLAUDE.md, PR) sont ignorées : leur montée
+# est un choix d'architecture qui passe par une PR dédiée, pas par une mise à jour automatique.
 version: 2
 
 updates:
@@ -9,6 +12,11 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 3 }
     commit-message: { prefix: chore, include: scope }
+    ignore:
+      - dependency-name: django # 5.2 LTS ; 6.x n'est pas LTS
+        update-types: [version-update:semver-major]
+      - dependency-name: redis # contraint par kombu (Celery)
+        update-types: [version-update:semver-major]
     groups:
       python:
         patterns: ["*"]
@@ -19,6 +27,13 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 3 }
     commit-message: { prefix: chore, include: scope }
+    ignore:
+      - dependency-name: "@types/node" # suit le runtime : Node 24 LTS
+        versions: [">=25"]
+      - dependency-name: typescript # TS 7 pas encore supporté par openapi-typescript / typescript-eslint
+        versions: [">=6"]
+      - dependency-name: eslint # ESLint 10 pas encore supporté par eslint-plugin-jsx-a11y
+        versions: [">=10"]
     groups:
       frontend:
         patterns: ["*"]
@@ -29,12 +44,22 @@ updates:
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 3 }
     commit-message: { prefix: chore, include: scope }
+    ignore:
+      - dependency-name: python # 3.13
+        versions: [">=3.14"]
+      - dependency-name: node # 24 LTS
+        versions: [">=25"]
 
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly, day: monday }
     cooldown: { default-days: 3 }
     commit-message: { prefix: chore, include: scope }
+    ignore:
+      - dependency-name: postgres # 17
+        versions: [">=18"]
+      - dependency-name: redis # 7
+        versions: [">=8"]
 
   - package-ecosystem: github-actions
     directories: [/, /.github/actions/*]
