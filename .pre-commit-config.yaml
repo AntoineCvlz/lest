@@ -18,7 +18,13 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: check-yaml
-        exclude: ^frontend/pnpm-lock\.yaml$ # multi-documents (pnpm 12), validé par pnpm
+        exclude: ^(frontend/pnpm-lock\.yaml|compose(\..+)?\.yaml)$
+      # Compose utilise des étiquettes propres (`!reset`) : vérification de syntaxe seule.
+      # (pnpm-lock.yaml : multi-documents en pnpm 12, validé par `pnpm install --frozen-lockfile`.)
+      - id: check-yaml
+        name: check yaml (compose, syntaxe)
+        args: [--unsafe]
+        files: ^compose(\..+)?\.yaml$
       - id: check-toml
       - id: check-json
         exclude: ^frontend/tsconfig\.json$ # JSONC (commentaires autorisés)
