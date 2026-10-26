@@ -1,0 +1,85 @@
+name: Lint & types
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend (ruff, mypy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Ruff (lint)
+        working-directory: backend
+        run: uv run ruff check --output-format=github .
+      - name: Ruff (format)
+        working-directory: backend
+        run: uv run ruff format --check .
+      - name: Mypy (strict)
+        working-directory: backend
+        run: uv run mypy .
+
+  frontend:
+    name: Frontend (eslint, prettier, tsc)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: ESLint
+        working-directory: frontend
+        run: pnpm lint
+      - name: Prettier
+        working-directory: frontend
+        run: pnpm format:check
+      - name: TypeScript
+        working-directory: frontend
+        run: pnpm typecheck
+
+  commitlint:
+    name: Commitlint (PR title)
+    # Squash merge : c'est le titre de la PR qui devient le message du commit sur main.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.22.1"
+          package-manager-cache: false
+      - name: Lint PR title
+        env:
+          # Passé par variable d'environnement, jamais interpolé dans le script (injection).
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" | npx --yes \
+            -p @commitlint/cli@21.2.4 \
+            -p @commitlint/config-conventional@21.2.4 \
+            commitlint --verbose

@@ -1,0 +1,47 @@
+# Surcharge pour les E2E (CI) : images de PROD (CSP réelle, gunicorn, Next standalone),
+# sans synchronisation de code. Usage :
+#   docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait
+
+x-backend-prod: &backend-prod
+  build:
+    context: ./backend
+    target: prod
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    DJANGO_ALLOWED_HOSTS: api,localhost,127.0.0.1
+    # Pas de TLS dans la stack locale : la redirection HTTPS casserait les appels internes.
+    DJANGO_SECURE_SSL_REDIRECT: "false"
+
+# `develop: !reset null` est répété par service : dans une ancre fusionnée (`<<`), il est ignoré.
+services:
+  api:
+    <<: *backend-prod
+    develop: !reset null
+
+  worker:
+    <<: *backend-prod
+    develop: !reset null
+    command: ["celery", "-A", "config", "worker", "--loglevel=INFO", "--concurrency=1"]
+    # L'image de prod embarque le healthcheck HTTP de l'API : le worker répond, lui, via Celery.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping --destination celery@$$HOSTNAME --timeout 5"]
+      interval: 15s
+      timeout: 10s
+      start_period: 15s
+      retries: 5
+
+  web:
+    build:
+      context: ./frontend
+      target: prod
+    develop: !reset null
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
+      retries: 10
