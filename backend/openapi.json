@@ -1,0 +1,94 @@
+{
+  "components": {
+    "schemas": {
+      "HealthChecks": {
+        "properties": {
+          "cache": {
+            "enum": [
+              "ok",
+              "down"
+            ],
+            "title": "Cache",
+            "type": "string"
+          },
+          "database": {
+            "enum": [
+              "ok",
+              "down"
+            ],
+            "title": "Database",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "cache"
+        ],
+        "title": "HealthChecks",
+        "type": "object"
+      },
+      "HealthOut": {
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/HealthChecks"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "HealthOut",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "",
+    "title": "Lest API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health/": {
+      "get": {
+        "operationId": "common_health_api_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthOut"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "État de l'API et de ses dépendances",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "servers": []
+}
