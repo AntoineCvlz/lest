@@ -7,10 +7,13 @@ const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
+  // Indépendant de l'environnement (le conteneur de dev définit API_INTERNAL_URL).
+  vi.stubEnv("API_INTERNAL_URL", "http://localhost:8000");
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   fetchMock.mockReset();
 });
 

@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server";
  * avec une liste blanche d'en-têtes dans les deux sens.
  */
 
-const API_ORIGIN = process.env.API_INTERNAL_URL ?? "http://localhost:8000";
+const DEFAULT_API_ORIGIN = "http://localhost:8000";
 const ALLOWED_PREFIX = "/api/v1/";
 
 const FORWARDED_REQUEST_HEADERS = [
@@ -44,7 +44,7 @@ export function buildUpstreamUrl(pathname: string, search: string): URL | null {
   if (segments.some((segment) => segment === ".." || segment === "." || segment.includes("/"))) {
     return null;
   }
-  const url = new URL(pathname + search, API_ORIGIN);
+  const url = new URL(pathname + search, process.env.API_INTERNAL_URL ?? DEFAULT_API_ORIGIN);
   return url.pathname.startsWith(ALLOWED_PREFIX) ? url : null;
 }
 

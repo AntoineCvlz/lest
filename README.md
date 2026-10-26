@@ -16,7 +16,21 @@ Les données appartiennent à l'utilisateur : export CSV/JSON et suppression com
 
 ## Démarrage
 
-_À compléter en fin de Phase 0 (démarrage en 3 commandes)._
+Prérequis : Docker (Compose v2.22+) et [`just`](https://github.com/casey/just).
+
+```sh
+cp .env.example .env      # puis ajuster DJANGO_SECRET_KEY (et les ports si besoin)
+just up                   # construit et lance toute la stack, rechargement à chaud
+just migrate              # dans un second terminal, au premier démarrage
+```
+
+| Service | URL |
+| --- | --- |
+| Application | http://localhost:3000 (`WEB_PORT`) |
+| API + doc interactive | http://localhost:8000/api/v1/docs/ |
+| E-mails capturés (Mailpit) | http://localhost:8025 |
+
+`just` liste toutes les commandes : `test`, `lint`, `fmt`, `typegen`, `makemigrations`, `reset-db`…
 
 ## Architecture
 
