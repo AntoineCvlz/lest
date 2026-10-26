@@ -1,0 +1,5 @@
+# Échec sur les avertissements et plus graves ; les registres autorisés sont explicites.
+failure-threshold: warning
+trustedRegistries:
+  - docker.io
+  - ghcr.io

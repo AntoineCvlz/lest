@@ -9,7 +9,15 @@ Lest est un projet propriétaire (voir `LICENSE`). Les contributions externes ne
 - [`uv`](https://docs.astral.sh/uv/) pour `pre-commit`
 - Node.js LTS avec `corepack` activé (pnpm)
 
-Le démarrage complet est décrit dans le `README.md`.
+Le démarrage complet est décrit dans le `README.md`. Une fois par clone :
+
+```sh
+uv tool install pre-commit
+just hooks          # installe les hooks pre-commit et commit-msg
+just check          # (facultatif) lance toutes les vérifications sur tout le dépôt
+```
+
+Les hooks reprennent les vérifications de la CI : ruff, mypy, ESLint, Prettier, tsc, Hadolint, Gitleaks et commitlint.
 
 ## Flux de travail
 

@@ -1,3 +1,11 @@
+import os
+
+# Valeurs par défaut non secrètes : les tests et mypy (plugin django-stubs) chargent ces
+# réglages sans configuration ; l'environnement (CI, conteneur) reste prioritaire.
+os.environ.setdefault("DJANGO_SECRET_KEY", "test-only-insecure-key")
+os.environ.setdefault("DATABASE_URL", "postgres://lest:lest@localhost:5432/lest")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
 from .base import *  # noqa: F403
 
 # Hash rapide : les tests ne mesurent pas la robustesse du stockage des mots de passe.
