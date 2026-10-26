@@ -10,6 +10,8 @@ const nextConfig: NextConfig = {
   cacheComponents: false,
   partialPrefetching: false,
   poweredByHeader: false,
+  // Image Docker de prod : serveur autonome sans node_modules complets.
+  output: "standalone",
   turbopack: {
     rules: {
       "*.css": {

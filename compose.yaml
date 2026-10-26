@@ -1,0 +1,112 @@
+# Stack de développement. Démarrage : `just up` (= `docker compose up --build --watch`).
+# Le code est synchronisé dans les conteneurs par `develop.watch` (fiable sous Docker Desktop
+# / Windows, contrairement aux bind mounts) ; un changement de lockfile reconstruit l'image.
+
+name: lest
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: dev
+  environment: &backend-env
+    DJANGO_SETTINGS_MODULE: config.settings.dev
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?définir DJANGO_SECRET_KEY dans .env}
+    DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379/0
+    EMAIL_HOST: mailpit
+    EMAIL_PORT: "1025"
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  develop:
+    watch:
+      - action: sync
+        path: ./backend
+        target: /app
+        ignore: [.venv/, .mypy_cache/, .ruff_cache/, .pytest_cache/]
+      - action: rebuild
+        path: ./backend/uv.lock
+      - action: rebuild
+        path: ./backend/pyproject.toml
+
+services:
+  db:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?définir POSTGRES_USER dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:?définir POSTGRES_DB dans .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4.11-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    <<: *backend
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=4)"
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  worker:
+    <<: *backend
+    # watchfiles relance Celery à chaque modification d'un fichier Python synchronisé.
+    command:
+      - watchfiles
+      - --filter
+      - python
+      - celery -A config worker --loglevel=INFO --concurrency=2
+      - /app
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3000}:3000"
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore: [node_modules/, .next/, test-results/, playwright-report/]
+        - action: rebuild
+          path: ./frontend/pnpm-lock.yaml
+        - action: rebuild
+          path: ./frontend/package.json
+
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    ports:
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
+
+volumes:
+  pgdata:
