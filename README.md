@@ -36,7 +36,13 @@ just migrate              # dans un second terminal, au premier démarrage
 
 Navigateur → Next.js (SSR + proxy `/api`) → API Django Ninja → PostgreSQL / Redis, avec un worker Celery.
 
-Détails : `docs/architecture.md` et les décisions dans `docs/adr/` (à venir).
+Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`docs/adr/`](docs/adr/) :
+
+- [ADR 0001 — authentification JWT `django-allauth` derrière un proxy Next.js (BFF)](docs/adr/0001-choix-auth.md)
+
+## Qualité et sécurité
+
+Chaque PR passe 16 contrôles bloquants : lint et types (ruff, mypy strict, ESLint, tsc), tests back et front, E2E Playwright + axe sur les images de prod, `check --deploy`, CodeQL, Semgrep, Bandit, Gitleaks, audits de dépendances, Hadolint et Trivy. Actions épinglées par SHA, images d'outils par digest, commits signés, Dependabot avec délai de 3 jours.
 
 ## Licence
 
