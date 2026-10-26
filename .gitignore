@@ -45,3 +45,6 @@ Thumbs.db
 
 # Claude Code : réglages personnels
 .claude/settings.local.json
+
+# Certificats locaux
+*.pem
