@@ -1,0 +1,23 @@
+# Normalise toutes les fins de ligne en LF : le code est exécuté dans des conteneurs Linux.
+* text=auto eol=lf
+
+# Scripts Windows éventuels
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binaires
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+
+# Fichiers générés : diff réduit dans les PR
+backend/uv.lock linguist-generated=true -diff
+frontend/pnpm-lock.yaml linguist-generated=true -diff
+frontend/src/shared/api/schema.d.ts linguist-generated=true

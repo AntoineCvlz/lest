@@ -1,0 +1,47 @@
+# Secrets et configuration locale
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+backend/staticfiles/
+backend/media/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.pnpm-store/
+*.tsbuildinfo
+next-env.d.ts
+frontend/coverage/
+frontend/storybook-static/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
+# Outils
+.lighthouseci/
+sbom*.json
+
+# Éditeurs et OS
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code : réglages personnels
+.claude/settings.local.json
