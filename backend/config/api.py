@@ -4,6 +4,7 @@ from django.conf import settings
 from ninja import NinjaAPI
 
 from common.health.api import router as health_router
+from common.problems import register_problem_handlers
 
 api = NinjaAPI(
     title="Lest API",
@@ -11,5 +12,6 @@ api = NinjaAPI(
     urls_namespace="api-v1",
     docs_url="/docs/" if settings.DEBUG else None,
 )
+register_problem_handlers(api)
 
 api.add_router("/", health_router)
