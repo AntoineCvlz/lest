@@ -150,6 +150,7 @@ lest/
 ## Conventions
 
 - **Licence** : propriétaire, tous droits réservés (`LICENSE`, `"license": "UNLICENSED"` côté npm). Aucune dépendance à licence copyleft forte (GPL/AGPL) sans validation explicite.
+- **Dépôt public** (code visible, non libre) : CodeQL et OpenSSF Scorecard actifs. Conséquence : rien de personnel ni de sensible dans l'historique (fixtures anonymisées, aucune vraie réponse Basic-Fit, aucun token) — Gitleaks bloque, et toute fixture enregistrée est relue avant commit.
 - **Fins de ligne** : LF partout (`.gitattributes`), le poste de dev étant sous Windows.
 - **Commits** : Conventional Commits (`feat(training): …`), vérifiés par commitlint. Branches `feat/`, `fix/`, `chore/`. `main` protégée, squash merge.
 - **Python** : Ruff (lint + format), mypy strict + `django-stubs`, typage complet, docstrings sur les services publics.
