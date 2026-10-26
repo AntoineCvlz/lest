@@ -80,12 +80,12 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - Python 3.13+, Django 5.x LTS si disponible, dépendances via `uv`.
 - API : **Django Ninja** (décidé, pas DRF). Schémas Pydantic, OpenAPI généré nativement par Ninja (pas de `drf-spectacular`), plugin mypy Pydantic activé.
 - PostgreSQL 17, Redis (cache + broker) ; tâches de fond **Celery + beat** : import d'aliments, recalcul des records, export, synchro Basic-Fit.
-- Auth : JWT (`dj-rest-auth` étant lié à DRF, la combinaison exacte de bibliothèques est tranchée dans ADR 0001 — piste : flux de compte via `django-allauth` headless (inscription, reset, MFA TOTP, passkeys) + jetons simplejwt avec `token_blacklist`). Exigences non négociables, quelle que soit la bibliothèque :
-  - access 5–15 min, refresh 7–30 j ; rotation du refresh à chaque usage + blacklist de l'ancien ;
-  - tokens uniquement en cookies httpOnly, jamais dans le corps de réponse ; cookie refresh limité à `/api/v1/auth/token/refresh/` ; CSRF sur refresh et logout ;
-  - Next.js : route handler proxy qui refresh sur 401 et rejoue la requête une seule fois (verrou contre les refresh concurrents) ;
-  - future app native : refresh en stockage sécurisé (Keychain/Keystore) via endpoint dédié ;
-  - **jamais de token dans `localStorage`** ; choix documenté dans ADR 0001.
+- Auth (**ADR 0001**) : `django-allauth` *headless*, stratégie **JWT native** (RS256, access 5 min, refresh 14 j, rotation + invalidation de l'ancien, validation avec état), routers Ninja protégés par `JWTTokenAuth` d'allauth. **Pas de DRF** : simplejwt et dj-rest-auth en dépendent. Allauth fournit inscription, reset, limitation de débit, MFA TOTP et passkeys.
+  - Navigateur = **BFF** : le proxy Next.js retire les jetons des réponses d'allauth et les garde en cookies `HttpOnly; Secure` émis par Next (`lest_at` SameSite=Lax, `lest_rt` SameSite=Strict, `Path=/api/`) ; il ajoute `Authorization: Bearer` vers Django ;
+  - le proxy refresh sur 401 et rejoue la requête une seule fois (verrou contre les refresh concurrents), vérifie `Origin` sur les méthodes non sûres, transmet `X-Forwarded-For` ; CSRF double-submit sur refresh et logout ;
+  - écart assumé : cookie refresh en `Path=/api/` (et non limité à l'URL de refresh), parce que le refresh se fait côté serveur sur n'importe quel 401 ;
+  - future app native : client allauth `app`, jetons en Keychain/Keystore ;
+  - **jamais de token lisible par le JavaScript** (ni `localStorage`, ni corps de réponse reçu par le navigateur).
 - Couches par app : `models` → `selectors` (lectures) → `services` (écritures, règles métier, transactions) → `api` (schémas Pydantic + routers Ninja minces). **Aucune logique métier dans les routers ou les schémas.**
 - Settings `base` / `dev` / `test` (+ `prod`), config par variables d'environnement (`django-environ`), aucun secret commité.
 
