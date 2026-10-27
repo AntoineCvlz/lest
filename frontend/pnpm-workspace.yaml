@@ -1,6 +1,8 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
+  # Binaire fourni par le paquet de plateforme (@esbuild/<os>-<arch>) : le script n'est pas nécessaire.
+  esbuild: false
 
 # Défense supply chain : aucune version publiée depuis moins de 24 h n'est installée
 # (laisse le temps aux registres de retirer une version compromise). Pas d'exception.

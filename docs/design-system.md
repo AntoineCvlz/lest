@@ -97,6 +97,18 @@ par `next/font` : la CSP n'autorise que `font-src 'self'`, et aucune requête ve
 - Les icônes sont des SVG au trait, `aria-hidden` quand un texte les accompagne,
   `aria-label` sur les boutons qui n'ont qu'une icône. Jamais d'emoji.
 
+## Composants et Storybook
+
+- Composants de base dans `frontend/src/shared/ui/`, chacun avec son test (`*.test.tsx`) et sa
+  story (`*.stories.tsx`).
+- `pnpm --dir frontend storybook` (port 6006) : barre d'outils « Thème » (sombre / clair).
+- **Chaque story est un test** (`pnpm --dir frontend test:storybook`, et en CI) : rendue dans
+  Chromium, interactions `play`, et **axe en mode `error`** : toute violation fait échouer.
+- Les stories clés vérifient aussi que les tokens et Archivo sont **réellement appliqués**
+  (un HTML sans style passe axe : ce garde-fou a révélé un Tailwind non branché).
+- Archivo dans Storybook : Fontsource (`@fontsource-variable/archivo`, même police, licence
+  OFL), embarquée dans le build ; `next/font` y chargerait la police depuis Google.
+
 ## Option non retenue, à rediscuter
 
 De la direction C : afficher la **cible du programme** à côté de la valeur réelle (« cible
