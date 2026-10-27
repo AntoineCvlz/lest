@@ -1,0 +1,63 @@
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
+
+import { server } from "@/shared/test/msw-server";
+import { renderWithQuery } from "@/shared/test/render";
+
+import { SessionPanel } from "./session-panel";
+
+const ME_URL = "*/api/v1/me/";
+const SESSION_URL = "*/api/v1/auth/app/v1/auth/session";
+const UNAUTHORIZED = { type: "about:blank", title: "Unauthorized", status: 401 };
+
+describe("SessionPanel", () => {
+  it("invite à se connecter sans session", async () => {
+    server.use(http.get(ME_URL, () => HttpResponse.json(UNAUTHORIZED, { status: 401 })));
+
+    renderWithQuery(<SessionPanel />);
+
+    expect(await screen.findByText("Vous n’êtes pas connecté.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Se connecter" })).toHaveAttribute(
+      "href",
+      "/connexion",
+    );
+  });
+
+  it("affiche le compte puis le déconnecte", async () => {
+    let signedIn = true;
+    server.use(
+      http.get(ME_URL, () =>
+        signedIn
+          ? HttpResponse.json({ id: "u", email: "membre@example.com" })
+          : HttpResponse.json(UNAUTHORIZED, { status: 401 }),
+      ),
+      http.delete(SESSION_URL, () => {
+        signedIn = false;
+        return HttpResponse.json({ status: 401 }, { status: 401 });
+      }),
+    );
+    renderWithQuery(<SessionPanel />);
+
+    expect(await screen.findByText("Connecté avec membre@example.com")).toHaveRole("status");
+    await userEvent.click(screen.getByRole("button", { name: "Se déconnecter" }));
+
+    expect(await screen.findByText("Vous n’êtes pas connecté.")).toBeInTheDocument();
+  });
+
+  it.each([403, 503])(
+    "signale une déconnexion refusée (%i) sans masquer la session",
+    async (status) => {
+      server.use(
+        http.get(ME_URL, () => HttpResponse.json({ id: "u", email: "membre@example.com" })),
+        http.delete(SESSION_URL, () => HttpResponse.json({ status }, { status })),
+      );
+      renderWithQuery(<SessionPanel />);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Se déconnecter" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Déconnexion impossible");
+      expect(screen.getByText("Connecté avec membre@example.com")).toBeInTheDocument();
+    },
+  );
+});

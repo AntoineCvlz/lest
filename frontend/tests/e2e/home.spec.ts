@@ -6,7 +6,9 @@ test.describe("Accueil", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "Lest" })).toBeVisible();
     // Sans backend (E2E isolé) l'API est injoignable ; avec la stack Compose, elle répond.
-    await expect(page.getByRole("status")).toHaveText(/API (opérationnelle|dégradée|injoignable)/);
+    await expect(
+      page.getByRole("region", { name: "État du service" }).getByRole("status"),
+    ).toHaveText(/API (opérationnelle|dégradée|injoignable)/);
 
     const screenshot = test.info().outputPath("accueil.png");
     await page.screenshot({ path: screenshot, fullPage: true });
@@ -15,7 +17,9 @@ test.describe("Accueil", () => {
 
   test("n’a aucune violation d’accessibilité WCAG 2.2 AA", async ({ page, makeAxeBuilder }) => {
     await page.goto("/");
-    await expect(page.getByRole("status")).not.toHaveText("Vérification de l’API…");
+    await expect(
+      page.getByRole("region", { name: "État du service" }).getByRole("status"),
+    ).not.toHaveText("Vérification de l’API…");
 
     const results = await makeAxeBuilder().analyze();
 
@@ -24,7 +28,9 @@ test.describe("Accueil", () => {
 
   test("applique une CSP à nonce sans violation", async ({ page, cspViolations }) => {
     const response = await page.goto("/");
-    await expect(page.getByRole("status")).not.toHaveText("Vérification de l’API…");
+    await expect(
+      page.getByRole("region", { name: "État du service" }).getByRole("status"),
+    ).not.toHaveText("Vérification de l’API…");
 
     const csp = (await response?.allHeaders())?.["content-security-policy"] ?? "";
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
