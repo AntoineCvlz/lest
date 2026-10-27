@@ -32,14 +32,24 @@ export function ApiStatus() {
   const { message, checks } = describe(isPending, data, error);
 
   return (
-    <section aria-labelledby="api-status-title">
-      <h2 id="api-status-title">État du service</h2>
-      <p role="status">{message}</p>
+    <section
+      aria-labelledby="api-status-title"
+      className="rounded-control bg-surface-raised flex flex-col gap-3 p-5"
+    >
+      <h2 id="api-status-title" className="text-ink-muted text-sm font-semibold">
+        État du service
+      </h2>
+      <p role="status" className="text-xl font-bold [font-stretch:112%]">
+        {message}
+      </p>
       {checks && (
-        <dl>
+        <dl className="flex flex-col">
           {(Object.keys(COMPONENT_LABELS) as Component[]).map((component) => (
-            <div key={component}>
-              <dt>{COMPONENT_LABELS[component]}</dt>
+            <div
+              key={component}
+              className="border-line-subtle flex justify-between gap-4 border-t py-2"
+            >
+              <dt className="text-ink-muted">{COMPONENT_LABELS[component]}</dt>
               <dd>{checks[component] === "ok" ? "Opérationnel" : "Indisponible"}</dd>
             </div>
           ))}
