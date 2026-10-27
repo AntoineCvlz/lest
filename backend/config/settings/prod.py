@@ -1,7 +1,11 @@
 """Réglages de production : pas encore déployés, mais vérifiés en CI par `check --deploy`."""
 
+from common.keys import private_key_from_env
+
 from .base import *  # noqa: F403
 from .base import env
+
+HEADLESS_JWT_PRIVATE_KEY = private_key_from_env(env("JWT_PRIVATE_KEY"))
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 

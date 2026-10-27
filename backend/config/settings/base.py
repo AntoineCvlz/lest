@@ -135,6 +135,16 @@ HEADLESS_FRONTEND_URLS = {
 }
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Lest <no-reply@lest.local>")
 
+# Jetons JWT (ADR 0001) : RS256, accès 5 min, refresh 14 j renouvelé à chaque usage (l'ancien
+# est invalidé), validation avec état pour que la déconnexion révoque aussi l'accès en cours.
+# La clé privée est posée par chaque environnement (`dev`/`test` en génèrent une).
+HEADLESS_TOKEN_STRATEGY = "allauth.headless.tokens.strategies.jwt.JWTTokenStrategy"  # noqa: S105 — chemin de classe
+HEADLESS_JWT_ALGORITHM = "RS256"
+HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 5 * 60
+HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60
+HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
+HEADLESS_JWT_STATEFUL_VALIDATION_ENABLED = True
+
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
 CELERY_RESULT_BACKEND = None

@@ -5,6 +5,8 @@ from pathlib import Path
 
 from django.conf import settings
 
+from common.keys import generate_rsa_private_key_pem
+
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
@@ -27,6 +29,7 @@ def test_prod_settings_pass_deploy_checks() -> None:
         "DATABASE_URL": "postgres://u:p@localhost:5432/lest",
         "REDIS_URL": "redis://localhost:6379/0",
         "EMAIL_HOST": "smtp.example",
+        "JWT_PRIVATE_KEY": generate_rsa_private_key_pem().replace("\n", "\\n"),
     }
     result = subprocess.run(
         [sys.executable, "manage.py", "check", "--deploy", "--fail-level", "WARNING"],
