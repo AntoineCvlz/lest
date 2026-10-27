@@ -15,6 +15,8 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     EMAIL_HOST: mailpit
     EMAIL_PORT: "1025"
+    FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Lest <no-reply@lest.local>}
   depends_on:
     db:
       condition: service_healthy
