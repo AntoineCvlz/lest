@@ -102,6 +102,14 @@ Keychain/Keystore, et envoyés en `Authorization: Bearer`. Même stratégie JWT,
   l'IP de Next.js (un seul compteur pour tous). Précision de la PR 3 : en-tête dédié
   `X-Lest-Client-IP`, **écrasé** par le proxy (jamais relayé depuis le client), lu par
   `AccountAdapter.get_client_ip` ; `X-Forwarded-For` n'est jamais lu, car le client le contrôle.
+  Précision de l'étape 5 : un route handler Next.js ne voit pas l'adresse du socket ; le BFF ne
+  lit l'IP que dans l'en-tête nommé par `TRUSTED_CLIENT_IP_HEADER`, posé par le proxy de bord
+  en prod. Sans proxy de bord (dev, E2E), aucune IP n'est transmise.
+- ⚠️ Le verrou de refresh est en mémoire du processus Next.js : valable pour une instance. Plusieurs
+  instances exigeront un verrou partagé (Redis) ou une affinité de session.
+- ℹ️ Le BFF retire aussi `meta.session_token` (clé de session Django des parcours en attente :
+  inscription, vérification) et le garde en cookie `lest_st` (`HttpOnly`, `Path=/api/v1/auth/`),
+  renvoyé en `X-Session-Token` ; l'appel direct à `tokens/refresh` depuis le navigateur est refusé.
 - ⚠️ Dépendance forte à allauth : version épinglée, notes de version lues à chaque montée,
   Dependabot avec délai de 3 jours.
 - 📋 Actions (Phase 1) :
