@@ -6,7 +6,7 @@ set dotenv-load := false
 # Les conteneurs de dev ne renvoient pas leurs fichiers vers l'hôte (sync à sens unique) :
 # les commandes qui écrivent du code (migrations, formatage, schéma) montent le dossier.
 api_rw := "docker compose run --rm --no-deps -v ./backend:/app api"
-web_rw := "docker compose run --rm --no-deps -v ./frontend:/app -v /app/node_modules -v /app/.next -v ./backend/openapi.json:/backend/openapi.json:ro web"
+web_rw := "docker compose run --rm --no-deps -v ./frontend:/app -v /app/node_modules -v /app/.next -v ./backend/openapi.json:/backend/openapi.json:ro -v ./backend/auth-openapi.json:/backend/auth-openapi.json:ro web"
 
 [private]
 default:
@@ -67,6 +67,7 @@ fmt:
 # Régénère le schéma OpenAPI puis le client TypeScript
 typegen:
     {{ api_rw }} python manage.py export_openapi_schema --api config.api.api --indent 2 --sorted --output openapi.json
+    {{ api_rw }} python manage.py export_auth_schema --output auth-openapi.json
     {{ web_rw }} pnpm typegen
 
 # Supprime la base de dev et la recrée vide (migrations appliquées)

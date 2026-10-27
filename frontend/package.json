@@ -23,7 +23,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typegen": "openapi-typescript ../backend/openapi.json -o src/shared/api/schema.d.ts",
+    "typegen": "openapi-typescript ../backend/openapi.json -o src/shared/api/schema.d.ts && openapi-typescript ../backend/auth-openapi.json -o src/shared/api/auth-schema.d.ts",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:storybook": "vitest run --project storybook",
