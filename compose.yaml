@@ -90,6 +90,8 @@ services:
       target: dev
     environment:
       API_INTERNAL_URL: http://api:8000
+      # Origine attendue des écritures (contrôle `Origin` du BFF) : celle du navigateur.
+      PUBLIC_ORIGIN: http://localhost:${WEB_PORT:-3000}
     depends_on:
       api:
         condition: service_healthy
