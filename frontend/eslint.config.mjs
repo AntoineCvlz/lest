@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import jsxA11y from "eslint-plugin-jsx-a11y";
+import storybook from "eslint-plugin-storybook";
 import tseslint from "typescript-eslint";
 
 // eslint-config-next enregistre déjà les plugins jsx-a11y et @typescript-eslint :
@@ -31,7 +32,9 @@ export default defineConfig([
       "@typescript-eslint/consistent-type-imports": "error",
     },
   },
+  ...storybook.configs["flat/recommended"],
   globalIgnores([
+    "storybook-static/**",
     ".next/**",
     "out/**",
     "build/**",

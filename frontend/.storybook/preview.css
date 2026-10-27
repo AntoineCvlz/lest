@@ -1,0 +1,9 @@
+/*
+ * Dans l'app, next/font définit --font-archivo et sert la police depuis Next.
+ * Dans Storybook (Vite), Fontsource fournit la même police (axes wdth et wght, licence OFL),
+ * embarquée dans le build : aucune requête vers Google. Défini en CSS statique pour être
+ * présent dès le premier rendu (les tests des stories s'exécutent aussitôt).
+ */
+:root {
+  --font-archivo: "Archivo Variable";
+}
