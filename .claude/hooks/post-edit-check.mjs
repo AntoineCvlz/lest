@@ -16,20 +16,22 @@ const filePath = payload.tool_input?.file_path ?? payload.tool_response?.filePat
 if (!filePath) process.exit(0);
 
 const rel = relative(ROOT, resolve(filePath)).split(sep).join("/");
-const quote = (arg) => `"${arg.replaceAll('"', '\\"')}"`;
 
-/** Lance une vérification ; résout `null` si elle passe, sinon son rapport. */
-function run(label, cwd, command, args) {
+/**
+ * Lance une vérification **sans shell** (le chemin du fichier ne peut rien injecter) ;
+ * résout `null` si elle passe, sinon son rapport.
+ */
+function run(label, cwd, executable, args) {
   return new Promise((done) => {
-    // shell: true pour les lanceurs .cmd de Windows (uv, pnpm) ; arguments tous quotés.
-    const child = spawn([command, ...args.map(quote)].join(" "), {
+    const child = spawn(executable, args, {
       cwd,
-      shell: true,
-      env: { ...process.env, COREPACK_ENABLE_DOWNLOAD_PROMPT: "0", NEXT_TELEMETRY_DISABLED: "1" },
+      shell: false,
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
     });
     let output = "";
     child.stdout.on("data", (data) => (output += data));
     child.stderr.on("data", (data) => (output += data));
+    child.on("error", (error) => done(`## ${label}\nImpossible de lancer ${executable} : ${error.message}`));
     child.on("close", (code) => done(code === 0 ? null : `## ${label}\n${output.trim()}`));
   });
 }
@@ -47,12 +49,17 @@ if (/^backend\/.+\.py$/.test(rel) && !rel.includes("/migrations/")) {
 } else if (/^frontend\/.+\.(ts|tsx|mts)$/.test(rel) && !rel.endsWith("schema.d.ts")) {
   const frontend = resolve(ROOT, "frontend");
   const target = rel.slice("frontend/".length);
-  // Binaires appelés directement : `pnpm exec` revérifie dépendances et runtime à chaque appel
-  // (plusieurs secondes). La CI et pre-commit passent, eux, par les scripts pnpm.
-  const bin = (name) => resolve(frontend, "node_modules", ".bin", name);
+  // Scripts JS lancés avec le Node courant : ni `pnpm exec` (qui revérifie dépendances et
+  // runtime à chaque appel, plusieurs secondes), ni lanceurs `.cmd` (qui exigent un shell
+  // sous Windows). La CI et pre-commit passent, eux, par les scripts pnpm.
+  const script = (...path) => resolve(frontend, "node_modules", ...path);
   checks = [
-    run("eslint", frontend, bin("eslint"), ["--max-warnings=0", target]),
-    run("tsc", frontend, bin("tsc"), ["--noEmit"]),
+    run("eslint", frontend, process.execPath, [
+      script("eslint", "bin", "eslint.js"),
+      "--max-warnings=0",
+      target,
+    ]),
+    run("tsc", frontend, process.execPath, [script("typescript", "bin", "tsc"), "--noEmit"]),
   ];
 }
 
