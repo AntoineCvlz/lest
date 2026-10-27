@@ -1,6 +1,7 @@
 from typing import Any
 
 import factory
+from allauth.account.models import EmailAddress
 from factory.declarations import Sequence
 from factory.django import Password
 
@@ -24,4 +25,11 @@ def make_user(**overrides: Any) -> User:
     """Crée un utilisateur en base ; point d'entrée typé des tests (factory-boy l'est peu)."""
     user = UserFactory.create(**overrides)
     assert isinstance(user, User)
+    return user
+
+
+def make_verified_user(**overrides: Any) -> User:
+    """Utilisateur dont l'e-mail est vérifié (requis pour se connecter)."""
+    user = make_user(**overrides)
+    EmailAddress.objects.create(user=user, email=user.email, primary=True, verified=True)
     return user

@@ -23,6 +23,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "ninja",
+    "allauth",
+    "allauth.account",
+    "allauth.headless",
     "apps.accounts",
 ]
 
@@ -37,6 +40,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -107,6 +111,29 @@ CSRF_TRUSTED_ORIGINS: list[str] = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", defaul
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+# Comptes : django-allauth en mode headless (ADR 0001). L'API est la seule interface ; le
+# navigateur passe par le proxy Next.js. Codes à usage unique plutôt que liens (PWA).
+HEADLESS_ONLY = True
+HEADLESS_CLIENTS = ("app",)
+ACCOUNT_ADAPTER = "apps.accounts.adapter.AccountAdapter"
+ACCOUNT_USER_MODEL_USERNAME_FIELD = None
+ACCOUNT_LOGIN_METHODS = {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
+ACCOUNT_UNIQUE_EMAIL = True
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
+ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = True
+ACCOUNT_PREVENT_ENUMERATION = True  # mêmes réponses qu'un compte existe ou non
+ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Lest] "
+# Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
+# déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000").rstrip("/")
+HEADLESS_FRONTEND_URLS = {
+    "account_signup": f"{FRONTEND_URL}/inscription",
+    "account_reset_password": f"{FRONTEND_URL}/mot-de-passe-oublie",
+}
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Lest <no-reply@lest.local>")
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))
