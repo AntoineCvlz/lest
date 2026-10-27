@@ -37,8 +37,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-dev --no-install-project
 COPY . .
-# Valeurs factices : collectstatic n'ouvre aucune connexion. Aucun secret dans l'image.
-RUN DJANGO_SETTINGS_MODULE=config.settings.prod \
+# Valeurs factices : collectstatic n'ouvre aucune connexion. Aucun secret dans l'image : la
+# clé JWT est générée pour cette seule commande (ni ARG ni ENV), puis jetée.
+RUN JWT_PRIVATE_KEY="$(python -c 'from common.keys import generate_rsa_private_key_pem as g; print(g())')" \
+    DJANGO_SETTINGS_MODULE=config.settings.prod \
     DJANGO_SECRET_KEY=collectstatic-only \
     DJANGO_ALLOWED_HOSTS=localhost \
     DATABASE_URL=postgres://build@localhost/build \

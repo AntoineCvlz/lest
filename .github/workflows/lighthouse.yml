@@ -31,6 +31,7 @@ jobs:
           cp .env.example .env
           sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n/+=')|" .env
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
+          echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> .env
       - name: Démarrage de la stack (images de prod)
         run: docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait --wait-timeout 300
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

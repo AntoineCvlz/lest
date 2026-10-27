@@ -11,5 +11,8 @@ staticfiles
 media
 .env
 .env.*
+# Clés (dont la clé JWT de dev, jwt-dev.pem) : jamais dans une image.
+*.pem
+*.key
 Dockerfile
 .dockerignore
