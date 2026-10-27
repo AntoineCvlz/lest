@@ -7,6 +7,9 @@ from typing import Any
 
 import jwt
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
+from django.conf import settings
 from django.test import Client, override_settings
 
 from apps.accounts.tests.factories import TEST_PASSWORD, make_verified_user
@@ -40,6 +43,16 @@ def refresh(client: Client, refresh_token: str) -> Any:
     )
 
 
+def verified_claims(token: str) -> dict[str, Any]:
+    """Décode en vérifiant la signature avec la clé publique du serveur (RS256 seulement)."""
+    private_key = serialization.load_pem_private_key(
+        settings.HEADLESS_JWT_PRIVATE_KEY.encode(), password=None
+    )
+    assert isinstance(private_key, RSAPrivateKey)
+    claims: dict[str, Any] = jwt.decode(token, private_key.public_key(), algorithms=["RS256"])
+    return claims
+
+
 def b64url(data: dict[str, Any]) -> str:
     return base64.urlsafe_b64encode(json.dumps(data).encode()).rstrip(b"=").decode()
 
@@ -50,10 +63,10 @@ def test_login_returns_rs256_tokens_with_the_adr_lifetimes(client: Client) -> No
     meta = login(client, "membre@example.com")
 
     header = jwt.get_unverified_header(meta["access_token"])
-    claims = jwt.decode(meta["access_token"], options={"verify_signature": False})
+    claims = verified_claims(meta["access_token"])
     assert header["alg"] == "RS256"
     assert 290 <= claims["exp"] - time.time() <= 300  # 5 minutes
-    refresh_claims = jwt.decode(meta["refresh_token"], options={"verify_signature": False})
+    refresh_claims = verified_claims(meta["refresh_token"])
     assert refresh_claims["exp"] - time.time() == pytest.approx(14 * 24 * 3600, abs=10)
 
 
@@ -95,7 +108,7 @@ def test_logout_revokes_access_and_refresh_tokens(client: Client) -> None:
 def test_forged_access_tokens_are_refused(client: Client, tamper: str) -> None:
     make_verified_user(email="membre@example.com")
     token = login(client, "membre@example.com")["access_token"]
-    claims = jwt.decode(token, options={"verify_signature": False})
+    claims = verified_claims(token)
 
     if tamper == "signature":
         head, payload, signature = token.split(".")
