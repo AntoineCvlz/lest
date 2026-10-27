@@ -47,6 +47,31 @@
         ],
         "title": "HealthOut",
         "type": "object"
+      },
+      "MeOut": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ],
+        "title": "MeOut",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "BearerJWTAuth": {
+        "scheme": "bearer",
+        "type": "http"
       }
     }
   },
@@ -86,6 +111,33 @@
         "summary": "État de l'API et de ses dépendances",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/me/": {
+      "get": {
+        "operationId": "apps_accounts_api_router_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Compte connecté",
+        "tags": [
+          "accounts"
         ]
       }
     }

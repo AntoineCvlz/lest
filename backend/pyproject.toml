@@ -74,8 +74,8 @@ module = ["allauth", "allauth.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-# Seul module qui hérite d'une classe allauth (non typée, donc `Any`).
-module = ["apps.accounts.adapter"]
+# Seuls modules qui héritent d'une classe allauth (non typée, donc `Any`).
+module = ["apps.accounts.adapter", "common.auth"]
 disallow_subclassing_any = false
 
 [[tool.mypy.overrides]]

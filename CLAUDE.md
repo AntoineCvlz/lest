@@ -82,7 +82,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - PostgreSQL 17, Redis (cache + broker) ; tâches de fond **Celery + beat** : import d'aliments, recalcul des records, export, synchro Basic-Fit.
 - Auth (**ADR 0001**) : `django-allauth` *headless*, stratégie **JWT native** (RS256, access 5 min, refresh 14 j, rotation + invalidation de l'ancien, validation avec état), routers Ninja protégés par `JWTTokenAuth` d'allauth. **Pas de DRF** : simplejwt et dj-rest-auth en dépendent. Allauth fournit inscription, reset, limitation de débit, MFA TOTP et passkeys.
   - Navigateur = **BFF** : le proxy Next.js retire les jetons des réponses d'allauth et les garde en cookies `HttpOnly; Secure` émis par Next (`lest_at` SameSite=Lax, `lest_rt` SameSite=Strict, `Path=/api/`) ; il ajoute `Authorization: Bearer` vers Django ;
-  - le proxy refresh sur 401 et rejoue la requête une seule fois (verrou contre les refresh concurrents), vérifie `Origin` sur les méthodes non sûres, transmet `X-Forwarded-For` ; CSRF double-submit sur refresh et logout ;
+  - le proxy refresh sur 401 et rejoue la requête une seule fois (verrou contre les refresh concurrents), vérifie `Origin` sur les méthodes non sûres, pose l'IP du navigateur dans `X-Lest-Client-IP` (écrasée, jamais relayée depuis le client ; Django ignore `X-Forwarded-For`) ; CSRF double-submit sur refresh et logout ;
   - écart assumé : cookie refresh en `Path=/api/` (et non limité à l'URL de refresh), parce que le refresh se fait côté serveur sur n'importe quel 401 ;
   - future app native : client allauth `app`, jetons en Keychain/Keystore ;
   - **jamais de token lisible par le JavaScript** (ni `localStorage`, ni corps de réponse reçu par le navigateur).

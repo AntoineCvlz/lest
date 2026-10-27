@@ -12,22 +12,10 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from django.conf import settings
 from django.test import Client, override_settings
 
-from apps.accounts.tests.factories import TEST_PASSWORD, make_verified_user
+from apps.accounts.tests.auth import APP, login
+from apps.accounts.tests.factories import make_verified_user
 
 pytestmark = pytest.mark.django_db
-
-APP = "/api/v1/auth/app/v1"
-
-
-def login(client: Client, email: str) -> dict[str, Any]:
-    response = client.post(
-        f"{APP}/auth/login",
-        {"email": email, "password": TEST_PASSWORD},
-        content_type="application/json",
-    )
-    assert response.status_code == 200, response.content
-    meta: dict[str, Any] = response.json()["meta"]
-    return meta
 
 
 def session(client: Client, access_token: str) -> int:

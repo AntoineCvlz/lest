@@ -55,7 +55,14 @@ describe("proxy", () => {
 
     const response = await GET(
       new NextRequest("http://localhost:3000/api/v1/health/?x=1", {
-        headers: { cookie: "sid=abc", authorization: "Bearer leak", "x-forwarded-host": "evil" },
+        headers: {
+          cookie: "sid=abc",
+          authorization: "Bearer leak",
+          "x-forwarded-host": "evil",
+          // IP choisie par le client : Django ne doit jamais la recevoir (limitation de débit).
+          "x-forwarded-for": "198.51.100.1",
+          "x-lest-client-ip": "198.51.100.2",
+        },
       }),
     );
 
@@ -65,6 +72,8 @@ describe("proxy", () => {
     expect(sent.get("cookie")).toBe("sid=abc");
     expect(sent.has("authorization")).toBe(false);
     expect(sent.has("x-forwarded-host")).toBe(false);
+    expect(sent.has("x-forwarded-for")).toBe(false);
+    expect(sent.has("x-lest-client-ip")).toBe(false);
     expect(init.redirect).toBe("manual");
 
     expect(response.status).toBe(201);
