@@ -1,1 +1,57 @@
 @import "tailwindcss";
+@import "../shared/ui/tokens.css";
+
+/*
+ * Exposition des tokens à Tailwind sous des noms d'usage (bg-ground, text-ink, bg-accent…).
+ * `inline` : les utilitaires référencent la variable --lest-*, qui change avec le thème.
+ */
+@theme inline {
+  --color-ground: var(--lest-ground);
+  --color-surface: var(--lest-surface);
+  --color-surface-raised: var(--lest-surface-raised);
+  --color-ink: var(--lest-ink);
+  --color-ink-muted: var(--lest-ink-muted);
+  --color-line: var(--lest-line);
+  --color-line-subtle: var(--lest-line-subtle);
+  --color-accent: var(--lest-accent);
+  --color-on-accent: var(--lest-on-accent);
+  --color-accent-ink: var(--lest-accent-ink);
+  --color-danger: var(--lest-danger);
+
+  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-control: var(--lest-radius-control);
+  --radius-plate: var(--lest-radius-plate);
+
+  --ease-out: var(--lest-ease-out);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums lining-nums;
+    line-height: 1.5;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--lest-focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

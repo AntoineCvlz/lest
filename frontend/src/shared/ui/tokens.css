@@ -1,0 +1,93 @@
+/*
+ * Tokens « Fonte calibrée » — source unique des valeurs du design system.
+ * Intention et règles d'usage : docs/design-system.md.
+ *
+ * Thème sombre par défaut (salle peu éclairée). Thème clair : réglage du système, ou
+ * choix explicite via l'attribut data-theme sur <html> (préférence de profil, à venir).
+ * Les contrastes indiqués sont mesurés sur le fond (--lest-ground) du même thème.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Couleurs — thème sombre */
+  --lest-ground: #1b242d; /* ardoise */
+  --lest-surface: #24303b; /* acier */
+  --lest-surface-raised: #222d38;
+  --lest-ink: #e9eef2; /* givre, 13,4:1 */
+  --lest-ink-muted: #9aa8b5; /* zinc, 6,4:1 */
+  --lest-line: #66788a; /* contour des commandes, 3,4:1 */
+  --lest-line-subtle: #2e3b48; /* séparateurs décoratifs */
+  --lest-accent: #f2c230; /* jaune disque 15 kg, 9,4:1 */
+  --lest-on-accent: #1b242d;
+  --lest-accent-ink: #f2c230; /* accent utilisé comme texte ou trait */
+  --lest-danger: #ff8a7a;
+  --lest-focus: var(--lest-accent);
+
+  /* Disques du schéma de barre (du plus lourd au plus léger) */
+  --lest-plate-25: #c3cdd6;
+  --lest-plate-20: #aeb9c4;
+  --lest-plate-15: #a0acb8;
+  --lest-plate-10: #97a4b0;
+  --lest-plate-5: #8492a0;
+  --lest-plate-2-5: #76848f;
+  --lest-plate-1-25: #6a7783;
+  --lest-bar: #8a97a3;
+
+  /* Forme et mouvement */
+  --lest-radius-control: 6px;
+  --lest-radius-plate: 3px;
+  --lest-duration-fast: 120ms;
+  --lest-duration-base: 180ms;
+  --lest-ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Thème clair : réglage du système, sauf si l'utilisateur a forcé le sombre. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --lest-ground: #eef1f4;
+    --lest-surface: #ffffff;
+    --lest-surface-raised: #e2e7ec;
+    --lest-ink: #1b242d; /* 13,6:1 */
+    --lest-ink-muted: #4f5d6b; /* 5,9:1 */
+    --lest-line: #6b7c8c; /* 3,6:1 */
+    --lest-line-subtle: #d3dae1;
+    --lest-on-accent: #1b242d;
+    --lest-accent-ink: #7a5900; /* ocre : le jaune seul est illisible sur fond clair */
+    --lest-danger: #b3261e;
+    --lest-focus: var(--lest-accent-ink);
+    --lest-plate-25: #5b6b7b;
+    --lest-plate-20: #66788a;
+    --lest-plate-15: #718394;
+    --lest-plate-10: #7d8e9e;
+    --lest-plate-5: #8b9aa8;
+    --lest-plate-2-5: #98a6b3;
+    --lest-plate-1-25: #a5b2be;
+    --lest-bar: #4f5d6b;
+  }
+}
+
+/* Choix explicite du thème clair, quel que soit le réglage du système. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --lest-ground: #eef1f4;
+  --lest-surface: #ffffff;
+  --lest-surface-raised: #e2e7ec;
+  --lest-ink: #1b242d;
+  --lest-ink-muted: #4f5d6b;
+  --lest-line: #6b7c8c;
+  --lest-line-subtle: #d3dae1;
+  --lest-on-accent: #1b242d;
+  --lest-accent-ink: #7a5900;
+  --lest-danger: #b3261e;
+  --lest-focus: var(--lest-accent-ink);
+  --lest-plate-25: #5b6b7b;
+  --lest-plate-20: #66788a;
+  --lest-plate-15: #718394;
+  --lest-plate-10: #7d8e9e;
+  --lest-plate-5: #8b9aa8;
+  --lest-plate-2-5: #98a6b3;
+  --lest-plate-1-25: #a5b2be;
+  --lest-bar: #4f5d6b;
+}
