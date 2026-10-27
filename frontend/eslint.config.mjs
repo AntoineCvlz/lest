@@ -41,5 +41,6 @@ export default defineConfig([
     "coverage/**",
     "next-env.d.ts",
     "src/shared/api/schema.d.ts", // généré par `pnpm typegen`
+    "src/shared/api/auth-schema.d.ts", // idem, depuis la spécification allauth
   ]),
 ]);

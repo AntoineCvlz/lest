@@ -1,6 +1,7 @@
 import createFetchClient from "openapi-fetch";
 import createQueryClient from "openapi-react-query";
 
+import { csrfMiddleware } from "./csrf";
 import type { components, paths } from "./schema";
 
 export type Schemas = components["schemas"];
@@ -15,6 +16,7 @@ export const fetchClient = createFetchClient<paths>({
   // après coup — MSW en test, télémétrie — est bien pris en compte.
   fetch: (request) => globalThis.fetch(request),
 });
+fetchClient.use(csrfMiddleware);
 
 /** Hooks TanStack Query typés depuis l'OpenAPI : `$api.useQuery("get", "/api/v1/...")`. */
 export const $api = createQueryClient(fetchClient);

@@ -7,4 +7,5 @@ blob-report
 pnpm-lock.yaml
 next-env.d.ts
 src/shared/api/schema.d.ts
+src/shared/api/auth-schema.d.ts
 storybook-static
