@@ -20,6 +20,7 @@ dependencies = [
 dev = [
     "celery-types>=0.26.0",
     "django-stubs[compatible-mypy]>=6.1.2",
+    "factory-boy==3.3.3",
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
@@ -65,6 +66,12 @@ exclude = ["/migrations/"]
 # django-environ ne publie ni stubs ni py.typed ; seul module tiers concerné.
 module = ["environ"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# factory-boy n'est que partiellement typé : tolérance limitée aux fichiers de fabriques,
+# qui exposent des fonctions typées (`make_user() -> User`) au reste des tests.
+module = ["apps.*.tests.factories"]
+disallow_untyped_calls = false
 
 [tool.django-stubs]
 django_settings_module = "config.settings.test"

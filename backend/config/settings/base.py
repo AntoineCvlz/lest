@@ -23,7 +23,11 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "ninja",
+    "apps.accounts",
 ]
+
+# Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
