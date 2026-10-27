@@ -249,7 +249,9 @@ Utiliser ces outils quand ils sont installés ; **s'il en manque un, le signaler
 - **Skills projet** (`.claude/skills/`) : `adr` ✅ ; `django-domain-app` et `lest-ui` à créer en Phase 1, à partir de la première vraie app et des vrais tokens.
 - **Sous-agents** (`.claude/agents/`) ✅ : `a11y-auditor` (WCAG 2.2, lecture seule), `security-reviewer` (OWASP ASVS), `test-writer` (cas limites et permissions).
 - **Hooks** (`.claude/settings.json`) ✅, scripts Node dans `.claude/hooks/` (indépendants du shell) : ruff + mypy après édition d'un `.py` (≈ 2 s) ; ESLint + `tsc` après un `.ts(x)` (10 à 30 s selon la machine, en parallèle ; borné par ESLint typé) ; lancés **sans shell** (Semgrep `spawn-shell-true`) ; refus de toute écriture dans `.env*` (outils d'édition et redirections shell) et de tout `git push` forcé.
-- **Non installés à ce jour** (à ajouter) : `webapp-testing` / Playwright MCP, Context7, GitHub MCP (`gh` est installé), `security-guidance`, `pr-review-toolkit`, `feature-dev`, `commit-commands`.
+- **Installés au niveau du projet** (`enabledPlugins` dans `.claude/settings.json`, marketplace `claude-plugins-official`) : `context7`, `security-guidance` (exige `python3` dans le PATH ; revue LLM du diff à chaque tour), `pr-review-toolkit`, `feature-dev`, `commit-commands` ; `frontend-design` est installé côté utilisateur.
+- **Playwright MCP** : déclaré dans `.mcp.json`, **épinglé** (`@playwright/mcp@0.0.83`, et non le `@latest` du plugin officiel), Chromium sans interface et en profil isolé, navigation limitée aux origines locales (`--allowed-origins`), captures dans `.playwright-mcp/` (ignoré). Remplace `webapp-testing`.
+- **GitHub MCP non installé** : il exige un jeton d'accès personnel ; `gh` (authentifié) couvre PR, CI et issues.
 
 ## Roadmap
 

@@ -8,7 +8,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.mjs"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.mjs"
+            ],
             "timeout": 10,
             "onFailure": "block"
           }
@@ -22,12 +24,21 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/post-edit-check.mjs"],
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/post-edit-check.mjs"
+            ],
             "timeout": 120,
             "statusMessage": "Vérifications (ruff/mypy ou ESLint/tsc)…"
           }
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "context7@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "pr-review-toolkit@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true
   }
 }

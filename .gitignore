@@ -51,3 +51,6 @@ Thumbs.db
 
 # Lighthouse CI
 .lighthouseci/
+
+# Captures du MCP Playwright
+.playwright-mcp/
