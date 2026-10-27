@@ -119,9 +119,10 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - Hot reload fiable sous Docker Desktop : `develop.watch` de Compose (`sync` pour le code, `rebuild` pour les lockfiles) ; `WATCHPACK_POLLING` seulement si nécessaire.
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
-- Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `seed`, `test`, `lint`, `fmt`, `typegen`, `reset-db`.
-- `seed` : utilisateur démo, ~150 exercices (groupes musculaires, équipement), 8 semaines de séances et de poids réalistes.
-- Option devcontainer (`.devcontainer/`).
+- Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
+- `seed` (Phase 1, après le modèle `User` personnalisé) : utilisateur démo, ~150 exercices (groupes musculaires, équipement), 8 semaines de séances et de poids réalistes.
+- Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
+- E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 
 ## Structure du repo
 
@@ -245,15 +246,16 @@ Utiliser ces outils quand ils sont installés ; **s'il en manque un, le signaler
 | `commit-commands` | Commits conventionnels et ouverture de PR |
 | `skill-creator` | Création des skills projet |
 
-- **Skills projet** (`.claude/skills/`) : `django-domain-app` (app conforme : models, selectors, services, api, tests, admin), `lest-ui` (tokens, composants existants, checklist a11y), `adr` (ADR au format projet).
-- **Sous-agents** (`.claude/agents/`) : `a11y-auditor` (WCAG 2.2, lecture seule), `security-reviewer` (OWASP ASVS), `test-writer` (cas limites et permissions).
-- **Hooks** (`.claude/settings.json`) : Ruff + mypy après édition d'un `.py` ; ESLint + `tsc` après un `.ts(x)` ; blocage de toute écriture dans `.env*` et de `git push --force`.
+- **Skills projet** (`.claude/skills/`) : `adr` ✅ ; `django-domain-app` et `lest-ui` à créer en Phase 1, à partir de la première vraie app et des vrais tokens.
+- **Sous-agents** (`.claude/agents/`) ✅ : `a11y-auditor` (WCAG 2.2, lecture seule), `security-reviewer` (OWASP ASVS), `test-writer` (cas limites et permissions).
+- **Hooks** (`.claude/settings.json`) ✅, scripts Node dans `.claude/hooks/` (indépendants du shell) : ruff + mypy après édition d'un `.py` (≈ 2 s) ; ESLint + `tsc` après un `.ts(x)` (≈ 10 s, en parallèle) ; refus de toute écriture dans `.env*` (outils d'édition et redirections shell) et de tout `git push` forcé.
+- **Non installés à ce jour** (à ajouter) : `webapp-testing` / Playwright MCP, Context7, GitHub MCP (`gh` est installé), `security-guidance`, `pr-review-toolkit`, `feature-dev`, `commit-commands`.
 
 ## Roadmap
 
 Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et README à jour.
 
-0. **Socle** : monorepo, Compose + hot reload, Django + Next.js « hello » reliés, pre-commit, CI complète, `CLAUDE.md`, ADR 0001 (auth).
+0. **Socle** ✅ (2026-10-27) : monorepo, Compose + hot reload, Django + Next.js « hello » reliés, pre-commit, CI complète (16 checks requis sur `main`), `CLAUDE.md`, ADR 0001 (auth).
 1. **Comptes & design system** : directions visuelles → choix → tokens, Storybook, auth, profil, onboarding.
 2. **Musculation** : import wger + équipements, séance en cours, séries, minuteur, historique, records.
 3. **Corps & nutrition** : poids + moyenne mobile, mensurations, photos, journal alimentaire, Open Food Facts, objectifs macros.
@@ -269,5 +271,14 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 - **Ne jamais désactiver** un test, une règle de lint ou un contrôle de sécurité pour passer la CI ; expliquer le problème à la place.
 - En cas d'hésitation entre deux options : les présenter en 3 lignes avec une recommandation.
 - Tenir ce fichier à jour (commandes, conventions, décisions) à chaque fin de phase.
+
+## Décisions et constats de la Phase 0 (à respecter)
+
+- **Versions fixées** (Dependabot ignore leurs majeures) : Python 3.13, Django 5.2 LTS, Node 24 LTS (via `devEngines.runtime` : pnpm télécharge Node 24 quel que soit le Node de l'hôte), Postgres 17, Redis 7, **TypeScript 5.9** et **ESLint 9** (TS 7 / ESLint 10 pas encore supportés par `openapi-typescript`, `typescript-eslint`, `jsx-a11y`).
+- **Supply chain** : pnpm `minimumReleaseAge: 1440` sans exception ; Dependabot avec délai de 3 jours ; actions épinglées par SHA ; images d'outils par digest ; hooks pre-commit figés par SHA.
+- **Next 16** : `middleware.ts` s'appelle `src/proxy.ts` ; `cacheComponents`/`partialPrefetching` désactivés (incompatibles avec la CSP à nonce) ; le layout racine appelle `connection()`.
+- **Tests back** : `--ds=config.settings.test` dans `addopts` (la variable `DJANGO_SETTINGS_MODULE` des conteneurs primerait sinon) ; `filterwarnings = error`.
+- **Images de prod** : sans pip ni npm (failles dans leurs copies embarquées) ; `USER` numérique ; Debian 13.
+- **Fusion** : squash, titre de PR au format commitlint (il devient le message sur `main`).
 
 **Définition de « terminé »** : tests et CI verts, aucune alerte de sécurité haute, axe sans violation, types générés à jour, documentation et ADR écrits, démo visible sur le serveur de dev.
