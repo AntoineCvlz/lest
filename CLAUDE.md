@@ -246,7 +246,7 @@ Utiliser ces outils quand ils sont installés ; **s'il en manque un, le signaler
 | `commit-commands` | Commits conventionnels et ouverture de PR |
 | `skill-creator` | Création des skills projet |
 
-- **Skills projet** (`.claude/skills/`) : `adr` ✅ ; `lest-ui` ✅ (tokens, composants existants, a11y, CSP, vérification du rendu réel : **à charger avant tout travail d'interface**) ; `django-domain-app` à créer avec la première vraie app (`accounts`).
+- **Skills projet** (`.claude/skills/`) : `adr` ✅ ; `lest-ui` ✅ (tokens, composants existants, a11y, CSP, vérification du rendu réel : **à charger avant tout travail d'interface**) ; `django-domain-app` ✅ (gabarit et règles des apps de domaine, référence : `apps/accounts`).
 - **Sous-agents** (`.claude/agents/`) ✅ : `a11y-auditor` (WCAG 2.2, lecture seule), `security-reviewer` (OWASP ASVS), `test-writer` (cas limites et permissions).
 - **Hooks** (`.claude/settings.json`) ✅, scripts Node dans `.claude/hooks/` (indépendants du shell) : ruff + mypy après édition d'un `.py` (≈ 2 s) ; ESLint + `tsc` après un `.ts(x)` (10 à 30 s selon la machine, en parallèle ; borné par ESLint typé) ; lancés **sans shell** (Semgrep `spawn-shell-true`) ; refus de toute écriture dans `.env*` (outils d'édition et redirections shell) et de tout `git push` forcé.
 - **Installés au niveau du projet** (`enabledPlugins` dans `.claude/settings.json`, marketplace `claude-plugins-official`) : `context7`, `security-guidance` (exige `python3` dans le PATH ; revue LLM du diff à chaque tour), `pr-review-toolkit`, `feature-dev`, `commit-commands` ; `frontend-design` est installé côté utilisateur.
