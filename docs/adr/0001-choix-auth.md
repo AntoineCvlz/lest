@@ -98,8 +98,10 @@ Keychain/Keystore, et envoyés en `Authorization: Bearer`. Même stratégie JWT,
   `/security-review`.
 - ⚠️ `JWT_STATEFUL_VALIDATION_ENABLED` coûte une lecture de session par requête ; à mesurer.
   Repli possible : validation sans état et access de 5 min.
-- ⚠️ Le proxy doit transmettre l'IP cliente (`X-Forwarded-For`), et Django ne doit faire
-  confiance qu'au proxy : sinon la limitation de débit d'allauth verrait l'IP de Next.js.
+- ⚠️ Le proxy doit transmettre l'IP cliente, sinon la limitation de débit d'allauth ne voit que
+  l'IP de Next.js (un seul compteur pour tous). Précision de la PR 3 : en-tête dédié
+  `X-Lest-Client-IP`, **écrasé** par le proxy (jamais relayé depuis le client), lu par
+  `AccountAdapter.get_client_ip` ; `X-Forwarded-For` n'est jamais lu, car le client le contrôle.
 - ⚠️ Dépendance forte à allauth : version épinglée, notes de version lues à chaque montée,
   Dependabot avec délai de 3 jours.
 - 📋 Actions (Phase 1) :
@@ -107,6 +109,6 @@ Keychain/Keystore, et envoyés en `Authorization: Bearer`. Même stratégie JWT,
   2. allauth headless (`app` uniquement côté API), MFA TOTP + WebAuthn, réglages ci-dessus ;
      clé RS256 dans l'environnement ;
   3. routers Ninja protégés par `JWTTokenAuth` ;
-  4. proxy : cookies, refresh sur 401 avec verrou, rejeu unique, `Origin`, `X-Forwarded-For` ;
+  4. proxy : cookies, refresh sur 401 avec verrou, rejeu unique, `Origin`, `X-Lest-Client-IP` ;
   5. tests : rotation, réutilisation d'un refresh révoqué, déconnexion, isolation entre
      utilisateurs, refresh concurrents, E2E connexion / déconnexion.
