@@ -32,6 +32,9 @@ jobs:
           echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> .env
       - name: Démarrage de la stack
         run: docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait --wait-timeout 300
+      # L'image de prod ne migre pas au démarrage (étape explicite d'un futur déploiement).
+      - name: Migrations
+        run: docker compose -f compose.yaml -f compose.e2e.yaml exec -T api python manage.py migrate --noinput
       # Compte vérifié pour les parcours connectés : mot de passe aléatoire, masqué dans les
       # journaux et passé par variable d'environnement (jamais en argument de commande).
       - name: Compte E2E
