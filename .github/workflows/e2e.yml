@@ -32,6 +32,15 @@ jobs:
           echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> .env
       - name: Démarrage de la stack
         run: docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait --wait-timeout 300
+      # Compte vérifié pour les parcours connectés : mot de passe aléatoire, masqué dans les
+      # journaux et passé par variable d'environnement (jamais en argument de commande).
+      - name: Compte E2E
+        run: |
+          E2E_USER_PASSWORD="$(openssl rand -base64 24)"
+          echo "::add-mask::$E2E_USER_PASSWORD"
+          echo "E2E_USER_PASSWORD=$E2E_USER_PASSWORD" >> "$GITHUB_ENV"
+          LEST_USER_PASSWORD="$E2E_USER_PASSWORD" docker compose -f compose.yaml -f compose.e2e.yaml \
+            exec -T -e LEST_USER_PASSWORD api python manage.py create_verified_user --email e2e@example.com
       - uses: ./.github/actions/setup-frontend
       # Image officielle (navigateurs et dépendances système préinstallés) : évite
       # `playwright install --with-deps`, dont l'apt-get a pris plus de 10 min sur le runner.
@@ -42,12 +51,15 @@ jobs:
           docker run --rm --network host --ipc host \
             --user "$(id -u):$(id -g)" -e HOME=/tmp -e CI=true \
             -e E2E_BASE_URL=http://localhost:3000 \
+            -e E2E_USER_EMAIL=e2e@example.com -e E2E_USER_PASSWORD \
             -v "$PWD:/work" -w /work \
             mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea \
             node_modules/.bin/playwright test
       - name: Journaux de la stack
         if: failure()
         run: docker compose -f compose.yaml -f compose.e2e.yaml logs --no-color
+      # Artefacts publics et NON masqués (contrairement aux journaux) : aucun test qui saisit un
+      # secret ne doit produire de trace ni de capture (voir `login.spec.ts`).
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

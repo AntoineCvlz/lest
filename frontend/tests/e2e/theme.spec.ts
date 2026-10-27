@@ -12,7 +12,9 @@ for (const { scheme, ground } of THEMES) {
 
     test("applique les tokens et la police Archivo auto-hébergée", async ({ page }) => {
       await page.goto("/");
-      await expect(page.getByRole("status")).not.toHaveText("Vérification de l’API…");
+      await expect(
+        page.getByRole("region", { name: "État du service" }).getByRole("status"),
+      ).not.toHaveText("Vérification de l’API…");
 
       const body = await page.evaluate(() => {
         const style = getComputedStyle(document.body);
@@ -37,7 +39,9 @@ for (const { scheme, ground } of THEMES) {
 
     test("n’a aucune violation d’accessibilité WCAG 2.2 AA", async ({ page, makeAxeBuilder }) => {
       await page.goto("/");
-      await expect(page.getByRole("status")).not.toHaveText("Vérification de l’API…");
+      await expect(
+        page.getByRole("region", { name: "État du service" }).getByRole("status"),
+      ).not.toHaveText("Vérification de l’API…");
 
       expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
     });
