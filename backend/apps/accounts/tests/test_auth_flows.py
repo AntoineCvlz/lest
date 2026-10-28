@@ -135,3 +135,13 @@ def test_resending_right_after_the_first_email_is_rate_limited(client: Client) -
     token = signup.json()["meta"]["session_token"]
 
     assert post(client, f"{AUTH}/email/verify/resend", {}, token).status_code == 429
+
+
+def test_password_reset_request_reveals_nothing_about_unknown_addresses(client: Client) -> None:
+    make_verified_user(email="connu@example.com")
+
+    known = post(client, f"{AUTH}/password/request", {"email": "connu@example.com"})
+    unknown = post(client, f"{AUTH}/password/request", {"email": "inconnu@example.com"})
+
+    assert known.status_code == unknown.status_code
+    assert set(known.json()) == set(unknown.json())

@@ -9,15 +9,19 @@ for (const scheme of THEMES) {
     for (const [path, title] of [
       ["/inscription", "Créer un compte"],
       ["/verification", "Vérifiez votre adresse"],
+      ["/mot-de-passe-oublie", "Mot de passe oublié"],
+      ["/mot-de-passe-oublie/code", "Nouveau mot de passe"],
     ] as const) {
       test(`${path} n’a aucune violation d’accessibilité`, async ({ page, makeAxeBuilder }) => {
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
 
         expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
-        const screenshot = test.info().outputPath(`${path.slice(1)}-${scheme}.png`);
+        const screenshot = test
+          .info()
+          .outputPath(`${path.slice(1).replaceAll("/", "-")}-${scheme}.png`);
         await page.screenshot({ path: screenshot, fullPage: true });
-        await test.info().attach(`${path.slice(1)}-${scheme}`, {
+        await test.info().attach(`${path.slice(1).replaceAll("/", "-")}-${scheme}`, {
           path: screenshot,
           contentType: "image/png",
         });

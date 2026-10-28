@@ -12,6 +12,7 @@ import { TextField } from "@/shared/ui/text-field";
 import { formErrors, RATE_LIMITED, UNAVAILABLE } from "./errors";
 import { FormAlert } from "./form-alert";
 import { awaitsEmailVerification, errorsOf, refused, textValue, type Outcome } from "./form";
+import { TextLink } from "./text-link";
 
 type LoginOutcome = Outcome<"signed-in" | "verify-email">;
 
@@ -73,6 +74,9 @@ export function LoginForm() {
         autoComplete="current-password"
         error={errors.fields.password}
       />
+      <TextLink href="/mot-de-passe-oublie" className="-mt-3 self-start">
+        Mot de passe oublié ?
+      </TextLink>
       <FormAlert messages={errors.global} />
       <div className="mt-auto pt-4 sm:mt-2">
         <Button

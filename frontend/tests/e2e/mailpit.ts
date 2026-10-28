@@ -16,8 +16,15 @@ async function json<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-/** Code à usage unique (« ABCD-EFGH ») du dernier e-mail reçu par `address`. */
-export async function lastCodeSentTo(address: string, timeoutMs = 15_000): Promise<string> {
+/**
+ * Code à usage unique (« ABCD-EFGH ») du dernier e-mail reçu par `address`.
+ *
+ * `except` : code d’un e-mail précédent, à ignorer tant que le nouvel e-mail n’est pas arrivé.
+ */
+export async function lastCodeSentTo(
+  address: string,
+  { except, timeoutMs = 15_000 }: { except?: string; timeoutMs?: number } = {},
+): Promise<string> {
   const query = encodeURIComponent(`to:"${address}"`);
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -28,7 +35,7 @@ export async function lastCodeSentTo(address: string, timeoutMs = 15_000): Promi
     if (latest) {
       const { Text } = await json<{ Text: string }>(`/api/v1/message/${latest.ID}`);
       const code = CODE.exec(Text)?.[1];
-      if (code) return code;
+      if (code && code !== except) return code;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
