@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "AccountDeletionIn": {
+        "properties": {
+          "password": {
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "title": "AccountDeletionIn",
+        "type": "object"
+      },
       "HealthChecks": {
         "properties": {
           "cache": {
@@ -187,6 +200,34 @@
       }
     },
     "/api/v1/me/": {
+      "delete": {
+        "operationId": "apps_accounts_api_router_delete_me",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AccountDeletionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer définitivement son compte et ses données",
+        "tags": [
+          "accounts"
+        ]
+      },
       "get": {
         "operationId": "apps_accounts_api_router_me",
         "parameters": [],
@@ -208,6 +249,26 @@
           }
         ],
         "summary": "Compte connecté",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/me/export/": {
+      "get": {
+        "operationId": "apps_accounts_api_router_export_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Télécharger toutes ses données (JSON)",
         "tags": [
           "accounts"
         ]

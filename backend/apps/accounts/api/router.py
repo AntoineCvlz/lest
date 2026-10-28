@@ -2,12 +2,16 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from django.http import Http404, HttpRequest
-from ninja import Field, Router, Schema
+from allauth.account.adapter import get_adapter as get_account_adapter
+from allauth.core import ratelimit
+from django.http import Http404, HttpRequest, HttpResponse
+from django.utils import timezone
+from ninja import Field, Router, Schema, Status
+from ninja.errors import HttpError
 
 from apps.accounts.models import MAX_HEIGHT_M, MIN_HEIGHT_M, Profile
-from apps.accounts.selectors import get_profile
-from apps.accounts.services import save_profile
+from apps.accounts.selectors import export_account, get_profile
+from apps.accounts.services import IncorrectPasswordError, delete_account, save_profile
 from common.auth import request_user
 
 router = Router(tags=["accounts"])
@@ -67,3 +71,38 @@ def write_profile(request: HttpRequest, payload: ProfileIn) -> ProfileOut:
         unit_system=payload.unit_system,
     )
     return _profile_out(profile)
+
+
+class AccountDeletionIn(Schema):
+    password: str
+
+
+@router.delete(
+    "/me/", response={204: None}, summary="Supprimer définitivement son compte et ses données"
+)
+def delete_me(request: HttpRequest, payload: AccountDeletionIn) -> Status[None]:
+    user = request_user(request)
+    # Réauthentification (10/min et 30/jour par compte) et compteur d'échecs partagé avec la
+    # connexion : `DELETE /me/` ne doit pas permettre de tester des mots de passe hors du
+    # verrouillage du login. Clé d'allauth (méthode interne, version épinglée).
+    failures_key = get_account_adapter(request)._get_login_attempts_cache_key(
+        request, email=user.email
+    )
+    if not ratelimit.consume(request, action="reauthenticate", user=user) or not (
+        ratelimit.consume(request, action="login_failed", key=failures_key, dry_run=True)
+    ):
+        raise HttpError(429, "Trop de tentatives. Réessayez plus tard.")
+    try:
+        delete_account(user=user, password=payload.password)
+    except IncorrectPasswordError as error:
+        ratelimit.consume(request, action="login_failed", key=failures_key)
+        raise HttpError(403, "Mot de passe incorrect.") from error
+    return Status(204, None)
+
+
+@router.get("/me/export/", summary="Télécharger toutes ses données (JSON)")
+def export_me(request: HttpRequest, response: HttpResponse) -> dict[str, object]:
+    filename = f"lest-export-{timezone.localdate():%Y-%m-%d}.json"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "no-store"
+    return export_account(request_user(request))
