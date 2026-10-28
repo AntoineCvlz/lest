@@ -35,6 +35,9 @@ const AUTH_PREFIX = "/api/v1/auth/";
 // Renouvellement réservé au BFF : le navigateur n'a pas le refresh token à envoyer.
 const REFRESH_PATH = "/api/v1/auth/app/v1/tokens/refresh";
 const REFRESH_PATH_SUFFIX = "/tokens/refresh";
+// Consultation d’un code de réinitialisation (GET) : inutile au front, oracle d’existence des
+// comptes chez allauth ; refusée aussi par Django (`RefusePasswordResetLookupMiddleware`).
+const RESET_LOOKUP_SUFFIX = "/auth/password/reset";
 const SESSION_PATH = "/api/v1/auth/app/v1/auth/session";
 
 // Ni `cookie` (les cookies sont ceux de Next.js), ni `authorization` : posés par le BFF.
@@ -121,7 +124,8 @@ async function proxy(request: NextRequest): Promise<Response> {
   const upstreamUrl = buildUpstreamUrl(pathname, search);
   // Décisions prises sur le chemin décodé : `%61uth` ou `%72efresh` atteignent les mêmes vues.
   const routed = upstreamUrl ? routedPath(pathname) : "";
-  if (!upstreamUrl || routed.endsWith(REFRESH_PATH_SUFFIX)) {
+  const isResetLookup = SAFE_METHODS.has(request.method) && routed.endsWith(RESET_LOOKUP_SUFFIX);
+  if (!upstreamUrl || routed.endsWith(REFRESH_PATH_SUFFIX) || isResetLookup) {
     return problem(404, "Not Found", pathname);
   }
   if (!SAFE_METHODS.has(request.method) && !isSameOrigin(request)) {

@@ -601,3 +601,23 @@ describe("durcissement", () => {
     expect(response.status).toBe(403);
   });
 });
+
+describe("réinitialisation du mot de passe", () => {
+  it.each([
+    "/api/v1/auth/app/v1/auth/password/reset",
+    "/api/v1/%61uth/app/v1/auth/password/reset/",
+  ])("refuse la consultation d’un code par GET : %s", async (path) => {
+    const response = await GET(request(path, { headers: { "x-password-reset-key": "BCDF-GHJK" } }));
+
+    expect(response.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("relaie l’envoi du code et du nouveau mot de passe (POST)", async () => {
+    fetchMock.mockResolvedValue(json({ status: 401 }, 401));
+
+    await POST(request("/api/v1/auth/app/v1/auth/password/reset", { method: "POST", body: "{}" }));
+
+    expect(lastCall().url).toBe("http://localhost:8000/api/v1/auth/app/v1/auth/password/reset");
+  });
+});

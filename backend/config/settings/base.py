@@ -41,6 +41,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "apps.accounts.middleware.RefusePasswordResetLookupMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -128,6 +129,11 @@ ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
 ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = True
 ACCOUNT_PREVENT_ENUMERATION = True  # mêmes réponses qu'un compte existe ou non
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Lest] "
+# Le titulaire est prévenu par e-mail des changements sensibles (mot de passe réinitialisé…).
+ACCOUNT_EMAIL_NOTIFICATIONS = True
+# Défauts d'allauth, sauf les demandes de réinitialisation : 3 par 15 min et par adresse (au lieu
+# de 5/min), pour qu'on ne puisse pas inonder une boîte, inscrite ou non, d'e-mails « [Lest] ».
+ACCOUNT_RATE_LIMITS = {"reset_password": "20/m/ip,3/900s/key"}
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000").rstrip("/")
