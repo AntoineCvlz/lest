@@ -66,6 +66,78 @@
         ],
         "title": "MeOut",
         "type": "object"
+      },
+      "ProfileIn": {
+        "properties": {
+          "goal": {
+            "enum": [
+              "gain",
+              "maintain",
+              "cut"
+            ],
+            "title": "Goal",
+            "type": "string"
+          },
+          "height_m": {
+            "maximum": 2.5,
+            "minimum": 1.0,
+            "title": "Height M",
+            "type": "number"
+          },
+          "unit_system": {
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Unit System",
+            "type": "string"
+          }
+        },
+        "required": [
+          "height_m",
+          "goal",
+          "unit_system"
+        ],
+        "title": "ProfileIn",
+        "type": "object"
+      },
+      "ProfileOut": {
+        "properties": {
+          "goal": {
+            "enum": [
+              "gain",
+              "maintain",
+              "cut"
+            ],
+            "title": "Goal",
+            "type": "string"
+          },
+          "height_m": {
+            "title": "Height M",
+            "type": "number"
+          },
+          "onboarded_at": {
+            "format": "date-time",
+            "title": "Onboarded At",
+            "type": "string"
+          },
+          "unit_system": {
+            "enum": [
+              "metric",
+              "imperial"
+            ],
+            "title": "Unit System",
+            "type": "string"
+          }
+        },
+        "required": [
+          "height_m",
+          "goal",
+          "unit_system",
+          "onboarded_at"
+        ],
+        "title": "ProfileOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -136,6 +208,68 @@
           }
         ],
         "summary": "Compte connecté",
+        "tags": [
+          "accounts"
+        ]
+      }
+    },
+    "/api/v1/me/profile/": {
+      "get": {
+        "operationId": "apps_accounts_api_router_read_profile",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Profil du compte connecté",
+        "tags": [
+          "accounts"
+        ]
+      },
+      "put": {
+        "operationId": "apps_accounts_api_router_write_profile",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Créer ou modifier son profil",
         "tags": [
           "accounts"
         ]
