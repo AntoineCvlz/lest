@@ -8,7 +8,7 @@ const meta = {
   component: Button,
   args: { children: "Valider la série 3", onClick: fn() },
   argTypes: {
-    variant: { control: "inline-radio", options: ["primary", "secondary", "ghost"] },
+    variant: { control: "inline-radio", options: ["primary", "secondary", "ghost", "danger"] },
     size: { control: "inline-radio", options: ["md", "lg"] },
   },
 } satisfies Meta<typeof Button>;
@@ -46,4 +46,15 @@ export const Discret: Story = {
 export const Desactive: Story = {
   name: "Désactivé",
   args: { variant: "primary", size: "lg", block: true, disabled: true },
+};
+
+/** Action destructrice et définitive : contour et texte « erreur », jamais le jaune. */
+export const Destructif: Story = {
+  args: { variant: "danger", block: true, children: "Supprimer définitivement mon compte" },
+  play: async ({ canvasElement }) => {
+    const button = within(canvasElement).getByRole("button", {
+      name: "Supprimer définitivement mon compte",
+    });
+    await expect(getComputedStyle(button).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  },
 };

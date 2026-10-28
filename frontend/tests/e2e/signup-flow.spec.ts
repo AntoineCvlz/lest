@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 import AxeBuilder from "@axe-core/playwright";
 import type { Page, TestInfo } from "@playwright/test";
@@ -121,4 +122,43 @@ test("connexion depuis une page privée : retour sur cette page", async ({ page 
 
   await expect(page).toHaveURL("/profil", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByRole("radio", { name: "Prise de masse" })).toBeChecked();
+});
+
+test("mes données : export JSON puis suppression définitive du compte", async ({
+  page,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "rgpd");
+  await signUp(page, email, password);
+  await page.getByRole("link", { name: "Mon profil" }).click();
+  await expect(page.getByRole("heading", { name: "Mes données" })).toBeVisible();
+  await expectNoAxeViolations(page);
+
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("link", { name: "Télécharger mes données (JSON)" }).click(),
+  ]);
+  const exported = JSON.parse(await readFile(await download.path(), "utf8")) as {
+    account: { email: string };
+    profile: { goal: string };
+  };
+  expect(exported.account.email).toBe(email);
+  expect(exported.profile.goal).toBe("gain");
+
+  await page.getByRole("button", { name: "Supprimer mon compte" }).click();
+  // Capture avant toute saisie : aucun secret dans l'image (artefacts CI publics).
+  const screenshot = testInfo.outputPath("mes-donnees-confirmation.png");
+  await page.screenshot({ path: screenshot, fullPage: true });
+  await testInfo.attach("mes-donnees-confirmation", { path: screenshot, contentType: "image/png" });
+  await page.getByLabel("Mot de passe, pour confirmer").fill(password);
+  await expectNoAxeViolations(page);
+  await page.getByRole("button", { name: "Supprimer définitivement mon compte" }).click();
+  await expect(page).toHaveURL("/compte-supprime", { timeout: RESPONSE_TIMEOUT });
+
+  await page.goto("/connexion");
+  await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
+  await page.getByLabel("Mot de passe").fill(password);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Adresse e-mail ou mot de passe incorrect." }),
+  ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
 });

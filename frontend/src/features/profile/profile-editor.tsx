@@ -1,6 +1,7 @@
 "use client";
 
 import { TextLink } from "../auth/text-link";
+import { MyData } from "./my-data";
 import { ProfileForm } from "./profile-form";
 import { useProfile } from "./use-profile";
 
@@ -9,7 +10,14 @@ export function ProfileEditor() {
   const profile = useProfile();
 
   if (profile.isPending) return <p role="status">Chargement du profil…</p>;
-  if (profile.data) return <ProfileForm initial={profile.data} submitLabel="Enregistrer" />;
+  if (profile.data) {
+    return (
+      <div className="flex flex-col gap-12">
+        <ProfileForm initial={profile.data} submitLabel="Enregistrer" />
+        <MyData />
+      </div>
+    );
+  }
   const missing = profile.data === null; // 404 : onboarding pas encore fait
   return (
     <div className="flex flex-col gap-4">
@@ -21,6 +29,7 @@ export function ProfileEditor() {
       <TextLink href={missing ? "/bienvenue" : "/connexion"}>
         {missing ? "Compléter mon profil" : "Se connecter"}
       </TextLink>
+      {missing && <MyData />}
     </div>
   );
 }

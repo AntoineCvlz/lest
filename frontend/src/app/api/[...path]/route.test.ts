@@ -649,3 +649,51 @@ describe("indice de session lest_csrf", () => {
     expect(setCookies(response).lest_csrf).toMatch(/^lest_csrf=[\w-]{43};/);
   });
 });
+
+describe("suppression du compte", () => {
+  const ME_PATH = "/api/v1/me/";
+
+  it("exige le jeton CSRF double-submit", async () => {
+    const response = await DELETE(
+      request(ME_PATH, { method: "DELETE", body: "{}", cookies: { lest_at: "at-7" } }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("efface tous les cookies une fois le compte supprimé (204)", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+    const response = await DELETE(
+      request(ME_PATH, {
+        method: "DELETE",
+        body: '{"password":"x"}',
+        cookies: { lest_at: "at-8", lest_rt: unique("rt"), lest_csrf: CSRF },
+        headers: { "x-lest-csrf": CSRF },
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    const cookies = setCookies(response);
+    for (const name of ["lest_at", "lest_rt", "lest_st", "lest_csrf"]) {
+      expect(cookies[name]).toContain("Max-Age=0");
+    }
+  });
+
+  it("garde la session si la suppression est refusée (mot de passe faux)", async () => {
+    fetchMock.mockResolvedValue(json({ status: 403 }, 403));
+
+    const response = await DELETE(
+      request(ME_PATH, {
+        method: "DELETE",
+        body: '{"password":"x"}',
+        cookies: { lest_at: "at-9", lest_csrf: CSRF },
+        headers: { "x-lest-csrf": CSRF },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+});
