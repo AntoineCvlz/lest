@@ -34,6 +34,10 @@
   --lest-plate-1-25: #6a7783;
   --lest-bar: #8a97a3;
 
+  /* QR codes : modules foncés sur fond clair dans les deux thèmes (lisibilité des lecteurs) */
+  --lest-qr-light: #ffffff;
+  --lest-qr-dark: #000000;
+
   /* Forme et mouvement */
   --lest-radius-control: 6px;
   --lest-radius-plate: 3px;

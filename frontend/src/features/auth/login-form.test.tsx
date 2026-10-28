@@ -123,11 +123,29 @@ describe("LoginForm", () => {
     });
   });
 
-  it("n'envoie pas vers la saisie du code pour un autre parcours en attente", async () => {
+  it("envoie vers le second facteur quand la double authentification est active", async () => {
     server.use(
       http.post(LOGIN_URL, () =>
         HttpResponse.json(
           { status: 401, data: { flows: [{ id: "mfa_authenticate", is_pending: true }] } },
+          { status: 401 },
+        ),
+      ),
+    );
+    renderWithQuery(<LoginForm redirectTo="/profil" />);
+
+    await submit("membre@example.com", "un-mot-de-passe");
+
+    await vi.waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/connexion/code?suivant=/profil");
+    });
+  });
+
+  it("n'envoie nulle part pour un parcours inconnu", async () => {
+    server.use(
+      http.post(LOGIN_URL, () =>
+        HttpResponse.json(
+          { status: 401, data: { flows: [{ id: "autre", is_pending: true }] } },
           { status: 401 },
         ),
       ),

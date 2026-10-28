@@ -11,11 +11,18 @@ import { TextField } from "@/shared/ui/text-field";
 
 import { formErrors, RATE_LIMITED, UNAVAILABLE } from "./errors";
 import { FormAlert } from "./form-alert";
-import { awaitsEmailVerification, errorsOf, refused, textValue, type Outcome } from "./form";
+import {
+  awaitsEmailVerification,
+  awaitsFlow,
+  errorsOf,
+  refused,
+  textValue,
+  type Outcome,
+} from "./form";
 import type { PrivateRoute } from "./private-routes";
 import { TextLink } from "./text-link";
 
-type LoginOutcome = Outcome<"signed-in" | "verify-email">;
+type LoginOutcome = Outcome<"signed-in" | "verify-email" | "second-factor">;
 
 async function login(email: string, password: string): Promise<LoginOutcome> {
   const { response, error } = await authClient.POST("/api/v1/auth/app/v1/auth/login", {
@@ -26,7 +33,10 @@ async function login(email: string, password: string): Promise<LoginOutcome> {
   if (response.status === 400) return { kind: "refused", errors: formErrors(error) };
   // 401 : identifiants corrects mais adresse à vérifier ; allauth vient d'envoyer un code.
   if (response.status === 401) {
-    return awaitsEmailVerification(error) ? { kind: "verify-email" } : refused(UNAVAILABLE);
+    if (awaitsEmailVerification(error)) return { kind: "verify-email" };
+    // Mot de passe correct, double authentification active : le code est demandé ensuite.
+    if (awaitsFlow(error, "mfa_authenticate")) return { kind: "second-factor" };
+    return refused(UNAVAILABLE);
   }
   if (response.status === 429) return refused(RATE_LIMITED);
   return refused(UNAVAILABLE);
@@ -42,6 +52,11 @@ export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/
       login(email, password),
     onSuccess: (outcome) => {
       if (outcome.kind === "verify-email") router.push("/verification");
+      if (outcome.kind === "second-factor") {
+        router.push(
+          redirectTo === "/" ? "/connexion/code" : `/connexion/code?suivant=${redirectTo}`,
+        );
+      }
       if (outcome.kind !== "signed-in") return;
       // Les données en cache appartenaient peut-être à une autre session.
       queryClient.clear();

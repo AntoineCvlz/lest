@@ -6,6 +6,7 @@ import type { Page, TestInfo } from "@playwright/test";
 
 import { expect, test } from "./fixtures";
 import { lastCodeSentTo } from "./mailpit";
+import { totp } from "./totp";
 
 // Attente d’une réponse d’allauth (hachage Argon2, envoi d’e-mail).
 const RESPONSE_TIMEOUT = 15_000;
@@ -161,4 +162,45 @@ test("mes données : export JSON puis suppression définitive du compte", async 
   await expect(
     page.getByRole("alert").filter({ hasText: "Adresse e-mail ou mot de passe incorrect." }),
   ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+});
+
+test("double authentification : activation, puis connexion avec un code de secours", async ({
+  page,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "mfa");
+  await signUp(page, email, password);
+  await page.getByRole("link", { name: "Mon profil" }).click();
+
+  await page.getByRole("button", { name: "Activer la double authentification" }).click();
+  await page.getByLabel("Mot de passe, pour confirmer").fill(password);
+  await page.getByRole("button", { name: "Continuer" }).click();
+  await expect(
+    page.getByRole("img", { name: "QR code de configuration de l’application" }),
+  ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+  await expectNoAxeViolations(page);
+  const secret = (await page.locator("code").textContent()) ?? "";
+  await page.getByRole("textbox", { name: "Code affiché par l’application" }).fill(totp(secret));
+  await page.getByRole("button", { name: "Activer" }).click();
+
+  const codes = page.getByRole("list", { name: "Codes de secours" }).getByRole("listitem");
+  await expect(codes.first()).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+  const recoveryCode = (await codes.first().textContent()) ?? "";
+  await expectNoAxeViolations(page);
+  await page.getByRole("button", { name: "J’ai noté mes codes" }).click();
+  await expect(page.getByText("Double authentification activée (application).")).toBeVisible();
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Se déconnecter" }).click();
+  await expect(page.getByText("Vous n’êtes pas connecté.")).toBeVisible();
+  await page.goto("/connexion");
+  await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
+  await page.getByLabel("Mot de passe").fill(password);
+  await page.getByRole("button", { name: "Se connecter" }).click();
+
+  await expect(page).toHaveURL("/connexion/code", { timeout: RESPONSE_TIMEOUT });
+  await expectNoAxeViolations(page);
+  await page.getByRole("textbox", { name: "Code de vérification" }).fill(recoveryCode);
+  await page.getByRole("button", { name: "Valider" }).click();
+  await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
+  await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
 });
