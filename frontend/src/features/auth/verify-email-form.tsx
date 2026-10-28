@@ -51,7 +51,8 @@ export function VerifyEmailForm() {
     onSuccess: (outcome) => {
       if (outcome.kind !== "signed-in") return;
       queryClient.clear();
-      router.push("/");
+      // Compte tout juste créé : l’onboarding vient ensuite.
+      router.push("/bienvenue");
     },
   });
   const resending = useMutation({ mutationFn: resend });

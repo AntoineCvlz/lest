@@ -11,6 +11,8 @@ for (const scheme of THEMES) {
       ["/verification", "Vérifiez votre adresse"],
       ["/mot-de-passe-oublie", "Mot de passe oublié"],
       ["/mot-de-passe-oublie/code", "Nouveau mot de passe"],
+      ["/bienvenue", "Bienvenue"],
+      ["/profil", "Profil"],
     ] as const) {
       test(`${path} n’a aucune violation d’accessibilité`, async ({ page, makeAxeBuilder }) => {
         await page.goto(path);

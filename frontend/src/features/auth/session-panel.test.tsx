@@ -61,3 +61,28 @@ describe("SessionPanel", () => {
     },
   );
 });
+
+describe("SessionPanel et profil", () => {
+  it.each([
+    [404, "Compléter mon profil", "/bienvenue"],
+    [200, "Mon profil", "/profil"],
+  ])("propose le bon lien de profil (profil en %i)", async (status, name, href) => {
+    server.use(
+      http.get(ME_URL, () => HttpResponse.json({ id: "u", email: "membre@example.com" })),
+      http.get("*/api/v1/me/profile/", () =>
+        status === 404
+          ? HttpResponse.json({ status: 404 }, { status: 404 })
+          : HttpResponse.json({
+              height_m: 1.8,
+              goal: "gain",
+              unit_system: "metric",
+              onboarded_at: "2026-10-28T09:00:00Z",
+            }),
+      ),
+    );
+
+    renderWithQuery(<SessionPanel />);
+
+    expect(await screen.findByRole("link", { name })).toHaveAttribute("href", href);
+  });
+});

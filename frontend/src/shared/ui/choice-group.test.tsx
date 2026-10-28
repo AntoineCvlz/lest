@@ -47,3 +47,28 @@ describe("ChoiceGroup", () => {
     for (const radio of screen.getAllByRole("radio")) expect(radio).not.toBeChecked();
   });
 });
+
+describe("ChoiceGroup en colonne", () => {
+  it("garde le comportement des boutons radio", async () => {
+    function Goal() {
+      const [goal, setGoal] = useState<string>();
+      return (
+        <ChoiceGroup
+          legend="Objectif"
+          layout="column"
+          options={[
+            { value: "gain", label: "Prise de masse" },
+            { value: "cut", label: "Sèche" },
+          ]}
+          value={goal}
+          onChange={setGoal}
+        />
+      );
+    }
+    render(<Goal />);
+
+    await userEvent.click(screen.getByText("Prise de masse"));
+
+    expect(screen.getByRole("radio", { name: "Prise de masse" })).toBeChecked();
+  });
+});
