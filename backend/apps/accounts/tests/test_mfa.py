@@ -15,6 +15,7 @@ from django.contrib.sessions.models import Session
 from django.core import mail
 from django.core.cache import cache
 from django.core.checks import run_checks
+from django.core.management import call_command
 from django.test import Client, override_settings
 
 from apps.accounts.checks import check_mfa_bypass
@@ -279,6 +280,7 @@ def test_a_password_reset_does_not_lift_the_second_factor_cap(client: Client) ->
         {"email": user.email, "password": NEW_PASSWORD},
         content_type="application/json",
     )
+    assert relogin.status_code == 400, relogin.content
     assert relogin.json()["errors"][0]["code"] == "too_many_login_attempts"
 
 
@@ -324,3 +326,18 @@ def test_the_pending_totp_secret_leaves_the_session_after_activation(client: Cli
     enable_totp(client, user)
 
     assert not any("mfa.totp.secret" in session.get_decoded() for session in Session.objects.all())
+
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "1/86400s/key"}
+)
+def test_support_can_lift_the_second_factor_cap(client: Client) -> None:
+    user = make_verified_user()
+    enable_totp(client, user)
+    session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+    second_factor(Client(), session_token, "000000")
+    assert login_attempt(Client(), user.email).status_code == 400
+
+    call_command("unlock_account", "--email", user.email.upper())
+
+    assert login_attempt(Client(), user.email).status_code == 401  # second facteur demandé
