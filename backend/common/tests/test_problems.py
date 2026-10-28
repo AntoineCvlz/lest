@@ -1,6 +1,7 @@
 from typing import NoReturn
 
 import pytest
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, HttpRequest
 from django.test import Client
 from ninja import NinjaAPI, Schema
@@ -34,6 +35,13 @@ def _build_client() -> TestClient:
     @api.get("/boom")
     def boom(request: HttpRequest) -> NoReturn:
         raise RuntimeError("password=hunter2")
+
+    @api.get("/domain-invalid")
+    def domain_invalid(request: HttpRequest) -> NoReturn:
+        # Erreur métier d'un service : son message reprend la valeur saisie (donnée de santé).
+        raise DjangoValidationError(
+            {"height_m": [DjangoValidationError("Valeur 9.99 hors bornes", code="max_value")]}
+        )
 
     return TestClient(api)
 
@@ -98,3 +106,15 @@ def test_unknown_non_api_route_keeps_html_404(client: Client) -> None:
 
     assert response.status_code == 404
     assert response["Content-Type"].startswith("text/html")
+
+
+def test_domain_validation_error_is_a_422_without_values_nor_logs(
+    api_client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    response = api_client.get("/domain-invalid")
+
+    assert response.status_code == 422
+    assert response["Content-Type"] == PROBLEM_CONTENT_TYPE
+    assert response.json()["errors"] == [{"loc": ["height_m"], "type": "max_value"}]
+    assert "9.99" not in response.content.decode()
+    assert "9.99" not in caplog.text

@@ -9,6 +9,7 @@ import logging
 from http import HTTPStatus
 from typing import Any
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import Http404, HttpRequest, HttpResponse
 from django.views.defaults import page_not_found
 from ninja import NinjaAPI
@@ -74,6 +75,24 @@ def _on_validation_error(request: HttpRequest, exc: _Exc[ValidationError]) -> Ht
     )
 
 
+def _on_domain_validation_error(
+    request: HttpRequest, exc: _Exc[DjangoValidationError]
+) -> HttpResponse:
+    # Erreur levée par un service (`full_clean`, règle métier) : champs et codes seulement. Les
+    # messages de Django reprennent la valeur saisie (donnée de santé) : ni renvoyés ni journalisés.
+    errors: list[dict[str, Any]] = []
+    if isinstance(exc, DjangoValidationError):
+        by_field = exc.error_dict if hasattr(exc, "error_dict") else {"__all__": exc.error_list}
+        errors = [
+            {"loc": [field], "type": error.code or "invalid"}
+            for field, field_errors in by_field.items()
+            for error in field_errors
+        ]
+    return problem_response(
+        request, status=422, detail="La requête contient des données invalides.", errors=errors
+    )
+
+
 def _on_authentication_error(request: HttpRequest, exc: _Exc[AuthenticationError]) -> HttpResponse:
     return problem_response(request, status=401)
 
@@ -89,6 +108,7 @@ def register_problem_handlers(api: NinjaAPI) -> None:
     api.add_exception_handler(Http404, _on_not_found)
     api.add_exception_handler(HttpError, _on_http_error)
     api.add_exception_handler(ValidationError, _on_validation_error)
+    api.add_exception_handler(DjangoValidationError, _on_domain_validation_error)
     api.add_exception_handler(AuthenticationError, _on_authentication_error)
     api.add_exception_handler(Exception, _on_unhandled)
 

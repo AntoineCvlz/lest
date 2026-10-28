@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from typing import Any, ClassVar
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
@@ -62,3 +63,61 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self) -> str:
         return self.email
+
+
+# Bornes de plausibilité de la taille, partagées avec le schéma de l'API.
+MIN_HEIGHT_M = Decimal("1.00")
+MAX_HEIGHT_M = Decimal("2.50")
+
+
+class Goal(models.TextChoices):
+    GAIN = "gain", "Prise de masse"
+    MAINTAIN = "maintain", "Maintien"
+    CUT = "cut", "Sèche"
+
+
+class UnitSystem(models.TextChoices):
+    """Unités d'affichage uniquement : tout est stocké en unités SI."""
+
+    METRIC = "metric", "Métrique (kg, cm)"
+    IMPERIAL = "imperial", "Impérial (lb, ft, in)"
+
+
+class Profile(models.Model):
+    """
+    Profil d'entraînement, créé à la fin de l'onboarding (un compte sans profil ne l'a pas fini).
+
+    Données minimales : sexe, âge et niveau d'activité ne seront demandés qu'avec les objectifs
+    caloriques (Phase 3), qui en ont besoin.
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, primary_key=True, related_name="profile"
+    )
+    height_m = models.DecimalField("taille (m)", max_digits=3, decimal_places=2)
+    goal = models.CharField("objectif", max_length=16, choices=Goal.choices)
+    unit_system = models.CharField(
+        "unités d'affichage", max_length=16, choices=UnitSystem.choices, default=UnitSystem.METRIC
+    )
+    onboarded_at = models.DateTimeField("fin de l'onboarding", default=timezone.now)
+    updated_at = models.DateTimeField("mise à jour", auto_now=True)
+
+    class Meta:
+        verbose_name = "profil"
+        verbose_name_plural = "profils"
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(height_m__gte=MIN_HEIGHT_M, height_m__lte=MAX_HEIGHT_M),
+                name="accounts_profile_height_plausible",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(goal__in=Goal.values), name="accounts_profile_goal_valid"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(unit_system__in=UnitSystem.values),
+                name="accounts_profile_unit_system_valid",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Profil de {self.user}"
