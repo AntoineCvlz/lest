@@ -135,11 +135,12 @@ ACCOUNT_EMAIL_NOTIFICATIONS = True
 # Défauts d'allauth, sauf les demandes de réinitialisation : 3 par 15 min et par adresse (au lieu
 # de 5/min), pour qu'on ne puisse pas inonder une boîte, inscrite ou non, d'e-mails « [Lest] ».
 ACCOUNT_RATE_LIMITS = {
-    # Plafond journalier des seconds facteurs refusés d'un compte, en plus de `login_failed`
-    # d'allauth (5/5 min) : sans lui, ~1 440 codes TOTP par jour. Les mots de passe faux n'y
-    # comptent pas (blocage du compte par un tiers). Action distincte : allauth partage
-    # l'historique de deux limites « key » d'une même action. Remis à zéro par un reset.
+    # Plafonds journaliers propres à Lest, en plus de `login_failed` d'allauth (5/5 min), en
+    # actions distinctes (allauth partage l'historique de deux limites « key » d'une action) :
+    # seconds facteurs refusés par compte (sans lui, ~1 440 codes TOTP/jour), jamais remis à zéro
+    # par un reset ; mots de passe faux par (compte, IP), pour qu'un tiers ne bloque pas le compte.
     "login_failed_daily": "30/86400s/key",
+    "login_failed_ip_daily": "50/86400s/key",
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.
     "reauthenticate": "10/m/user,30/86400s/user",

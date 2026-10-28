@@ -254,12 +254,12 @@ def test_wrong_passwords_do_not_lock_the_account_for_the_day() -> None:
 @override_settings(
     ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "1/86400s/key"}
 )
-def test_a_password_reset_lifts_the_daily_cap(client: Client) -> None:
+def test_a_password_reset_does_not_lift_the_second_factor_cap(client: Client) -> None:
+    # Sinon qui a le mot de passe et la boîte mail regagnerait des essais à chaque reset.
     user = make_verified_user()
     enable_totp(client, user)
     session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
     second_factor(Client(), session_token, "000000")
-    assert login_attempt(Client(), user.email).status_code == 400  # plafond atteint
 
     reset_client = Client()
     requested = reset_client.post(
@@ -279,8 +279,31 @@ def test_a_password_reset_lifts_the_daily_cap(client: Client) -> None:
         {"email": user.email, "password": NEW_PASSWORD},
         content_type="application/json",
     )
-    assert relogin.status_code == 401  # mot de passe accepté, second facteur demandé
-    assert "too_many_login_attempts" not in relogin.content.decode()
+    assert relogin.json()["errors"][0]["code"] == "too_many_login_attempts"
+
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_ip_daily": "3/86400s/key"}
+)
+def test_wrong_passwords_are_capped_per_ip_without_locking_others_out() -> None:
+    user = make_verified_user()
+
+    def attempt(ip: str, password: str) -> Any:
+        return Client().post(
+            f"{APP}/auth/login",
+            {"email": user.email, "password": password},
+            content_type="application/json",
+            headers={"X-Lest-Client-IP": ip},
+        )
+
+    # 3 échecs : sous la limite d'allauth (5 par 5 min), au plafond du jour pour cette IP.
+    for _ in range(3):
+        attempt("203.0.113.7", "pas-le-bon")
+
+    assert attempt("203.0.113.7", TEST_PASSWORD).json()["errors"][0]["code"] == (
+        "too_many_login_attempts"
+    )
+    assert attempt("198.51.100.4", TEST_PASSWORD).status_code == 200
 
 
 def test_a_wrong_second_factor_notifies_the_holder_once_an_hour(client: Client) -> None:
