@@ -8,6 +8,7 @@ const ORIGIN = "http://localhost:3000";
 const REFRESH_URL = "http://localhost:8000/api/v1/auth/app/v1/tokens/refresh";
 const LOGIN_PATH = "/api/v1/auth/app/v1/auth/login";
 const SESSION_PATH = "/api/v1/auth/app/v1/auth/session";
+const CSRF = "jeton-csrf-de-test-0123456789abcdef";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
@@ -327,7 +328,7 @@ describe("appels authentifiés", () => {
     );
 
     const response = await GET(
-      request("/api/v1/me/", { cookies: { lest_rt: rt, lest_csrf: "c" } }),
+      request("/api/v1/me/", { cookies: { lest_rt: rt, lest_csrf: CSRF } }),
     );
 
     const [refresh, me] = calls();
@@ -337,7 +338,10 @@ describe("appels authentifiés", () => {
     const cookies = setCookies(response);
     expect(cookies.lest_at).toMatch(/^lest_at=at-new;/);
     expect(cookies.lest_rt).toMatch(/^lest_rt=rt-new;/);
-    expect(cookies.lest_csrf).toBeUndefined();
+    // Même jeton CSRF, durée prolongée comme celle du refresh (session glissante).
+    expect(cookies.lest_csrf).toBe(
+      `lest_csrf=${CSRF}; Path=/; Secure; SameSite=Strict; Max-Age=1209600`,
+    );
   });
 
   it("sur 401, renouvelle une seule fois et rejoue une seule fois", async () => {
@@ -619,5 +623,29 @@ describe("réinitialisation du mot de passe", () => {
     await POST(request("/api/v1/auth/app/v1/auth/password/reset", { method: "POST", body: "{}" }));
 
     expect(lastCall().url).toBe("http://localhost:8000/api/v1/auth/app/v1/auth/password/reset");
+  });
+});
+
+describe("indice de session lest_csrf", () => {
+  it("est effacé quand le refresh est refusé (session révoquée)", async () => {
+    fetchMock.mockResolvedValue(json({ status: 400 }, 400));
+
+    const response = await GET(
+      request("/api/v1/me/", { cookies: { lest_rt: unique("rt"), lest_csrf: CSRF } }),
+    );
+
+    expect(setCookies(response).lest_csrf).toContain("Max-Age=0");
+  });
+
+  it("est régénéré à la rotation si sa valeur n'a pas la forme attendue", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(urlOf(input) === REFRESH_URL ? refreshed("at-n", unique("rt")) : json({})),
+    );
+
+    const response = await GET(
+      request("/api/v1/me/", { cookies: { lest_rt: unique("rt"), lest_csrf: "x;Domain=evil" } }),
+    );
+
+    expect(setCookies(response).lest_csrf).toMatch(/^lest_csrf=[\w-]{43};/);
   });
 });
