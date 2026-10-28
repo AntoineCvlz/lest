@@ -2,8 +2,9 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useEffect } from "react";
 
-import { useProfile } from "@/features/profile/use-profile";
+import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
 import { $api } from "@/shared/api/client";
 import { authClient } from "@/shared/api/auth-client";
 import { Button } from "@/shared/ui/button";
@@ -25,6 +26,11 @@ export function SessionPanel() {
   const queryClient = useQueryClient();
   const me = $api.useQuery("get", "/api/v1/me/", {}, { retry: false });
   const profile = useProfile({ enabled: Boolean(me.data) });
+  // Session expirée ou révoquée : ne pas garder en mémoire le profil (donnée de santé) de la
+  // session précédente, qu'un autre écran de l'onglet afficherait encore.
+  useEffect(() => {
+    if (me.isError) queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
+  }, [me.isError, queryClient]);
   const logout = useMutation({
     mutationFn: signOut,
     onSuccess: () => {

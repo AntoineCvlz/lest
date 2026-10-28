@@ -5,6 +5,8 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
+import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
+
 import { SessionPanel } from "./session-panel";
 
 const ME_URL = "*/api/v1/me/";
@@ -84,5 +86,51 @@ describe("SessionPanel et profil", () => {
     renderWithQuery(<SessionPanel />);
 
     expect(await screen.findByRole("link", { name })).toHaveAttribute("href", href);
+  });
+});
+
+describe("SessionPanel et cache des données de santé", () => {
+  const PROFILE = {
+    height_m: 1.8,
+    goal: "gain",
+    unit_system: "metric",
+    onboarded_at: "2026-10-28T09:00:00Z",
+  };
+
+  it("retire le profil du cache à la déconnexion", async () => {
+    let signedIn = true;
+    server.use(
+      http.get(ME_URL, () =>
+        signedIn
+          ? HttpResponse.json({ id: "u", email: "membre@example.com" })
+          : HttpResponse.json(UNAUTHORIZED, { status: 401 }),
+      ),
+      http.get("*/api/v1/me/profile/", () => HttpResponse.json(PROFILE)),
+      http.delete(SESSION_URL, () => {
+        signedIn = false;
+        return HttpResponse.json({ status: 401 }, { status: 401 });
+      }),
+    );
+    const { queryClient } = renderWithQuery(<SessionPanel />);
+    await screen.findByRole("link", { name: "Mon profil" });
+    expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toEqual(PROFILE);
+
+    await userEvent.click(screen.getByRole("button", { name: "Se déconnecter" }));
+
+    await screen.findByText("Vous n’êtes pas connecté.");
+    expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
+  });
+
+  it("retire le profil du cache quand la session a expiré", async () => {
+    server.use(http.get(ME_URL, () => HttpResponse.json(UNAUTHORIZED, { status: 401 })));
+    const { queryClient } = renderWithQuery(<SessionPanel />);
+    // Profil d'une session précédente encore en cache (même onglet, poste partagé).
+    queryClient.setQueryData(PROFILE_QUERY_KEY, PROFILE);
+
+    await screen.findByText("Vous n’êtes pas connecté.");
+
+    await vi.waitFor(() => {
+      expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
+    });
   });
 });
