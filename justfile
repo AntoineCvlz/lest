@@ -36,6 +36,11 @@ logs *services:
 sh-api:
     docker compose exec api bash
 
+# Données de démo (dev) : compte demo@example.com vérifié + profil ; mot de passe lu dans
+# LEST_USER_PASSWORD (à définir dans le terminal, jamais en argument)
+seed:
+    docker compose exec -e LEST_USER_PASSWORD api python manage.py seed_demo
+
 # Applique les migrations
 migrate:
     docker compose exec api python manage.py migrate
