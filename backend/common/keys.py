@@ -35,8 +35,14 @@ def private_key_from_env(value: str) -> str:
 
 
 def dev_private_key(path: Path) -> str:
-    """Clé de développement : créée au premier démarrage puis réutilisée (fichier ignoré)."""
-    if not path.exists():
-        path.write_text(generate_rsa_private_key_pem())
+    """Clé de développement : créée au premier démarrage puis réutilisée (fichier ignoré).
+
+    Création exclusive (`x`) : si api et worker démarrent ensemble, un seul écrit la clé.
+    """
+    try:
+        with path.open("x") as file:
+            file.write(generate_rsa_private_key_pem())
         path.chmod(0o600)
+    except FileExistsError:
+        pass
     return private_key_from_env(path.read_text())

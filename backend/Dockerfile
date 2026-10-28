@@ -23,8 +23,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 COPY --chown=app:app . .
-# Caches d'outils (ruff, pytest, coverage) écrits dans /app par l'utilisateur non-root.
-RUN chown app:app /app
+# Caches d'outils (ruff, pytest, coverage) écrits dans /app par l'utilisateur non-root ;
+# clés de dev dans un volume partagé par api et worker (créé avec ces droits, voir compose.yaml).
+RUN chown app:app /app && install -d -o app -g app -m 700 /var/lib/lest-keys
 USER 10001:10001
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
@@ -38,8 +39,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 COPY . .
 # Valeurs factices : collectstatic n'ouvre aucune connexion. Aucun secret dans l'image : la
-# clé JWT est générée pour cette seule commande (ni ARG ni ENV), puis jetée.
+# clé JWT et la clé de chiffrement sont générées pour cette seule commande (ni ARG ni ENV),
+# puis jetées.
 RUN JWT_PRIVATE_KEY="$(python -c 'from common.keys import generate_rsa_private_key_pem as g; print(g())')" \
+    FIELD_ENCRYPTION_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
     DJANGO_SETTINGS_MODULE=config.settings.prod \
     DJANGO_SECRET_KEY=collectstatic-only \
     DJANGO_ALLOWED_HOSTS=localhost \

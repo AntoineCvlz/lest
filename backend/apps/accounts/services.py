@@ -73,24 +73,25 @@ def delete_account(*, user: User, password: str) -> None:
                 content_type=ContentType.objects.get_for_model(model), object_id=str(object_id)
             ).delete()
         user.delete()
-    transaction.on_commit(lambda: _send_account_deleted_mail(email))
+    transaction.on_commit(lambda: send_account_mail("account/email/account_deleted", email))
 
 
-def _send_account_deleted_mail(email: str) -> None:
-    """E-mail de confirmation, au mieux : un échec d'envoi n'annule ni ne masque la suppression.
+def send_account_mail(template_prefix: str, email: str) -> None:
+    """E-mail de compte (`<prefix>_subject.txt`, `<prefix>_message.txt`), au mieux.
 
-    Hors requête (service, futures tâches) : pas l'envoi d'allauth, qui déduit le site de la
-    requête ; mêmes gabarits et même préfixe de sujet que les e-mails de compte.
+    Un échec d'envoi n'interrompt jamais l'opération qui le déclenche. Hors requête (services,
+    signaux, futures tâches) : pas l'envoi d'allauth, qui déduit le site de la requête ; même
+    préfixe de sujet que les e-mails d'allauth.
     """
-    subject = render_to_string("account/email/account_deleted_subject.txt").strip()
+    subject = render_to_string(f"{template_prefix}_subject.txt").strip()
     try:
         send_mail(
             f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}{subject}",
-            render_to_string("account/email/account_deleted_message.txt"),
+            render_to_string(f"{template_prefix}_message.txt"),
             settings.DEFAULT_FROM_EMAIL,
             [email],
         )
     except Exception:
         # Sans l'exception ni sa trace : elles contiennent l'adresse du destinataire.
         # Toute erreur (SMTP, réseau, configuration) est attendue ici : l'envoi est au mieux.
-        logger.warning("Account deletion confirmation email could not be sent")
+        logger.warning("Account email could not be sent (%s)", template_prefix)

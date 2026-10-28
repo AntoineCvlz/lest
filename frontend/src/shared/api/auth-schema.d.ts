@@ -4,6 +4,186 @@
  */
 
 export interface paths {
+    "/api/v1/auth/app/v1/account/authenticators": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List authenticators */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["Authenticators"];
+                401: components["responses"]["Authentication"];
+                410: components["responses"]["SessionGone"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/account/authenticators/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List recovery codes
+         * @description List recovery codes.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["RecoveryCodes"];
+                401: components["responses"]["ReauthenticationRequired"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        /** Regenerate recovery codes */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["ReauthenticationRequired"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/account/authenticators/totp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * TOTP authenticator status
+         * @description Retrieve the information about the current TOTP authenticator, if any.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["TOTPAuthenticator"];
+                404: components["responses"]["TOTPAuthenticatorNotFound"];
+                409: components["responses"]["AddAuthenticatorConflict"];
+            };
+        };
+        put?: never;
+        /**
+         * Activate TOTP
+         * @description The code should be provided from the consuming TOTP authenticator
+         *     application which was generated using the TOTP authenticator secret
+         *     retrieved from the TOTP authenticator status endpoint.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: components["requestBodies"]["SetupTOTP"];
+            responses: {
+                200: components["responses"]["TOTPAuthenticator"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["ReauthenticationRequired"];
+                409: components["responses"]["AddAuthenticatorConflict"];
+            };
+        };
+        /**
+         * Deactivate TOTP
+         * @description Deactivates TOTP authentication. If the user authentication is not
+         *     sufficiently recent, a reauthentication flow (`401`) will is presented.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["StatusOK"];
+                401: components["responses"]["ReauthenticationRequired"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/app/v1/account/email": {
         parameters: {
             query?: never;
@@ -293,6 +473,101 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConflictResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/2fa/authenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Two-factor authentication
+         * @description If, during authentication,  a response with status 401 is encountered where one of the pending
+         *     flows has ID `mfa_authenticate`, that indicates that the Two-Factor Authentication stage needs to
+         *     be completed.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["MFAAuthenticate"];
+            responses: {
+                200: components["responses"]["AuthenticatedByPasswordAnd2FA"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Authentication"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/2fa/reauthenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reauthenticate using 2FA
+         * @description In order to safeguard the account, some actions require the user to be
+         *     recently authenticated.  If you try to perform such an action without
+         *     having been recently authenticated, a `401` status is returned, listing
+         *     flows that can be performed to reauthenticate. One such flow is the flow
+         *     with ID `mfa_reauthenticate`, which allows for the user to input an
+         *     authenticator code (e.g. TOTP or recovery code). This is the endpoint
+         *     related towards that flow.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["MFAAuthenticate"];
+            responses: {
+                200: components["responses"]["AuthenticatedByPasswordAnd2FA"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };

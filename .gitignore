@@ -48,6 +48,7 @@ Thumbs.db
 
 # Certificats locaux
 *.pem
+*.key
 
 # Lighthouse CI
 .lighthouseci/

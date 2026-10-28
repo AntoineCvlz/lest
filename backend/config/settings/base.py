@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
+    "allauth.mfa",
     "apps.accounts",
 ]
 
@@ -134,6 +135,12 @@ ACCOUNT_EMAIL_NOTIFICATIONS = True
 # Défauts d'allauth, sauf les demandes de réinitialisation : 3 par 15 min et par adresse (au lieu
 # de 5/min), pour qu'on ne puisse pas inonder une boîte, inscrite ou non, d'e-mails « [Lest] ».
 ACCOUNT_RATE_LIMITS = {
+    # Plafonds journaliers propres à Lest, en plus de `login_failed` d'allauth (5/5 min), en
+    # actions distinctes (allauth partage l'historique de deux limites « key » d'une action) :
+    # seconds facteurs refusés par compte (sans lui, ~1 440 codes TOTP/jour), jamais remis à zéro
+    # par un reset ; mots de passe faux par (compte, IP), pour qu'un tiers ne bloque pas le compte.
+    "login_failed_daily": "30/86400s/key",
+    "login_failed_ip_daily": "50/86400s/key",
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.
     "reauthenticate": "10/m/user,30/86400s/user",
@@ -156,6 +163,12 @@ HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 5 * 60
 HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60
 HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
 HEADLESS_JWT_STATEFUL_VALIDATION_ENABLED = True
+
+# Double authentification (optionnelle) : application TOTP et codes de secours ; secrets chiffrés
+# en base par `MFAAdapter` (ADR 0002). Jamais de `MFA_TOTP_INSECURE_BYPASS_CODE`.
+MFA_ADAPTER = "apps.accounts.mfa_adapter.MFAAdapter"
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+MFA_TOTP_ISSUER = "Lest"
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))

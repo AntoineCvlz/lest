@@ -3,6 +3,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from cryptography.fernet import Fernet
 from django.conf import settings
 
 from common.keys import generate_rsa_private_key_pem
@@ -30,6 +31,7 @@ def test_prod_settings_pass_deploy_checks() -> None:
         "REDIS_URL": "redis://localhost:6379/0",
         "EMAIL_HOST": "smtp.example",
         "JWT_PRIVATE_KEY": generate_rsa_private_key_pem().replace("\n", "\\n"),
+        "FIELD_ENCRYPTION_KEYS": Fernet.generate_key().decode(),
     }
     result = subprocess.run(
         [sys.executable, "manage.py", "check", "--deploy", "--fail-level", "WARNING"],

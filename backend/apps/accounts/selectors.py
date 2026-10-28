@@ -1,6 +1,7 @@
 from typing import Any
 
 from allauth.account.models import EmailAddress
+from allauth.mfa.models import Authenticator
 from django.utils import timezone
 
 from .models import Profile, User
@@ -29,6 +30,17 @@ def export_account(user: User) -> dict[str, Any]:
         "email_addresses": [
             {"email": address.email, "verified": address.verified, "primary": address.primary}
             for address in EmailAddress.objects.filter(user=user).order_by("email")
+        ],
+        # Méthodes de double authentification : type et dates seulement, jamais leurs secrets.
+        "authenticators": [
+            {
+                "type": authenticator.type,
+                "created_at": authenticator.created_at.isoformat(),
+                "last_used_at": (
+                    authenticator.last_used_at.isoformat() if authenticator.last_used_at else None
+                ),
+            }
+            for authenticator in Authenticator.objects.filter(user=user).order_by("created_at")
         ],
         "profile": (
             {

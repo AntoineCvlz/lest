@@ -1,14 +1,27 @@
+from pathlib import Path
+
+from common.crypto import dev_encryption_key, keys_from_env
 from common.keys import dev_private_key, private_key_from_env
 
 from .base import *  # noqa: F403
 from .base import BASE_DIR, env
+
+# Dossier des clés générées en dev : volume partagé sous Compose, sinon le dossier du backend.
+DEV_KEYS_DIR = Path(env("DEV_KEYS_DIR", default=str(BASE_DIR)))
 
 # Clé de signature JWT : celle de `.env` si définie, sinon une clé locale créée au premier
 # démarrage (`*.pem` est ignoré par git) pour que `just up` marche sans configuration.
 HEADLESS_JWT_PRIVATE_KEY = (
     private_key_from_env(env("JWT_PRIVATE_KEY"))
     if env("JWT_PRIVATE_KEY", default="")
-    else dev_private_key(BASE_DIR / "jwt-dev.pem")
+    else dev_private_key(DEV_KEYS_DIR / "jwt-dev.pem")
+)
+
+# Clés de chiffrement au repos (ADR 0002) : `.env`, sinon une clé locale ignorée par git.
+FIELD_ENCRYPTION_KEYS = (
+    keys_from_env(env("FIELD_ENCRYPTION_KEYS"))
+    if env("FIELD_ENCRYPTION_KEYS", default="")
+    else dev_encryption_key(DEV_KEYS_DIR / "field-encryption-dev.key")
 )
 
 DEBUG = True
