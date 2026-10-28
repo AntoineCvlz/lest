@@ -135,7 +135,7 @@ test("mes données : export JSON puis suppression définitive du compte", async 
 
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("link", { name: "Télécharger mes données (JSON)" }).click(),
+    page.getByRole("button", { name: "Télécharger mes données (JSON)" }).click(),
   ]);
   const exported = JSON.parse(await readFile(await download.path(), "utf8")) as {
     account: { email: string };
