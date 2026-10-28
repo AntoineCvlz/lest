@@ -19,6 +19,11 @@ x-backend: &backend
     DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Lest <no-reply@lest.local>}
     JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
     FIELD_ENCRYPTION_KEYS: ${FIELD_ENCRYPTION_KEYS:-}
+    # Clés de dev (JWT, chiffrement) générées si absentes de .env : un seul jeu pour api et
+    # worker, conservé entre deux recréations (sinon les secrets chiffrés seraient perdus).
+    DEV_KEYS_DIR: /var/lib/lest-keys
+  volumes:
+    - devkeys:/var/lib/lest-keys
   depends_on:
     db:
       condition: service_healthy
@@ -116,3 +121,4 @@ services:
 
 volumes:
   pgdata:
+  devkeys:

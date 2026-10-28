@@ -1,11 +1,16 @@
 import ipaddress
 import secrets
+from typing import Any
 
 from allauth.account.adapter import DefaultAccountAdapter
+from allauth.core import ratelimit
 from django.contrib.auth.hashers import make_password
 from django.http import HttpRequest
 
 from .models import normalize_email
+
+# Plafond journalier des échecs d'un compte (`ACCOUNT_RATE_LIMITS["login_failed_daily"]`).
+DAILY_FAILURES = "login_failed_daily"
 
 # IP du navigateur, posée par le proxy Next.js (seul point d'entrée de Django) qui écrase toute
 # valeur envoyée par le client. `X-Forwarded-For` n'est jamais lu : le client le contrôle.
@@ -37,3 +42,16 @@ class AccountAdapter(DefaultAccountAdapter):
             # Sans proxy (appel direct en dev) : REMOTE_ADDR, allauth ignorant X-Forwarded-For.
             ip: str = super().get_client_ip(request)
             return ip
+
+    def pre_authenticate(self, request: HttpRequest, **credentials: Any) -> None:
+        """Limites d'allauth, puis refus si le compte a atteint son plafond journalier d'échecs."""
+        super().pre_authenticate(request, **credentials)
+        email = str(credentials.get("email", "")).lower()
+        if email and not ratelimit.consume(request, action=DAILY_FAILURES, key=email, dry_run=True):
+            raise self.validation_error("too_many_login_attempts")
+
+    def authentication_failed(self, request: HttpRequest, **credentials: Any) -> None:
+        super().authentication_failed(request, **credentials)
+        email = str(credentials.get("email", "")).lower()
+        if email:
+            ratelimit.consume(request, action=DAILY_FAILURES, key=email)

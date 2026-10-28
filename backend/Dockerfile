@@ -23,8 +23,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --frozen --no-install-project
 COPY --chown=app:app . .
-# Caches d'outils (ruff, pytest, coverage) écrits dans /app par l'utilisateur non-root.
-RUN chown app:app /app
+# Caches d'outils (ruff, pytest, coverage) écrits dans /app par l'utilisateur non-root ;
+# clés de dev dans un volume partagé par api et worker (créé avec ces droits, voir compose.yaml).
+RUN chown app:app /app && install -d -o app -g app -m 700 /var/lib/lest-keys
 USER 10001:10001
 EXPOSE 8000
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

@@ -27,10 +27,17 @@ def keys_from_env(value: str) -> list[str]:
 
 
 def dev_encryption_key(path: Path) -> list[str]:
-    """Clé de développement : créée au premier démarrage puis réutilisée (fichier ignoré)."""
-    if not path.exists():
-        path.write_text(Fernet.generate_key().decode())
+    """Clé de développement : créée au premier démarrage puis réutilisée (fichier ignoré).
+
+    Création exclusive (`x`) : si api et worker démarrent ensemble, un seul écrit la clé et
+    l'autre lit la même.
+    """
+    try:
+        with path.open("x") as file:
+            file.write(Fernet.generate_key().decode())
         path.chmod(0o600)
+    except FileExistsError:
+        pass
     return keys_from_env(path.read_text())
 
 

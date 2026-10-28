@@ -42,7 +42,7 @@ surcharge `encrypt`/`decrypt` de l'adaptateur MFA d'allauth.
 | Environnement | Clé |
 | --- | --- |
 | prod | `FIELD_ENCRYPTION_KEYS` obligatoire (démarrage refusé sinon) |
-| dev | celle de `.env` si définie, sinon une clé locale créée au premier démarrage (`*.key`, ignoré par git), comme la clé JWT |
+| dev | celle de `.env` si définie, sinon une clé créée au premier démarrage dans un volume Compose partagé par `api` et `worker` (`devkeys`), conservée entre deux recréations |
 | test | clé éphémère par exécution |
 | CI / E2E | clé générée dans le job |
 
@@ -60,6 +60,10 @@ Rotation : ajouter la nouvelle clé **en tête** de la liste, redéployer, rechi
 - ⚠️ Les valeurs chiffrées ne se recherchent ni ne se trient en SQL : à réserver aux champs qui
   ne servent pas aux requêtes (secrets, jetons, notes libres), pas au poids ou à la taille, qui
   alimentent les calculs.
+- ⚠️ **Risque résiduel** : avant l'activation, allauth garde le secret TOTP proposé dans la session
+  Django (en base, non chiffrée) le temps de saisir le premier code ; il en est retiré à
+  l'activation (testé). Un dump pris dans cet intervalle exposerait ce secret. Parade possible
+  plus tard : sessions chiffrées (sérialiseur de session reposant sur ce module).
 - ⚠️ Pas de rechiffrement automatique à la rotation : commande à prévoir avant la première
   rotation réelle.
 - 📋 Actions :

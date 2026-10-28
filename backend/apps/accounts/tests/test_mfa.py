@@ -9,7 +9,11 @@ from allauth.mfa.totp.internal.auth import (
     hotp_value,
     yield_hotp_counters_from_time,
 )
+from django.conf import settings
+from django.contrib.sessions.models import Session
+from django.core import mail
 from django.core.cache import cache
+from django.core.checks import run_checks
 from django.test import Client, override_settings
 
 from apps.accounts.checks import check_mfa_bypass
@@ -154,3 +158,112 @@ def test_a_totp_bypass_code_is_refused_outside_development(debug: bool, errors: 
 
 def test_no_bypass_code_is_configured() -> None:
     assert check_mfa_bypass(None) == []
+
+
+def test_a_totp_code_cannot_be_replayed(client: Client) -> None:
+    user = make_verified_user()
+    secret, _ = enable_totp(client, user)
+    code = current_code(secret)
+
+    first = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+    assert second_factor(Client(), first, code).status_code == 200
+    again = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+    assert second_factor(Client(), again, code).status_code == 400
+
+
+def test_disabling_totp_requires_reauthentication(client: Client) -> None:
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+
+    # Délai de réauthentification écoulé : la désactivation exige à nouveau le mot de passe.
+    with override_settings(ACCOUNT_REAUTHENTICATION_TIMEOUT=0):
+        response = client.delete(TOTP, headers=bearer(token))
+
+    assert response.status_code == 401
+    assert "reauthenticate" in {flow["id"] for flow in response.json()["data"]["flows"]}
+    assert Authenticator.objects.filter(user=user, type=Authenticator.Type.TOTP).exists()
+
+
+def test_user_b_never_sees_user_a_authenticators(client: Client) -> None:
+    alice = make_verified_user(email="alice@example.com")
+    bob = make_verified_user(email="bob@example.com")
+    alice_secret, _ = enable_totp(client, alice)
+
+    bob_token = login(Client(), bob.email)["access_token"]
+    listed = Client().get(f"{APP}/account/authenticators", headers=bearer(bob_token))
+    pending = Client().get(TOTP, headers=bearer(bob_token))
+
+    assert listed.json()["data"] == []
+    assert pending.status_code == 404
+    assert pending.json()["meta"]["secret"] != alice_secret
+
+
+def test_the_bypass_check_runs_with_deployment_checks() -> None:
+    with override_settings(DEBUG=False, MFA_TOTP_INSECURE_BYPASS_CODE="123456"):
+        ids = {message.id for message in run_checks(include_deployment_checks=True)}
+
+    assert "accounts.E001" in ids
+
+
+def test_failed_logins_have_a_daily_cap_per_account() -> None:
+    # Plafond journalier par compte (mot de passe ou second facteur) : sans lui, ~1 440 codes
+    # par jour pourraient être essayés à 5 essais par tranche de 5 minutes.
+    assert settings.ACCOUNT_RATE_LIMITS["login_failed_daily"] == "30/86400s/key"
+
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "3/86400s/key"}
+)
+def test_the_second_factor_is_locked_after_the_daily_cap(client: Client) -> None:
+    user = make_verified_user()
+    enable_totp(client, user)
+    for _ in range(2):
+        session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+        second_factor(Client(), session_token, "000000")
+
+    session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+    second_factor(Client(), session_token, "000000")  # 3e échec : plafond atteint
+
+    # La connexion en attente est annulée, et le mot de passe (même juste) est refusé.
+    assert second_factor(Client(), session_token, "000000").status_code in {401, 409}
+    blocked = login_attempt(Client(), user.email)
+    assert blocked.status_code == 400
+    assert blocked.json()["errors"][0]["code"] == "too_many_login_attempts"
+
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "3/86400s/key"}
+)
+def test_wrong_passwords_count_towards_the_daily_cap() -> None:
+    user = make_verified_user()
+    for _ in range(3):
+        Client().post(
+            f"{APP}/auth/login",
+            {"email": user.email, "password": "pas-le-bon"},
+            content_type="application/json",
+            headers={"X-Lest-Client-IP": "203.0.113.9"},
+        )
+
+    blocked = login_attempt(Client(), user.email)
+
+    assert blocked.json()["errors"][0]["code"] == "too_many_login_attempts"
+
+
+def test_a_wrong_second_factor_notifies_the_holder_once_an_hour(client: Client) -> None:
+    user = make_verified_user(email="titulaire@example.com")
+    enable_totp(client, user)
+    sent = len(mail.outbox)
+
+    for _ in range(2):
+        session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+        second_factor(Client(), session_token, "000000")
+
+    alerts = mail.outbox[sent:]
+    assert [message.to for message in alerts] == [["titulaire@example.com"]]
+
+
+def test_the_pending_totp_secret_leaves_the_session_after_activation(client: Client) -> None:
+    user = make_verified_user()
+    enable_totp(client, user)
+
+    assert not any("mfa.totp.secret" in session.get_decoded() for session in Session.objects.all())

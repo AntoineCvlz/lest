@@ -1,0 +1,9 @@
+Bonjour,
+
+Quelqu'un vient de saisir votre mot de passe Lest correctement, mais le code de vérification
+demandé ensuite (double authentification) a été refusé.
+
+Si c'était vous, il n'y a rien à faire. Sinon, votre mot de passe est probablement connu d'un
+tiers : changez-le dès maintenant, et, s'il sert ailleurs, changez-le là aussi.
+
+L'équipe Lest
