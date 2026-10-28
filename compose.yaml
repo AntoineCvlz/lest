@@ -18,6 +18,7 @@ x-backend: &backend
     FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Lest <no-reply@lest.local>}
     JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+    FIELD_ENCRYPTION_KEYS: ${FIELD_ENCRYPTION_KEYS:-}
   depends_on:
     db:
       condition: service_healthy

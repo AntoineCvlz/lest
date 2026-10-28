@@ -49,6 +49,7 @@ Le proxy Next.js est un *Backend for Frontend* : les jetons JWT d'allauth ne qui
 Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`docs/adr/`](docs/adr/) :
 
 - [ADR 0001 — authentification JWT `django-allauth` derrière un proxy Next.js (BFF)](docs/adr/0001-choix-auth.md)
+- [ADR 0002 — chiffrement au repos des secrets et champs sensibles (Fernet)](docs/adr/0002-chiffrement-au-repos.md)
 
 ## Qualité et sécurité
 

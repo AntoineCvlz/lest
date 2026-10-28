@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.headless",
+    "allauth.mfa",
     "apps.accounts",
 ]
 
@@ -156,6 +157,12 @@ HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN = 5 * 60
 HEADLESS_JWT_REFRESH_TOKEN_EXPIRES_IN = 14 * 24 * 60 * 60
 HEADLESS_JWT_ROTATE_REFRESH_TOKEN = True
 HEADLESS_JWT_STATEFUL_VALIDATION_ENABLED = True
+
+# Double authentification (optionnelle) : application TOTP et codes de secours ; secrets chiffrés
+# en base par `MFAAdapter` (ADR 0002). Jamais de `MFA_TOTP_INSECURE_BYPASS_CODE`.
+MFA_ADAPTER = "apps.accounts.mfa_adapter.MFAAdapter"
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+MFA_TOTP_ISSUER = "Lest"
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))

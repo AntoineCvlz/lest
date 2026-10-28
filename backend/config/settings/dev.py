@@ -1,3 +1,4 @@
+from common.crypto import dev_encryption_key, keys_from_env
 from common.keys import dev_private_key, private_key_from_env
 
 from .base import *  # noqa: F403
@@ -9,6 +10,13 @@ HEADLESS_JWT_PRIVATE_KEY = (
     private_key_from_env(env("JWT_PRIVATE_KEY"))
     if env("JWT_PRIVATE_KEY", default="")
     else dev_private_key(BASE_DIR / "jwt-dev.pem")
+)
+
+# Clés de chiffrement au repos (ADR 0002) : `.env`, sinon une clé locale ignorée par git.
+FIELD_ENCRYPTION_KEYS = (
+    keys_from_env(env("FIELD_ENCRYPTION_KEYS"))
+    if env("FIELD_ENCRYPTION_KEYS", default="")
+    else dev_encryption_key(BASE_DIR / "field-encryption-dev.key")
 )
 
 DEBUG = True

@@ -38,8 +38,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 COPY . .
 # Valeurs factices : collectstatic n'ouvre aucune connexion. Aucun secret dans l'image : la
-# clé JWT est générée pour cette seule commande (ni ARG ni ENV), puis jetée.
+# clé JWT et la clé de chiffrement sont générées pour cette seule commande (ni ARG ni ENV),
+# puis jetées.
 RUN JWT_PRIVATE_KEY="$(python -c 'from common.keys import generate_rsa_private_key_pem as g; print(g())')" \
+    FIELD_ENCRYPTION_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
     DJANGO_SETTINGS_MODULE=config.settings.prod \
     DJANGO_SECRET_KEY=collectstatic-only \
     DJANGO_ALLOWED_HOSTS=localhost \

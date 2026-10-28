@@ -18,3 +18,4 @@ class AccountsConfig(AppConfig):
         # importe ces tags, et leurs imports circulaires se croisent : `_DeadlockError` au
         # démarrage, au hasard. Les importer ici, avant le lancement des fils, supprime la course.
         import_module(ALLAUTH_TEMPLATE_TAGS)
+        import_module("apps.accounts.checks")  # enregistre les vérifications système

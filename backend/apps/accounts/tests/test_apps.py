@@ -11,4 +11,4 @@ def test_ready_imports_allauth_template_tags_once_at_startup() -> None:
     with mock.patch.object(accounts_apps, "import_module") as import_module:
         config.ready()
 
-    import_module.assert_called_once_with("allauth.account.templatetags.account")
+    import_module.assert_any_call("allauth.account.templatetags.account")

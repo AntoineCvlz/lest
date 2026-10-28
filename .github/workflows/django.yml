@@ -25,8 +25,10 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
-      - name: Clé JWT éphémère
-        run: echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> "$GITHUB_ENV"
+      - name: Clés éphémères (JWT, chiffrement au repos)
+        run: |
+          echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> "$GITHUB_ENV"
+          echo "FIELD_ENCRYPTION_KEYS=$(openssl rand -base64 32 | tr '+/' '-_')" >> "$GITHUB_ENV"
       - name: Réglages de prod (check --deploy)
         working-directory: backend
         env:

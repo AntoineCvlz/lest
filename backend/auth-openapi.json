@@ -3100,6 +3100,172 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/api/v1/auth/app/v1/account/authenticators": {
+      "get": {
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Authenticators"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "410": {
+            "$ref": "#/components/responses/SessionGone"
+          }
+        },
+        "summary": "List authenticators",
+        "tags": [
+          "Account: 2FA"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/account/authenticators/recovery-codes": {
+      "get": {
+        "description": "List recovery codes.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/RecoveryCodes"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "summary": "List recovery codes",
+        "tags": [
+          "Account: 2FA"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalid_code": {
+                    "$ref": "#/components/examples/CannotGenerateRecoveryCodes"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          }
+        },
+        "summary": "Regenerate recovery codes",
+        "tags": [
+          "Account: 2FA"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/account/authenticators/totp": {
+      "delete": {
+        "description": "Deactivates TOTP authentication. If the user authentication is not\nsufficiently recent, a reauthentication flow (`401`) will is presented.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/StatusOK"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          }
+        },
+        "summary": "Deactivate TOTP",
+        "tags": [
+          "Account: 2FA"
+        ]
+      },
+      "get": {
+        "description": "Retrieve the information about the current TOTP authenticator, if any.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TOTPAuthenticator"
+          },
+          "404": {
+            "$ref": "#/components/responses/TOTPAuthenticatorNotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/AddAuthenticatorConflict"
+          }
+        },
+        "summary": "TOTP authenticator status",
+        "tags": [
+          "Account: 2FA"
+        ]
+      },
+      "post": {
+        "description": "The code should be provided from the consuming TOTP authenticator\napplication which was generated using the TOTP authenticator secret\nretrieved from the TOTP authenticator status endpoint.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/SetupTOTP"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/TOTPAuthenticator"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalid_code": {
+                    "$ref": "#/components/examples/InvalidAuthenticatorCode"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          },
+          "409": {
+            "$ref": "#/components/responses/AddAuthenticatorConflict"
+          }
+        },
+        "summary": "Activate TOTP",
+        "tags": [
+          "Account: 2FA"
+        ]
+      }
+    },
     "/api/v1/auth/app/v1/account/email": {
       "delete": {
         "description": "Used to remove an email address.\n",
@@ -3379,6 +3545,83 @@
         "summary": "Change the phone number\n",
         "tags": [
           "Account: Phone"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/2fa/authenticate": {
+      "post": {
+        "description": "If, during authentication,  a response with status 401 is encountered where one of the pending\nflows has ID `mfa_authenticate`, that indicates that the Two-Factor Authentication stage needs to\nbe completed.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MFAAuthenticate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthenticatedByPasswordAnd2FA"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalid_code": {
+                    "$ref": "#/components/examples/InvalidAuthenticatorCode"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          }
+        },
+        "summary": "Two-factor authentication",
+        "tags": [
+          "Authentication: 2FA"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/2fa/reauthenticate": {
+      "post": {
+        "description": "In order to safeguard the account, some actions require the user to be\nrecently authenticated.  If you try to perform such an action without\nhaving been recently authenticated, a `401` status is returned, listing\nflows that can be performed to reauthenticate. One such flow is the flow\nwith ID `mfa_reauthenticate`, which allows for the user to input an\nauthenticator code (e.g. TOTP or recovery code). This is the endpoint\nrelated towards that flow.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/MFAAuthenticate"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthenticatedByPasswordAnd2FA"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "invalid_code": {
+                    "$ref": "#/components/examples/InvalidAuthenticatorCode"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          }
+        },
+        "summary": "Reauthenticate using 2FA",
+        "tags": [
+          "Authentication: 2FA"
         ]
       }
     },
@@ -4033,6 +4276,10 @@
     {
       "description": "Endpoints that can be used to alter the password for a given account.\n",
       "name": "Account: Password"
+    },
+    {
+      "description": "Endpoints related towards completing the Two-Factor Authentication stage\nduring the authentication cycle.\n",
+      "name": "Authentication: 2FA"
     }
   ],
   "x-tagGroups": [

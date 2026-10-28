@@ -30,6 +30,7 @@ jobs:
           sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n/+=')|" .env
           sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" .env
           echo "JWT_PRIVATE_KEY=$(openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 | awk '{printf "%s\\n", $0}')" >> .env
+          echo "FIELD_ENCRYPTION_KEYS=$(openssl rand -base64 32 | tr '+/' '-_')" >> .env
       - name: Démarrage de la stack
         run: docker compose -f compose.yaml -f compose.e2e.yaml up --build --detach --wait --wait-timeout 300
       # L'image de prod ne migre pas au démarrage (étape explicite d'un futur déploiement).
