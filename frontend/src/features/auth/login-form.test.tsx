@@ -43,6 +43,17 @@ describe("LoginForm", () => {
     expect(body).toEqual({ email: "membre@example.com", password: "un-mot-de-passe" });
   });
 
+  it("revient sur la page privée demandée avant la connexion", async () => {
+    server.use(http.post(LOGIN_URL, () => HttpResponse.json({ status: 200 })));
+    renderWithQuery(<LoginForm redirectTo="/profil" />);
+
+    await submit("membre@example.com", "un-mot-de-passe");
+
+    await vi.waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/profil");
+    });
+  });
+
   it("annonce des identifiants incorrects sans quitter la page", async () => {
     server.use(
       http.post(LOGIN_URL, () =>

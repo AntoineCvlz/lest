@@ -11,8 +11,6 @@ for (const scheme of THEMES) {
       ["/verification", "Vérifiez votre adresse"],
       ["/mot-de-passe-oublie", "Mot de passe oublié"],
       ["/mot-de-passe-oublie/code", "Nouveau mot de passe"],
-      ["/bienvenue", "Bienvenue"],
-      ["/profil", "Profil"],
     ] as const) {
       test(`${path} n’a aucune violation d’accessibilité`, async ({ page, makeAxeBuilder }) => {
         await page.goto(path);
@@ -37,4 +35,11 @@ test("la connexion propose de créer un compte", async ({ page }) => {
   await page.getByRole("link", { name: "Créer un compte" }).click();
 
   await expect(page.getByRole("heading", { level: 1, name: "Créer un compte" })).toBeVisible();
+});
+
+test("une page privée ouverte sans session renvoie vers la connexion", async ({ page }) => {
+  await page.goto("/profil");
+
+  await expect(page).toHaveURL("/connexion?suivant=%2Fprofil");
+  await expect(page.getByRole("heading", { level: 1, name: "Connexion" })).toBeVisible();
 });

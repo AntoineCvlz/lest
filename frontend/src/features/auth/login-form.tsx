@@ -12,6 +12,7 @@ import { TextField } from "@/shared/ui/text-field";
 import { formErrors, RATE_LIMITED, UNAVAILABLE } from "./errors";
 import { FormAlert } from "./form-alert";
 import { awaitsEmailVerification, errorsOf, refused, textValue, type Outcome } from "./form";
+import type { PrivateRoute } from "./private-routes";
 import { TextLink } from "./text-link";
 
 type LoginOutcome = Outcome<"signed-in" | "verify-email">;
@@ -31,8 +32,8 @@ async function login(email: string, password: string): Promise<LoginOutcome> {
   return refused(UNAVAILABLE);
 }
 
-/** Formulaire de connexion : e-mail et mot de passe, erreurs annoncées, puis accueil. */
-export function LoginForm() {
+/** Formulaire de connexion : e-mail et mot de passe, erreurs annoncées, puis `redirectTo`. */
+export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/" }) {
   const hydrated = useHydrated();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -44,7 +45,7 @@ export function LoginForm() {
       if (outcome.kind !== "signed-in") return;
       // Les données en cache appartenaient peut-être à une autre session.
       queryClient.clear();
-      router.push("/");
+      router.push(redirectTo);
     },
   });
   const errors = errorsOf(mutation.data, mutation.isError);
