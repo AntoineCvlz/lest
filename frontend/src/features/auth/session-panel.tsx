@@ -2,11 +2,16 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useEffect } from "react";
 
+import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
 import { $api } from "@/shared/api/client";
 import { authClient } from "@/shared/api/auth-client";
 import { Button } from "@/shared/ui/button";
 
+// Lien d’apparence bouton (44 px), pour les navigations du panneau.
+const LINK_BUTTON =
+  "rounded-control inline-flex min-h-11 items-center justify-center px-4 font-extrabold";
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
 
 async function signOut(): Promise<void> {
@@ -20,6 +25,12 @@ async function signOut(): Promise<void> {
 export function SessionPanel() {
   const queryClient = useQueryClient();
   const me = $api.useQuery("get", "/api/v1/me/", {}, { retry: false });
+  const profile = useProfile({ enabled: Boolean(me.data) });
+  // Session expirée ou révoquée : ne pas garder en mémoire le profil (donnée de santé) de la
+  // session précédente, qu'un autre écran de l'onglet afficherait encore.
+  useEffect(() => {
+    if (me.isError) queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
+  }, [me.isError, queryClient]);
   const logout = useMutation({
     mutationFn: signOut,
     onSuccess: () => {
@@ -42,20 +53,32 @@ export function SessionPanel() {
             : "Vous n’êtes pas connecté."}
       </div>
       {me.data ? (
-        <Button
-          onClick={() => {
-            logout.mutate();
-          }}
-          disabled={logout.isPending}
-        >
-          Se déconnecter
-        </Button>
+        <>
+          {profile.data === null && (
+            <Link href="/bienvenue" className={`${LINK_BUTTON} bg-accent text-on-accent`}>
+              Compléter mon profil
+            </Link>
+          )}
+          {profile.data && (
+            <Link
+              href="/profil"
+              className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
+            >
+              Mon profil
+            </Link>
+          )}
+          <Button
+            onClick={() => {
+              logout.mutate();
+            }}
+            disabled={logout.isPending}
+          >
+            Se déconnecter
+          </Button>
+        </>
       ) : (
         !me.isPending && (
-          <Link
-            href="/connexion"
-            className="rounded-control bg-accent text-on-accent inline-flex min-h-11 items-center justify-center px-4 font-extrabold"
-          >
+          <Link href="/connexion" className={`${LINK_BUTTON} bg-accent text-on-accent`}>
             Se connecter
           </Link>
         )

@@ -41,3 +41,35 @@ export const SansChoix: Story = {
   name: "Aucun choix",
   args: { initial: undefined },
 };
+
+const GOALS = [
+  { value: "gain", label: "Prise de masse" },
+  { value: "maintain", label: "Maintien" },
+  { value: "cut", label: "Sèche" },
+] as const;
+
+function Goal() {
+  const [goal, setGoal] = useState<(typeof GOALS)[number]["value"]>("gain");
+  return (
+    <ChoiceGroup
+      legend="Objectif"
+      options={GOALS}
+      value={goal}
+      onChange={setGoal}
+      layout="column"
+    />
+  );
+}
+
+/** Libellés longs : une option par ligne, pleine largeur. */
+export const EnColonne: Story = {
+  name: "En colonne (objectif)",
+  render: () => <Goal />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const option = canvas.getByText("Sèche");
+    await expect(option.getBoundingClientRect().height).toBeGreaterThanOrEqual(56);
+    await userEvent.click(option);
+    await expect(canvas.getByRole("radio", { name: "Sèche" })).toBeChecked();
+  },
+};

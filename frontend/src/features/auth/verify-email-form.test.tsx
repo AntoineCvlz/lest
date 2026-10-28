@@ -24,7 +24,7 @@ async function submitCode(code: string): Promise<void> {
 }
 
 describe("VerifyEmailForm", () => {
-  it("envoie le code en majuscules, sans espaces, puis ouvre l'accueil", async () => {
+  it("envoie le code en majuscules, sans espaces, puis ouvre l'onboarding", async () => {
     let body: unknown;
     server.use(
       http.post(VERIFY_URL, async ({ request }) => {
@@ -37,7 +37,7 @@ describe("VerifyEmailForm", () => {
     await submitCode(" abcd-efgh ");
 
     await vi.waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/");
+      expect(push).toHaveBeenCalledWith("/bienvenue");
     });
     expect(body).toEqual({ key: "ABCD-EFGH" });
   });

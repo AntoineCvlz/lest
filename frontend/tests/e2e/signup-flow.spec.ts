@@ -32,15 +32,33 @@ async function signUp(page: Page, email: string, password: string): Promise<stri
   await page.getByRole("textbox", { name: "Code reçu par e-mail" }).fill(code.toLowerCase());
   await page.getByRole("button", { name: "Valider le code" }).click();
 
+  // Onboarding : objectif, unités par défaut (métriques) et taille.
+  await expect(page).toHaveURL("/bienvenue", { timeout: RESPONSE_TIMEOUT });
+  await page.getByText("Prise de masse").click();
+  await page.getByRole("textbox", { name: "Taille (cm)" }).fill("180");
+  await page.getByRole("button", { name: "Commencer" }).click();
+
   await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
   return code;
 }
 
-test("inscription, code reçu par e-mail, puis session ouverte", async ({ page }, testInfo) => {
+test("inscription, code, onboarding, puis modification du profil", async ({ page }, testInfo) => {
   const { email, password } = freshAccount(testInfo, "inscription");
-
   await signUp(page, email, password);
+
+  await page.getByRole("link", { name: "Mon profil" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Profil" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Prise de masse" })).toBeChecked();
+  await page.getByText("Maintien").click();
+  await page.getByText("lb, ft").click();
+  await expect(page.getByRole("textbox", { name: "Pieds" })).toHaveValue("5");
+  await page.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByText("Profil enregistré.")).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "Maintien" })).toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Pouces" })).toHaveValue("11");
 });
 
 test("mot de passe oublié : code reçu, nouveau mot de passe, reconnexion", async ({
