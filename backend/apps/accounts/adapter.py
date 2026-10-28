@@ -44,14 +44,13 @@ class AccountAdapter(DefaultAccountAdapter):
             return ip
 
     def pre_authenticate(self, request: HttpRequest, **credentials: Any) -> None:
-        """Limites d'allauth, puis refus si le compte a atteint son plafond journalier d'échecs."""
+        """Limites d'allauth, puis refus si le compte a atteint son plafond journalier d'échecs.
+
+        Le plafond ne compte que les seconds facteurs refusés (mot de passe déjà prouvé) : des
+        mots de passe faux, que n'importe qui peut envoyer, ne doivent pas bloquer un compte
+        24 h. Ils restent limités par allauth (`login_failed`, 5 par 5 minutes).
+        """
         super().pre_authenticate(request, **credentials)
         email = str(credentials.get("email", "")).lower()
         if email and not ratelimit.consume(request, action=DAILY_FAILURES, key=email, dry_run=True):
             raise self.validation_error("too_many_login_attempts")
-
-    def authentication_failed(self, request: HttpRequest, **credentials: Any) -> None:
-        super().authentication_failed(request, **credentials)
-        email = str(credentials.get("email", "")).lower()
-        if email:
-            ratelimit.consume(request, action=DAILY_FAILURES, key=email)

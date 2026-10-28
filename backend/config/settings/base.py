@@ -135,9 +135,10 @@ ACCOUNT_EMAIL_NOTIFICATIONS = True
 # Défauts d'allauth, sauf les demandes de réinitialisation : 3 par 15 min et par adresse (au lieu
 # de 5/min), pour qu'on ne puisse pas inonder une boîte, inscrite ou non, d'e-mails « [Lest] ».
 ACCOUNT_RATE_LIMITS = {
-    # Plafond journalier des échecs de connexion d'un compte (mot de passe ou second facteur),
-    # en plus de `login_failed` d'allauth (5/5 min) : sans lui, ~1 440 codes TOTP par jour. Action
-    # distincte : allauth partage l'historique de deux limites « key » d'une même action.
+    # Plafond journalier des seconds facteurs refusés d'un compte, en plus de `login_failed`
+    # d'allauth (5/5 min) : sans lui, ~1 440 codes TOTP par jour. Les mots de passe faux n'y
+    # comptent pas (blocage du compte par un tiers). Action distincte : allauth partage
+    # l'historique de deux limites « key » d'une même action. Remis à zéro par un reset.
     "login_failed_daily": "30/86400s/key",
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.

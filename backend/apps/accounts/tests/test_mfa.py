@@ -1,5 +1,6 @@
 """Double authentification (allauth.mfa, headless) : TOTP, codes de secours, secrets chiffrés."""
 
+import re
 from typing import Any
 
 import pytest
@@ -26,6 +27,7 @@ from common import crypto
 pytestmark = pytest.mark.django_db
 
 TOTP = f"{APP}/account/authenticators/totp"
+NEW_PASSWORD = "disque-de-fonte-25kg"  # gitleaks:allow — mot de passe de test, pas un secret
 RECOVERY = f"{APP}/account/authenticators/recovery-codes"
 
 
@@ -234,19 +236,51 @@ def test_the_second_factor_is_locked_after_the_daily_cap(client: Client) -> None
 @override_settings(
     ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "3/86400s/key"}
 )
-def test_wrong_passwords_count_towards_the_daily_cap() -> None:
+def test_wrong_passwords_do_not_lock_the_account_for_the_day() -> None:
+    # Sinon n'importe qui, avec la seule adresse, bloquerait le compte 24 h.
     user = make_verified_user()
-    for _ in range(3):
+    for ip in ("203.0.113.1", "203.0.113.2", "203.0.113.3", "203.0.113.4"):
         Client().post(
             f"{APP}/auth/login",
             {"email": user.email, "password": "pas-le-bon"},
             content_type="application/json",
-            headers={"X-Lest-Client-IP": "203.0.113.9"},
+            headers={"X-Lest-Client-IP": ip},
         )
+    cache.clear()  # fenêtre de 5 minutes d'allauth écoulée
 
-    blocked = login_attempt(Client(), user.email)
+    assert login_attempt(Client(), user.email).status_code == 200
 
-    assert blocked.json()["errors"][0]["code"] == "too_many_login_attempts"
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "login_failed_daily": "1/86400s/key"}
+)
+def test_a_password_reset_lifts_the_daily_cap(client: Client) -> None:
+    user = make_verified_user()
+    enable_totp(client, user)
+    session_token = login_attempt(Client(), user.email).json()["meta"]["session_token"]
+    second_factor(Client(), session_token, "000000")
+    assert login_attempt(Client(), user.email).status_code == 400  # plafond atteint
+
+    reset_client = Client()
+    requested = reset_client.post(
+        f"{APP}/auth/password/request", {"email": user.email}, content_type="application/json"
+    )
+    code = re.search(r"^\s*([A-Z0-9]{4}-[A-Z0-9]{4})\s*$", str(mail.outbox[-1].body), re.M)
+    assert code
+    reset_client.post(
+        f"{APP}/auth/password/reset",
+        {"key": code.group(1), "password": NEW_PASSWORD},
+        content_type="application/json",
+        headers={"X-Session-Token": requested.json()["meta"]["session_token"]},
+    )
+
+    relogin = Client().post(
+        f"{APP}/auth/login",
+        {"email": user.email, "password": NEW_PASSWORD},
+        content_type="application/json",
+    )
+    assert relogin.status_code == 401  # mot de passe accepté, second facteur demandé
+    assert "too_many_login_attempts" not in relogin.content.decode()
 
 
 def test_a_wrong_second_factor_notifies_the_holder_once_an_hour(client: Client) -> None:

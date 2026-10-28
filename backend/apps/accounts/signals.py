@@ -1,6 +1,7 @@
 from typing import Any
 
 from allauth.account.internal.stagekit import clear_login
+from allauth.account.signals import password_reset
 from allauth.core import ratelimit
 from allauth.mfa.signals import authentication_failed
 from django.core.cache import cache
@@ -30,3 +31,11 @@ def on_failed_second_factor(sender: Any, request: Any, user: Any, **kwargs: Any)
         clear_login(request)  # plafond atteint par cet échec : plus aucun essai sur cette connexion
     if cache.add(f"accounts:mfa-failure-alert:{user.pk}", 1, MFA_FAILURE_ALERT_INTERVAL):
         send_account_mail("account/email/mfa_failed", user.email)
+
+
+@receiver(password_reset)
+def clear_daily_failures_on_password_reset(
+    sender: Any, request: Any, user: Any, **kwargs: Any
+) -> None:
+    """Le titulaire a repris la main (code reçu par e-mail) : le plafond journalier est levé."""
+    ratelimit.clear(request, action=DAILY_FAILURES, key=user.email.lower())
