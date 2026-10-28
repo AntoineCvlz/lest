@@ -59,6 +59,9 @@ const DROPPED_RESPONSE_HEADERS = [
   "transfer-encoding",
 ] as const;
 
+// Jeton CSRF émis par le BFF (32 octets en base64url) : toute autre valeur est remplacée.
+const CSRF_TOKEN_SHAPE = /^[\w-]{20,64}$/;
+
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const METHODS_WITHOUT_BODY = new Set(["GET", "HEAD"]);
 
@@ -261,14 +264,18 @@ function cookiesFor({
       setCookie(ACCESS_COOKIE, rotated.access),
       setCookie(REFRESH_COOKIE, rotated.refresh),
     );
-    if (!request.cookies.has(CSRF_COOKIE)) {
-      cookies.push(setCookie(CSRF_COOKIE, randomBytes(32).toString("base64url")));
-    }
+    // Même jeton, durée prolongée comme celle du refresh : session glissante, et le garde des
+    // pages privées (`lest_csrf` comme indice de session) suit la vraie durée de la session.
+    const current = request.cookies.get(CSRF_COOKIE)?.value ?? "";
+    const csrf = CSRF_TOKEN_SHAPE.test(current) ? current : randomBytes(32).toString("base64url");
+    cookies.push(setCookie(CSRF_COOKIE, csrf));
   } else if (signedOut) {
+    // Session refusée (révoquée, expirée) : plus aucun indice de session côté navigateur.
     cookies.push(
       clearCookie(ACCESS_COOKIE),
       clearCookie(REFRESH_COOKIE),
       clearCookie(SESSION_COOKIE),
+      clearCookie(CSRF_COOKIE),
     );
   } else if (issued.session) {
     // Parcours en attente (inscription, vérification d'e-mail) : jeton gardé pour la suite.
