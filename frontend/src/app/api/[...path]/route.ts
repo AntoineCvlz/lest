@@ -39,6 +39,7 @@ const REFRESH_PATH_SUFFIX = "/tokens/refresh";
 // comptes chez allauth ; refusée aussi par Django (`RefusePasswordResetLookupMiddleware`).
 const RESET_LOOKUP_SUFFIX = "/auth/password/reset";
 const SESSION_PATH = "/api/v1/auth/app/v1/auth/session";
+const ACCOUNT_PATH = "/api/v1/me";
 
 // Ni `cookie` (les cookies sont ceux de Next.js), ni `authorization` : posés par le BFF.
 const FORWARDED_REQUEST_HEADERS = [
@@ -135,7 +136,11 @@ async function proxy(request: NextRequest): Promise<Response> {
     return problem(403, "Forbidden", pathname);
   }
   const isLogout = request.method === "DELETE" && routed === SESSION_PATH;
-  if (isLogout && !hasValidCsrf(request)) return problem(403, "Forbidden", pathname);
+  // Suppression du compte : l'action la plus destructrice, protégée comme la déconnexion.
+  const isAccountDeletion = request.method === "DELETE" && routed === ACCOUNT_PATH;
+  if ((isLogout || isAccountDeletion) && !hasValidCsrf(request)) {
+    return problem(403, "Forbidden", pathname);
+  }
 
   const isAuthRoute = `${routed}/`.startsWith(AUTH_PREFIX);
   const body = METHODS_WITHOUT_BODY.has(request.method) ? undefined : await request.arrayBuffer();
@@ -223,7 +228,9 @@ async function proxy(request: NextRequest): Promise<Response> {
     responseBody = JSON.stringify(json);
   }
 
-  for (const cookie of cookiesFor({ request, isLogout, issued, rotated, signedOut })) {
+  // Compte supprimé : plus aucune session à garder, comme après une déconnexion.
+  const signsOut = isLogout || (isAccountDeletion && upstream.status === 204);
+  for (const cookie of cookiesFor({ request, isLogout: signsOut, issued, rotated, signedOut })) {
     responseHeaders.append("set-cookie", cookie);
   }
   return new Response(responseBody, {

@@ -214,6 +214,7 @@ def test_delete_endpoint_refuses_a_wrong_password(client: Client) -> None:
 
     assert response.status_code == 403
     assert response["Content-Type"] == "application/problem+json"
+    assert response.json()["type"] == "urn:lest:problem:incorrect-password"
     assert User.objects.filter(pk=user.pk).exists()
 
 

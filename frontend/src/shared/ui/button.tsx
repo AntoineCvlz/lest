@@ -1,10 +1,13 @@
 import type { ButtonHTMLAttributes } from "react";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "md" | "lg";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** `primary` : l'action principale de l'écran (une seule par écran, en jaune). */
+  /**
+   * `primary` : l'action principale de l'écran (une seule par écran, en jaune).
+   * `danger` : action destructrice et définitive (suppression du compte), jamais en jaune.
+   */
   variant?: Variant;
   /** `md` : 44 px de haut (cible tactile minimale). `lg` : 64 px, action principale en séance. */
   size?: Size;
@@ -16,6 +19,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: "bg-accent text-on-accent font-extrabold",
   secondary: "border border-line bg-surface text-ink font-bold",
   ghost: "bg-transparent text-ink font-bold hover:bg-surface",
+  danger: "border-2 border-danger bg-transparent text-danger font-extrabold",
 };
 
 const SIZES: Record<Size, string> = {

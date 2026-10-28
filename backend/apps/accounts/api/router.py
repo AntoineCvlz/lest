@@ -13,8 +13,12 @@ from apps.accounts.models import MAX_HEIGHT_M, MIN_HEIGHT_M, Profile
 from apps.accounts.selectors import export_account, get_profile
 from apps.accounts.services import IncorrectPasswordError, delete_account, save_profile
 from common.auth import request_user
+from common.problems import ProblemError
 
 router = Router(tags=["accounts"])
+
+# Type RFC 9457 du mauvais mot de passe : distinct des autres 403 (CSRF, origine refusée).
+WRONG_CREDENTIALS_TYPE = "urn:lest:problem:incorrect-password"
 
 GoalValue = Literal["gain", "maintain", "cut"]
 UnitSystemValue = Literal["metric", "imperial"]
@@ -96,7 +100,7 @@ def delete_me(request: HttpRequest, payload: AccountDeletionIn) -> Status[None]:
         delete_account(user=user, password=payload.password)
     except IncorrectPasswordError as error:
         ratelimit.consume(request, action="login_failed", key=failures_key)
-        raise HttpError(403, "Mot de passe incorrect.") from error
+        raise ProblemError(403, "Mot de passe incorrect.", type_=WRONG_CREDENTIALS_TYPE) from error
     return Status(204, None)
 
 

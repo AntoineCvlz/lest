@@ -59,7 +59,20 @@ def _on_not_found(request: HttpRequest, exc: _Exc[Http404]) -> HttpResponse:
     return problem_response(request, status=404)
 
 
+class ProblemError(HttpError):
+    """`HttpError` avec un type RFC 9457 propre, que le client peut distinguer sans lire le texte
+    (ex. « mot de passe incorrect » parmi d'autres 403)."""
+
+    def __init__(self, status_code: int, message: str, *, type_: str) -> None:
+        super().__init__(status_code, message)
+        self.type_ = type_
+
+
 def _on_http_error(request: HttpRequest, exc: _Exc[HttpError]) -> HttpResponse:
+    if isinstance(exc, ProblemError):
+        return problem_response(
+            request, status=exc.status_code, detail=exc.message, type_=exc.type_
+        )
     if isinstance(exc, HttpError):
         return problem_response(request, status=exc.status_code, detail=exc.message)
     return problem_response(request, status=500)
