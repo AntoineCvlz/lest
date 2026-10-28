@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 from django.core import mail
-from django.test import Client
+from django.test import Client, override_settings
 
 from apps.accounts.models import User
 from apps.accounts.tests.factories import TEST_PASSWORD, make_user, make_verified_user
@@ -115,3 +115,23 @@ def test_logout_ends_the_session(client: Client) -> None:
 
     assert logout.status_code == 401
     assert after.status_code in {401, 410}
+
+
+@override_settings(ACCOUNT_RATE_LIMITS={"confirm_email": None})
+def test_the_verification_code_can_be_resent_twice(client: Client) -> None:
+    signup = post(client, f"{AUTH}/signup", {"email": "a@example.com", "password": STRONG_PASSWORD})
+    token = signup.json()["meta"]["session_token"]
+
+    statuses = [
+        post(client, f"{AUTH}/email/verify/resend", {}, token).status_code for _ in range(3)
+    ]
+
+    assert statuses == [200, 200, 409]
+    assert len(mail.outbox) == 3
+
+
+def test_resending_right_after_the_first_email_is_rate_limited(client: Client) -> None:
+    signup = post(client, f"{AUTH}/signup", {"email": "a@example.com", "password": STRONG_PASSWORD})
+    token = signup.json()["meta"]["session_token"]
+
+    assert post(client, f"{AUTH}/email/verify/resend", {}, token).status_code == 429

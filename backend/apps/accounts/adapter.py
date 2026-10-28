@@ -1,6 +1,8 @@
 import ipaddress
+import secrets
 
 from allauth.account.adapter import DefaultAccountAdapter
+from django.contrib.auth.hashers import make_password
 from django.http import HttpRequest
 
 from .models import normalize_email
@@ -17,6 +19,15 @@ class AccountAdapter(DefaultAccountAdapter):
         # Normalisation identique au manager : « Antoine@X.fr » et « antoine@x.fr » sont un seul
         # compte (la contrainte Lower(email) en base le garantit de toute façon).
         return normalize_email(super().clean_email(email))
+
+    def send_account_already_exists_mail(self, email: str) -> None:
+        """Inscription sur une adresse déjà prise : même travail de hachage qu'une création.
+
+        allauth ne hache le mot de passe que pour un nouveau compte ; sans ce hachage factice,
+        le temps de réponse (Argon2) révélerait que l'adresse est inscrite.
+        """
+        make_password(secrets.token_urlsafe(32))
+        super().send_account_already_exists_mail(email)
 
     def get_client_ip(self, request: HttpRequest) -> str:
         """IP retenue par la limitation de débit : en-tête du proxy si valide, sinon le socket."""
