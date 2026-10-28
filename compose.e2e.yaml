@@ -11,6 +11,8 @@ x-backend-prod: &backend-prod
     DJANGO_ALLOWED_HOSTS: api,localhost,127.0.0.1
     # Pas de TLS dans la stack locale : la redirection HTTPS casserait les appels internes.
     DJANGO_SECURE_SSL_REDIRECT: "false"
+    # Mailpit (capture des e-mails des parcours de compte) ne propose pas STARTTLS.
+    EMAIL_USE_TLS: "false"
 
 # `develop: !reset null` est répété par service : dans une ancre fusionnée (`<<`), il est ignoré.
 services:

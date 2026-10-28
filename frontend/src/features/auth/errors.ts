@@ -17,13 +17,14 @@ const MESSAGES: Record<string, string> = {
   too_many_login_attempts: "Trop de tentatives de connexion. Réessayez dans quelques minutes.",
   required: "Ce champ est obligatoire.",
   invalid: "Saisissez une adresse e-mail valide.",
+  incorrect_code: "Code incorrect ou expiré. Vérifiez-le ou demandez-en un nouveau.",
 };
 
 // Erreurs qui portent sur la combinaison (ou sur le compte), pas sur un champ précis : allauth
 // les rattache au mot de passe, mais dire lequel des deux est faux renseignerait un attaquant.
 const GLOBAL_CODES = new Set(["email_password_mismatch", "too_many_login_attempts"]);
 
-export const UNAVAILABLE = "Connexion impossible pour le moment. Réessayez dans un instant.";
+export const UNAVAILABLE = "Le service ne répond pas pour le moment. Réessayez dans un instant.";
 export const RATE_LIMITED = MESSAGES.too_many_login_attempts ?? UNAVAILABLE;
 
 interface AllauthError {

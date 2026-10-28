@@ -83,9 +83,8 @@ describe("LoginForm", () => {
   });
 
   it.each([
-    [401, "Confirmez d’abord votre adresse e-mail"],
     [429, "Trop de tentatives de connexion"],
-    [503, "Connexion impossible pour le moment"],
+    [503, "Le service ne répond pas pour le moment"],
   ])("explique une réponse %i", async (status, message) => {
     server.use(http.post(LOGIN_URL, () => HttpResponse.json({ status }, { status })));
     renderWithQuery(<LoginForm />);
@@ -95,6 +94,43 @@ describe("LoginForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(message);
   });
 
+  it("envoie vers la saisie du code quand l'adresse n'est pas vérifiée (401)", async () => {
+    server.use(
+      http.post(LOGIN_URL, () =>
+        HttpResponse.json(
+          { status: 401, data: { flows: [{ id: "verify_email", is_pending: true }] } },
+          { status: 401 },
+        ),
+      ),
+    );
+    renderWithQuery(<LoginForm />);
+
+    await submit("membre@example.com", "un-mot-de-passe");
+
+    await vi.waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/verification");
+    });
+  });
+
+  it("n'envoie pas vers la saisie du code pour un autre parcours en attente", async () => {
+    server.use(
+      http.post(LOGIN_URL, () =>
+        HttpResponse.json(
+          { status: 401, data: { flows: [{ id: "mfa_authenticate", is_pending: true }] } },
+          { status: 401 },
+        ),
+      ),
+    );
+    renderWithQuery(<LoginForm />);
+
+    await submit("membre@example.com", "un-mot-de-passe");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Le service ne répond pas pour le moment",
+    );
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("explique une panne réseau", async () => {
     server.use(http.post(LOGIN_URL, () => HttpResponse.error()));
     renderWithQuery(<LoginForm />);
@@ -102,7 +138,7 @@ describe("LoginForm", () => {
     await submit("membre@example.com", "x");
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Connexion impossible pour le moment",
+      "Le service ne répond pas pour le moment",
     );
   });
 });

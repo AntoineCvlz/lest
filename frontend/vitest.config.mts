@@ -37,6 +37,10 @@ export default defineConfig({
             headless: true,
             instances: [{ browser: "chromium" }],
           },
+          // Port du serveur du mode navigateur (63315 par défaut). Sous Windows, Hyper-V peut
+          // réserver cette plage au démarrage (`netsh int ipv4 show excludedportrange
+          // protocol=tcp`) : le port est alors surchargeable par une variable d'environnement.
+          api: { port: Number(process.env.VITEST_BROWSER_API_PORT) || 63315 },
           setupFiles: ["./.storybook/vitest.setup.ts"],
         },
       },
