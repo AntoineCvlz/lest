@@ -36,9 +36,6 @@ services:
     <<: *backend-prod
     develop: !reset null
     command: ["celery", "-A", "config", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
-    # Le healthcheck HTTP de l'image vise l'API ; beat n'écoute aucun port.
-    healthcheck:
-      disable: true
 
   web:
     build:
