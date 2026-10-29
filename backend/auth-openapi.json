@@ -3016,6 +3016,7 @@
         ]
       },
       "WebAuthnCredential": {
+        "additionalProperties": true,
         "example": {
           "credential": {
             "authenticatorAttachment": "cross-platform",

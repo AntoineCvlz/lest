@@ -23,3 +23,11 @@ def test_schema_is_pinned_to_the_app_client_under_the_api_prefix() -> None:
 
     assert "/api/v1/auth/app/v1/auth/login" in paths
     assert all(path.startswith("/api/v1/auth/app/v1/") for path in paths)
+
+
+def test_webauthn_credential_is_an_open_object() -> None:
+    # Le front envoie le JSON du navigateur tel quel : il doit rester typable.
+    credential = auth_schema()["components"]["schemas"]["WebAuthnCredential"]
+
+    assert credential["type"] == "object"
+    assert credential["additionalProperties"] is True
