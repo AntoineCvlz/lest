@@ -5,14 +5,16 @@ from unittest import mock
 from uuid import UUID, uuid4
 
 import pytest
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from apps.accounts.selectors import export_account
 from apps.accounts.services import delete_account
 from apps.accounts.tests.auth import bearer, login
 from apps.accounts.tests.factories import TEST_PASSWORD, make_verified_user
+from apps.training import services
 from apps.training.models import Exercise, Set, Workout, WorkoutExercise
 from apps.training.tests.factories import make_exercise
 
@@ -277,6 +279,7 @@ def test_bob_cannot_delete_alice_data(alice: Athlete, bob: Athlete, bench: Exerc
 
     assert statuses == [204, 204, 204]  # idempotent, sans rien révéler
     assert Set.objects.filter(pk=set_id).exists()
+    assert WorkoutExercise.objects.filter(pk=item_id).exists()
     assert Workout.objects.filter(pk=workout_id).exists()
 
 
@@ -318,24 +321,105 @@ def test_deleting_the_account_deletes_its_workouts(alice: Athlete, bench: Exerci
     assert Exercise.objects.filter(pk=bench.pk).exists()  # le catalogue reste
 
 
+def test_a_persistent_integrity_error_is_a_bounded_opaque_conflict(
+    alice: Athlete, bench: Exercise, caplog: pytest.LogCaptureFixture
+) -> None:
+    _, item_id = start(alice, bench)
+    attempts = 0
+
+    def always_violates(self: Set, *args: Any, **kwargs: Any) -> None:
+        nonlocal attempts
+        attempts += 1
+        msg = "Failing row contains (..., 123.45, ...)"
+        raise IntegrityError(msg)
+
+    with mock.patch.object(Set, "save", always_violates):
+        response = alice.put(f"/sets/{uuid4()}/", set_body(item_id, weight_kg="123.45"))
+
+    assert response.status_code == 409
+    assert attempts == 2  # une seule nouvelle tentative
+    assert "123.45" not in response.content.decode()
+    assert "123.45" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "workout_id",
+    ["00000000-0000-0000-0000-000000000000", "c232ab00-9414-11ec-b3c8-9f6bdeced846"],  # nul, v1
+)
+def test_only_random_client_ids_are_accepted(alice: Athlete, workout_id: str) -> None:
+    response = alice.put(f"/workouts/{workout_id}/", workout_body())
+
+    assert response.status_code == 422
+    assert not Workout.objects.exists()
+
+
+@pytest.mark.parametrize(
+    "started_at", ["0001-01-01T00:00:00+14:00", "9999-12-31T23:00:00-05:00", "1999-12-31T12:00:00Z"]
+)
+def test_implausible_dates_are_refused(alice: Athlete, started_at: str) -> None:
+    response = alice.put(f"/workouts/{uuid4()}/", workout_body(started_at=started_at))
+
+    assert response.status_code == 422
+    assert not Workout.objects.exists()
+
+
+def test_a_deactivated_exercise_still_accepts_an_offline_replay(alice: Athlete) -> None:
+    retired = make_exercise(is_active=False)
+
+    workout_id, _ = start(alice, retired)
+
+    assert alice.get(f"/workouts/{workout_id}/").json()["exercises"][0]["exercise_id"] == str(
+        retired.pk
+    )
+
+
+def miss_the_first_lookup() -> Any:
+    """Course : la première lecture ne voit pas la ligne qu'un autre envoi vient d'insérer."""
+    original = services._locked
+    calls = 0
+
+    def locked(model: Any, pk: UUID) -> Any:
+        nonlocal calls
+        calls += 1
+        return None if calls == 1 else original(model, pk)
+
+    return mock.patch.object(services, "_locked", locked)
+
+
 def test_two_simultaneous_first_sends_make_one_workout(alice: Athlete) -> None:
-    # Double tap : le premier envoi insère la séance après la lecture du second (simulé pendant
-    # sa validation). Le second rencontre l'unicité de la clé et devient une mise à jour.
+    # Double tap : le premier envoi est déjà écrit quand le second l'écrit à son tour.
     workout_id = uuid4()
-    original_full_clean = Workout.full_clean
-    raced = False
+    Workout.objects.create(id=workout_id, owner=alice.user, started_at=STARTED)
 
-    def full_clean_then_concurrent_insert(self: Workout, *args: Any, **kwargs: Any) -> None:
-        nonlocal raced
-        original_full_clean(self, *args, **kwargs)
-        if not raced:
-            raced = True
-            Workout.objects.bulk_create(
-                [Workout(pk=self.pk, owner=self.owner, started_at=self.started_at)]
-            )
-
-    with mock.patch.object(Workout, "full_clean", full_clean_then_concurrent_insert):
+    with miss_the_first_lookup():
         response = alice.put(f"/workouts/{workout_id}/", workout_body())
 
-    assert response.status_code == 200  # rejoué en mise à jour
+    assert response.status_code == 200  # rejoué en mise à jour, sans doublon
     assert Workout.objects.filter(pk=workout_id).count() == 1
+
+
+def test_a_concurrent_first_send_by_another_account_is_not_taken_over(
+    alice: Athlete, bob: Athlete
+) -> None:
+    workout_id = uuid4()
+    Workout.objects.create(id=workout_id, owner=bob.user, started_at=STARTED)
+
+    with miss_the_first_lookup():
+        response = alice.put(f"/workouts/{workout_id}/", workout_body(ended_at=STARTED))
+
+    assert response.status_code == 404
+    bobs = Workout.objects.get(pk=workout_id)
+    assert (bobs.owner, bobs.ended_at) == (bob.user, None)
+
+
+def test_the_parent_is_locked_while_its_child_is_written(alice: Athlete, bench: Exercise) -> None:
+    # Une suppression concurrente du parent attend la fin de l'écriture : pas de clé orpheline.
+    _, item_id = start(alice, bench)
+
+    with CaptureQueriesContext(connection) as queries:
+        alice.put(f"/sets/{uuid4()}/", set_body(item_id))
+
+    assert any(
+        'FROM "training_workoutexercise"' in query["sql"] and "FOR UPDATE" in query["sql"]
+        for query in queries.captured_queries
+    )

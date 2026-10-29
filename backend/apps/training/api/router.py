@@ -4,42 +4,61 @@ Routers minces : schémas Pydantic, appel du service, traduction des erreurs. Un
 d'un autre compte répond 404 comme un identifiant inconnu ; un parent inconnu, 422.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Annotated
 from uuid import UUID
 
 from django.http import Http404, HttpRequest
+from django.utils import timezone
 from ninja import Field, Router, Schema, Status
-from pydantic import AwareDatetime
+from pydantic import UUID4, AfterValidator, AwareDatetime
 
 from apps.training import selectors, services
 from apps.training.models import MAX_REPS, MAX_WEIGHT_KG, Set, Workout, WorkoutExercise
 from common.auth import request_user
+from common.problems import ProblemError
 
 router = Router(tags=["training"])
 
 MAX_POSITION = 1000
+EARLIEST = datetime(2000, 1, 1, tzinfo=UTC)
+WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
+
+
+def _plausible(moment: datetime) -> datetime:
+    # Une horloge déréglée ne doit pas écrire une date que la relecture (et l'export RGPD) ne
+    # saurait plus représenter : de 2000 à demain au plus tard.
+    if not EARLIEST <= moment <= timezone.now() + timedelta(days=1):
+        msg = "Date hors de la plage acceptée."
+        raise ValueError(msg)
+    return moment
+
+
+# Identifiants générés par le client : UUID version 4 seulement (ni nul, ni v1 prévisible).
+ClientId = UUID4
+Moment = Annotated[AwareDatetime, AfterValidator(_plausible)]
 
 
 class WorkoutIn(Schema):
-    started_at: AwareDatetime
-    ended_at: AwareDatetime | None = None
+    started_at: Moment
+    ended_at: Moment | None = None
 
 
 class WorkoutExerciseIn(Schema):
-    workout_id: UUID
+    workout_id: ClientId
     exercise_id: UUID
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
 
 
 class SetIn(Schema):
-    workout_exercise_id: UUID
+    workout_exercise_id: ClientId
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
     weight_kg: Decimal = Field(ge=0, le=MAX_WEIGHT_KG, max_digits=6, decimal_places=2)
     reps: int = Field(strict=True, ge=0, le=MAX_REPS)
     rpe: Decimal | None = Field(default=None, ge=1, le=10, multiple_of=0.5)
     is_warmup: bool = False
-    performed_at: AwareDatetime
+    performed_at: Moment
 
 
 class SetOut(Schema):
@@ -104,8 +123,12 @@ def _status[T](created: bool, body: T) -> Status[T]:
     return Status(201 if created else 200, body)
 
 
+def _conflict() -> ProblemError:
+    return ProblemError(409, "Écriture refusée, réessayez.", type_=WRITE_CONFLICT_TYPE)
+
+
 @router.get("/workouts/{workout_id}/", response=WorkoutDetailOut, summary="Séance et séries")
-def read_workout(request: HttpRequest, workout_id: UUID) -> WorkoutDetailOut:
+def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut:
     workout = selectors.get_workout(owner=request_user(request), workout_id=workout_id)
     if workout is None:
         raise Http404
@@ -134,7 +157,9 @@ def read_workout(request: HttpRequest, workout_id: UUID) -> WorkoutDetailOut:
     response={200: WorkoutOut, 201: WorkoutOut},
     summary="Créer ou remplacer une séance",
 )
-def write_workout(request: HttpRequest, workout_id: UUID, payload: WorkoutIn) -> Status[WorkoutOut]:
+def write_workout(
+    request: HttpRequest, workout_id: ClientId, payload: WorkoutIn
+) -> Status[WorkoutOut]:
     try:
         workout, created = services.put_workout(
             owner=request_user(request),
@@ -144,11 +169,13 @@ def write_workout(request: HttpRequest, workout_id: UUID, payload: WorkoutIn) ->
         )
     except services.NotFoundError as error:
         raise Http404 from error
+    except services.WriteConflictError as error:
+        raise _conflict() from error
     return _status(created, _workout_out(workout))
 
 
 @router.delete("/workouts/{workout_id}/", response={204: None}, summary="Supprimer une séance")
-def remove_workout(request: HttpRequest, workout_id: UUID) -> Status[None]:
+def remove_workout(request: HttpRequest, workout_id: ClientId) -> Status[None]:
     services.delete_workout(owner=request_user(request), workout_id=workout_id)
     return Status(204, None)
 
@@ -159,7 +186,7 @@ def remove_workout(request: HttpRequest, workout_id: UUID) -> Status[None]:
     summary="Ajouter ou remplacer un exercice de séance",
 )
 def write_workout_exercise(
-    request: HttpRequest, workout_exercise_id: UUID, payload: WorkoutExerciseIn
+    request: HttpRequest, workout_exercise_id: ClientId, payload: WorkoutExerciseIn
 ) -> Status[WorkoutExerciseOut]:
     try:
         item, created = services.put_workout_exercise(
@@ -171,6 +198,8 @@ def write_workout_exercise(
         )
     except services.NotFoundError as error:
         raise Http404 from error
+    except services.WriteConflictError as error:
+        raise _conflict() from error
     return _status(created, _workout_exercise_out(item))
 
 
@@ -179,7 +208,7 @@ def write_workout_exercise(
     response={204: None},
     summary="Retirer un exercice de séance et ses séries",
 )
-def remove_workout_exercise(request: HttpRequest, workout_exercise_id: UUID) -> Status[None]:
+def remove_workout_exercise(request: HttpRequest, workout_exercise_id: ClientId) -> Status[None]:
     services.delete_workout_exercise(
         owner=request_user(request), workout_exercise_id=workout_exercise_id
     )
@@ -187,7 +216,7 @@ def remove_workout_exercise(request: HttpRequest, workout_exercise_id: UUID) -> 
 
 
 @router.put("/sets/{set_id}/", response={200: SetOut, 201: SetOut}, summary="Enregistrer une série")
-def write_set(request: HttpRequest, set_id: UUID, payload: SetIn) -> Status[SetOut]:
+def write_set(request: HttpRequest, set_id: ClientId, payload: SetIn) -> Status[SetOut]:
     try:
         one, created = services.put_set(
             owner=request_user(request),
@@ -202,10 +231,12 @@ def write_set(request: HttpRequest, set_id: UUID, payload: SetIn) -> Status[SetO
         )
     except services.NotFoundError as error:
         raise Http404 from error
+    except services.WriteConflictError as error:
+        raise _conflict() from error
     return _status(created, _set_out(one))
 
 
 @router.delete("/sets/{set_id}/", response={204: None}, summary="Supprimer une série")
-def remove_set(request: HttpRequest, set_id: UUID) -> Status[None]:
+def remove_set(request: HttpRequest, set_id: ClientId) -> Status[None]:
     services.delete_set(owner=request_user(request), set_id=set_id)
     return Status(204, None)

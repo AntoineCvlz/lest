@@ -227,7 +227,7 @@ export interface components {
             weight_kg: number | string;
             /**
              * Workout Exercise Id
-             * Format: uuid
+             * Format: uuid4
              */
             workout_exercise_id: string;
         };
@@ -315,7 +315,7 @@ export interface components {
             position: number;
             /**
              * Workout Id
-             * Format: uuid
+             * Format: uuid4
              */
             workout_id: string;
         };

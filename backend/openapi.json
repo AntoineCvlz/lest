@@ -207,7 +207,7 @@
             "title": "Weight Kg"
           },
           "workout_exercise_id": {
-            "format": "uuid",
+            "format": "uuid4",
             "title": "Workout Exercise Id",
             "type": "string"
           }
@@ -389,7 +389,7 @@
             "type": "integer"
           },
           "workout_id": {
-            "format": "uuid",
+            "format": "uuid4",
             "title": "Workout Id",
             "type": "string"
           }
@@ -685,7 +685,7 @@
             "name": "set_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Set Id",
               "type": "string"
             }
@@ -714,7 +714,7 @@
             "name": "set_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Set Id",
               "type": "string"
             }
@@ -772,7 +772,7 @@
             "name": "workout_exercise_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Workout Exercise Id",
               "type": "string"
             }
@@ -801,7 +801,7 @@
             "name": "workout_exercise_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Workout Exercise Id",
               "type": "string"
             }
@@ -859,7 +859,7 @@
             "name": "workout_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Workout Id",
               "type": "string"
             }
@@ -888,7 +888,7 @@
             "name": "workout_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Workout Id",
               "type": "string"
             }
@@ -924,7 +924,7 @@
             "name": "workout_id",
             "required": true,
             "schema": {
-              "format": "uuid",
+              "format": "uuid4",
               "title": "Workout Id",
               "type": "string"
             }
