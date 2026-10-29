@@ -55,7 +55,7 @@ describe("SecondFactorForm", () => {
 
     await submit("000000");
 
-    expect(await screen.findByText(/Code incorrect ou expiré/)).toBeInTheDocument();
+    expect(await screen.findByText(/^Code incorrect. Saisissez/)).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 

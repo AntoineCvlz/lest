@@ -8,9 +8,16 @@ import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
-import { formErrors, UNAVAILABLE, type FormErrors } from "../auth/errors";
+import {
+  formErrors,
+  NO_ERRORS,
+  RATE_LIMITED,
+  SECOND_FACTOR_MESSAGES,
+  UNAVAILABLE,
+  type FormErrors,
+} from "../auth/errors";
 import { FormAlert } from "../auth/form-alert";
-import { textValue } from "../auth/form";
+import { requiresReauthentication, textValue } from "../auth/form";
 import { QrCode } from "./qr-code";
 
 const AUTHENTICATORS = "/api/v1/auth/app/v1/account/authenticators";
@@ -18,16 +25,25 @@ const TOTP = "/api/v1/auth/app/v1/account/authenticators/totp";
 const RECOVERY_CODES = "/api/v1/auth/app/v1/account/authenticators/recovery-codes";
 export const MFA_QUERY_KEY = ["mfa-authenticators"] as const;
 export const MFA_ENABLED = "Double authentification activée (application).";
+export const CONFIRM_AGAIN = "Votre confirmation a expiré : confirmez à nouveau pour continuer.";
+export const CODES_UNAVAILABLE =
+  "Vos codes de secours n’ont pas pu être affichés. Affichez-les avant de quitter cet écran.";
 
-type Intent = "enable" | "disable";
+/**
+ * Ce que l'utilisateur confirme : activer et afficher les codes se confirment par le mot de
+ * passe ; désactiver exige un second facteur (code de l'application ou de secours), pour qu'un
+ * mot de passe vu par-dessus l'épaule ne suffise pas à retirer la protection.
+ */
+type Intent = "enable" | "disable" | "codes";
 type Step =
   | { kind: "idle" }
-  | { kind: "password"; intent: Intent }
+  | { kind: "confirm"; intent: Intent }
   | { kind: "setup"; secret: string; url: string }
   | { kind: "codes"; codes: string[] };
 
-function errorsFrom(status: number, body: unknown): FormErrors {
-  return status === 400 ? formErrors(body) : { fields: {}, global: [UNAVAILABLE] };
+function errorsFrom(status: number, body: unknown, messages?: Record<string, string>): FormErrors {
+  if (status === 400) return formErrors(body, messages);
+  return { fields: {}, global: [status === 429 ? RATE_LIMITED : UNAVAILABLE] };
 }
 
 /** Méthodes actives du compte (`totp`, `recovery_codes`). */
@@ -45,32 +61,60 @@ function useAuthenticators() {
 
 /**
  * Double authentification, optionnelle : activation (mot de passe, QR code, premier code, codes
- * de secours affichés une fois) et désactivation (mot de passe). Les secrets ne quittent pas
- * cet écran : rien n'est gardé dans le cache de requêtes.
+ * de secours) et désactivation (second facteur). Les secrets ne quittent pas cet écran : rien
+ * n'est gardé dans le cache de requêtes, et les mutations sont remises à zéro une fois réglées
+ * (ni mot de passe ni code dans leurs variables).
  */
 export function SecurityPanel() {
   const hydrated = useHydrated();
   const queryClient = useQueryClient();
   const authenticators = useAuthenticators();
   const [step, setStep] = useState<Step>({ kind: "idle" });
-  const [errors, setErrors] = useState<FormErrors>({ fields: {}, global: [] });
+  const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
   const enabled = authenticators.data?.includes("totp") ?? false;
 
-  const reauthenticate = useMutation({
+  function confirmAgain(intent: Intent) {
+    setStep({ kind: "confirm", intent });
+    setErrors({ fields: {}, global: [CONFIRM_AGAIN] });
+  }
+
+  async function showRecoveryCodes(): Promise<void> {
+    const { data, error, response } = await authClient.GET(RECOVERY_CODES);
+    if (requiresReauthentication(response.status, error)) {
+      confirmAgain("codes");
+      return;
+    }
+    // Liste vide : l'écran le signale et propose de réessayer (jamais une liste vide « à noter »).
+    setStep({
+      kind: "codes",
+      codes: data && "unused_codes" in data.data ? data.data.unused_codes : [],
+    });
+  }
+
+  const confirm = useMutation({
     gcTime: 0,
-    mutationFn: async ({ password, intent }: { password: string; intent: Intent }) => {
-      const reauth = await authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
-        body: { password },
-      });
+    mutationFn: async ({ secret, intent }: { secret: string; intent: Intent }) => {
+      const reauth =
+        intent === "disable"
+          ? await authClient.POST("/api/v1/auth/app/v1/auth/2fa/reauthenticate", {
+              body: { code: secret },
+            })
+          : await authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
+              body: { password: secret },
+            });
       if (!reauth.response.ok) {
-        setErrors(errorsFrom(reauth.response.status, reauth.error));
+        setErrors(errorsFrom(reauth.response.status, reauth.error, SECOND_FACTOR_MESSAGES));
         return;
       }
-      setErrors({ fields: {}, global: [] });
+      setErrors(NO_ERRORS);
+      if (intent === "codes") {
+        await showRecoveryCodes();
+        return;
+      }
       if (intent === "disable") {
         const { response } = await authClient.DELETE(TOTP);
-        if (!response.ok) setErrors({ fields: {}, global: [UNAVAILABLE] });
         setStep({ kind: "idle" });
+        if (!response.ok) setErrors({ fields: {}, global: [UNAVAILABLE] });
         await queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
         return;
       }
@@ -89,35 +133,51 @@ export function SecurityPanel() {
     gcTime: 0,
     mutationFn: async (code: string) => {
       const activated = await authClient.POST(TOTP, { body: { code } });
+      // Confirmation trop ancienne (QR code scanné après le délai d'allauth) : la refaire.
+      if (requiresReauthentication(activated.response.status, activated.error)) {
+        confirmAgain("enable");
+        return;
+      }
       if (!activated.response.ok) {
         setErrors(errorsFrom(activated.response.status, activated.error));
         return;
       }
-      setErrors({ fields: {}, global: [] });
-      const { data } = await authClient.GET(RECOVERY_CODES);
-      setStep({
-        kind: "codes",
-        codes: data && "unused_codes" in data.data ? data.data.unused_codes : [],
-      });
+      setErrors(NO_ERRORS);
+      await showRecoveryCodes();
     },
   });
 
-  function onPassword(event: SubmitEvent<HTMLFormElement>, intent: Intent) {
+  const busy = confirm.isPending || activate.isPending;
+
+  function onConfirm(event: SubmitEvent<HTMLFormElement>, intent: Intent) {
     event.preventDefault();
-    reauthenticate.mutate({
-      password: textValue(new FormData(event.currentTarget), "password"),
-      intent,
-    });
+    const form = new FormData(event.currentTarget);
+    const secret =
+      intent === "disable"
+        ? textValue(form, "code").replace(/\s+/g, "")
+        : textValue(form, "password");
+    confirm.mutate(
+      { secret, intent },
+      {
+        onSettled: () => {
+          confirm.reset();
+        },
+      },
+    );
   }
 
   function onCode(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    activate.mutate(textValue(new FormData(event.currentTarget), "code").replace(/\s+/g, ""));
+    activate.mutate(textValue(new FormData(event.currentTarget), "code").replace(/\s+/g, ""), {
+      onSettled: () => {
+        activate.reset();
+      },
+    });
   }
 
   function cancel() {
     setStep({ kind: "idle" });
-    setErrors({ fields: {}, global: [] });
+    setErrors(NO_ERRORS);
   }
 
   return (
@@ -143,7 +203,8 @@ export function SecurityPanel() {
             <Button
               variant={enabled ? "danger" : "secondary"}
               onClick={() => {
-                setStep({ kind: "password", intent: enabled ? "disable" : "enable" });
+                setErrors(NO_ERRORS);
+                setStep({ kind: "confirm", intent: enabled ? "disable" : "enable" });
               }}
             >
               {enabled
@@ -154,31 +215,42 @@ export function SecurityPanel() {
         </>
       )}
 
-      {step.kind === "password" && (
+      {step.kind === "confirm" && (
         <form
           method="post"
           noValidate
           onSubmit={(event) => {
-            onPassword(event, step.intent);
+            onConfirm(event, step.intent);
           }}
           className="flex flex-col gap-4"
         >
-          <TextField
-            label="Mot de passe, pour confirmer"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            error={errors.fields.password}
-          />
+          {step.intent === "disable" ? (
+            <TextField
+              label="Code de l’application ou code de secours, pour confirmer"
+              name="code"
+              autoComplete="one-time-code"
+              maxLength={20}
+              error={errors.fields.code}
+            />
+          ) : (
+            <TextField
+              label="Mot de passe, pour confirmer"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              error={errors.fields.password}
+            />
+          )}
           <FormAlert messages={errors.global} />
           <Button
             type="submit"
             variant={step.intent === "disable" ? "danger" : "secondary"}
-            disabled={!hydrated || reauthenticate.isPending}
+            disabled={!hydrated || busy}
           >
             {step.intent === "disable" ? "Désactiver" : "Continuer"}
           </Button>
-          <Button variant="ghost" onClick={cancel}>
+          {/* Désactivé pendant l'envoi : une réponse arrivée après coup ne rouvre pas l'écran. */}
+          <Button variant="ghost" onClick={cancel} disabled={busy}>
             Annuler
           </Button>
         </form>
@@ -203,10 +275,10 @@ export function SecurityPanel() {
             error={errors.fields.code}
           />
           <FormAlert messages={errors.global} />
-          <Button type="submit" variant="secondary" disabled={!hydrated || activate.isPending}>
+          <Button type="submit" variant="secondary" disabled={!hydrated || busy}>
             Activer
           </Button>
-          <Button variant="ghost" onClick={cancel}>
+          <Button variant="ghost" onClick={cancel} disabled={busy}>
             Annuler
           </Button>
         </form>
@@ -217,27 +289,44 @@ export function SecurityPanel() {
           <p role="status" className="font-semibold">
             {MFA_ENABLED}
           </p>
-          <p>
-            Notez ces codes de secours et gardez-les à l’abri : chacun permet une connexion si vous
-            n’avez plus votre application. Ils ne seront plus affichés.
-          </p>
-          <ul
-            aria-label="Codes de secours"
-            className="bg-surface-raised rounded-control grid grid-cols-2 gap-2 p-4 font-semibold [font-variant-numeric:tabular-nums]"
-          >
-            {step.codes.map((code) => (
-              <li key={code}>{code}</li>
-            ))}
-          </ul>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setStep({ kind: "idle" });
-              void queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
-            }}
-          >
-            J’ai noté mes codes
-          </Button>
+          {step.codes.length === 0 ? (
+            <>
+              <FormAlert messages={[CODES_UNAVAILABLE]} />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setErrors(NO_ERRORS);
+                  setStep({ kind: "confirm", intent: "codes" });
+                }}
+              >
+                Afficher mes codes de secours
+              </Button>
+            </>
+          ) : (
+            <>
+              <p>
+                Notez ces codes de secours maintenant et gardez-les à l’abri : chacun permet une
+                connexion si vous n’avez plus votre application.
+              </p>
+              <ul
+                aria-label="Codes de secours"
+                className="bg-surface-raised rounded-control grid grid-cols-2 gap-2 p-4 font-semibold [font-variant-numeric:tabular-nums]"
+              >
+                {step.codes.map((code) => (
+                  <li key={code}>{code}</li>
+                ))}
+              </ul>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setStep({ kind: "idle" });
+                  void queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
+                }}
+              >
+                J’ai noté mes codes
+              </Button>
+            </>
+          )}
         </div>
       )}
     </section>

@@ -9,7 +9,7 @@ import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
-import { formErrors, UNAVAILABLE } from "../auth/errors";
+import { formErrors, SECOND_FACTOR_MESSAGES, UNAVAILABLE } from "../auth/errors";
 import { FormAlert } from "../auth/form-alert";
 import { errorsOf, refused, textValue, type Outcome } from "../auth/form";
 import type { PrivateRoute } from "../auth/private-routes";
@@ -23,7 +23,8 @@ async function authenticate(code: string): Promise<Outcome<"signed-in">> {
     body: { code },
   });
   if (response.ok) return { kind: "signed-in" };
-  if (response.status === 400) return { kind: "refused", errors: formErrors(error) };
+  if (response.status === 400)
+    return { kind: "refused", errors: formErrors(error, SECOND_FACTOR_MESSAGES) };
   // 409 : parcours expiré ou absent ; 401 : connexion annulée (plafond d'échecs atteint).
   if (response.status === 409 || response.status === 401) return refused(NO_PENDING_LOGIN);
   if (response.status === 429) return refused(RATE_LIMITED);

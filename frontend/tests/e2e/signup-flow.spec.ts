@@ -185,6 +185,7 @@ test("double authentification : activation, puis connexion avec un code de secou
   const codes = page.getByRole("list", { name: "Codes de secours" }).getByRole("listitem");
   await expect(codes.first()).toBeVisible({ timeout: RESPONSE_TIMEOUT });
   const recoveryCode = (await codes.first().textContent()) ?? "";
+  const otherRecoveryCode = (await codes.nth(1).textContent()) ?? "";
   await expectNoAxeViolations(page);
   await page.getByRole("button", { name: "J’ai noté mes codes" }).click();
   await expect(page.getByText("Double authentification activée (application).")).toBeVisible();
@@ -203,4 +204,15 @@ test("double authentification : activation, puis connexion avec un code de secou
   await page.getByRole("button", { name: "Valider" }).click();
   await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
+
+  // Désactivation : un second facteur est exigé (ici un autre code de secours).
+  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("button", { name: "Désactiver la double authentification" }).click();
+  await page
+    .getByRole("textbox", { name: "Code de l’application ou code de secours, pour confirmer" })
+    .fill(otherRecoveryCode);
+  await page.getByRole("button", { name: "Désactiver", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Activer la double authentification" }),
+  ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
 });

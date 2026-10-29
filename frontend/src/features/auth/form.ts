@@ -45,6 +45,23 @@ export function awaitsFlow(body: unknown, flowId: string): boolean {
   );
 }
 
+/**
+ * 401 d'allauth sur une session valide (`meta.is_authenticated`) : l'action exige une
+ * réauthentification récente, ce n'est pas un jeton expiré.
+ */
+export function requiresReauthentication(status: number, body: unknown): boolean {
+  if (status !== 401 || typeof body !== "object" || body === null || !("meta" in body)) {
+    return false;
+  }
+  const { meta } = body;
+  return (
+    typeof meta === "object" &&
+    meta !== null &&
+    "is_authenticated" in meta &&
+    meta.is_authenticated === true
+  );
+}
+
 export function awaitsEmailVerification(body: unknown): boolean {
   return awaitsFlow(body, "verify_email");
 }
