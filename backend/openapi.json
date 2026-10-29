@@ -151,6 +151,346 @@
         ],
         "title": "ProfileOut",
         "type": "object"
+      },
+      "SetIn": {
+        "properties": {
+          "is_warmup": {
+            "default": false,
+            "title": "Is Warmup",
+            "type": "boolean"
+          },
+          "performed_at": {
+            "format": "date-time",
+            "title": "Performed At",
+            "type": "string"
+          },
+          "position": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "reps": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Reps",
+            "type": "integer"
+          },
+          "rpe": {
+            "anyOf": [
+              {
+                "maximum": 10.0,
+                "minimum": 1.0,
+                "multipleOf": 0.5,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpe"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Weight Kg"
+          },
+          "workout_exercise_id": {
+            "format": "uuid",
+            "title": "Workout Exercise Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workout_exercise_id",
+          "position",
+          "weight_kg",
+          "reps",
+          "performed_at"
+        ],
+        "title": "SetIn",
+        "type": "object"
+      },
+      "SetOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_warmup": {
+            "title": "Is Warmup",
+            "type": "boolean"
+          },
+          "performed_at": {
+            "format": "date-time",
+            "title": "Performed At",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "reps": {
+            "title": "Reps",
+            "type": "integer"
+          },
+          "rpe": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rpe"
+          },
+          "weight_kg": {
+            "title": "Weight Kg",
+            "type": "number"
+          },
+          "workout_exercise_id": {
+            "format": "uuid",
+            "title": "Workout Exercise Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workout_exercise_id",
+          "position",
+          "weight_kg",
+          "reps",
+          "rpe",
+          "is_warmup",
+          "performed_at"
+        ],
+        "title": "SetOut",
+        "type": "object"
+      },
+      "WorkoutDetailOut": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutExerciseDetailOut"
+            },
+            "title": "Exercises",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "volume_kg": {
+            "title": "Volume Kg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "ended_at",
+          "volume_kg",
+          "exercises"
+        ],
+        "title": "WorkoutDetailOut",
+        "type": "object"
+      },
+      "WorkoutExerciseDetailOut": {
+        "properties": {
+          "exercise_id": {
+            "format": "uuid",
+            "title": "Exercise Id",
+            "type": "string"
+          },
+          "exercise_name": {
+            "title": "Exercise Name",
+            "type": "string"
+          },
+          "exercise_name_language": {
+            "title": "Exercise Name Language",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/SetOut"
+            },
+            "title": "Sets",
+            "type": "array"
+          },
+          "workout_id": {
+            "format": "uuid",
+            "title": "Workout Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workout_id",
+          "exercise_id",
+          "position",
+          "exercise_name",
+          "exercise_name_language",
+          "sets"
+        ],
+        "title": "WorkoutExerciseDetailOut",
+        "type": "object"
+      },
+      "WorkoutExerciseIn": {
+        "properties": {
+          "exercise_id": {
+            "format": "uuid",
+            "title": "Exercise Id",
+            "type": "string"
+          },
+          "position": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "workout_id": {
+            "format": "uuid",
+            "title": "Workout Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workout_id",
+          "exercise_id",
+          "position"
+        ],
+        "title": "WorkoutExerciseIn",
+        "type": "object"
+      },
+      "WorkoutExerciseOut": {
+        "properties": {
+          "exercise_id": {
+            "format": "uuid",
+            "title": "Exercise Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "workout_id": {
+            "format": "uuid",
+            "title": "Workout Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "workout_id",
+          "exercise_id",
+          "position"
+        ],
+        "title": "WorkoutExerciseOut",
+        "type": "object"
+      },
+      "WorkoutIn": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started_at"
+        ],
+        "title": "WorkoutIn",
+        "type": "object"
+      },
+      "WorkoutOut": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "WorkoutOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -333,6 +673,303 @@
         "summary": "Créer ou modifier son profil",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/api/v1/sets/{set_id}/": {
+      "delete": {
+        "operationId": "apps_training_api_router_remove_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer une série",
+        "tags": [
+          "training"
+        ]
+      },
+      "put": {
+        "operationId": "apps_training_api_router_write_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Enregistrer une série",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/workout-exercises/{workout_exercise_id}/": {
+      "delete": {
+        "operationId": "apps_training_api_router_remove_workout_exercise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workout Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Retirer un exercice de séance et ses séries",
+        "tags": [
+          "training"
+        ]
+      },
+      "put": {
+        "operationId": "apps_training_api_router_write_workout_exercise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workout Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutExerciseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutExerciseOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutExerciseOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Ajouter ou remplacer un exercice de séance",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/workouts/{workout_id}/": {
+      "delete": {
+        "operationId": "apps_training_api_router_remove_workout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer une séance",
+        "tags": [
+          "training"
+        ]
+      },
+      "get": {
+        "operationId": "apps_training_api_router_read_workout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Séance et séries",
+        "tags": [
+          "training"
+        ]
+      },
+      "put": {
+        "operationId": "apps_training_api_router_write_workout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkoutIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Créer ou remplacer une séance",
+        "tags": [
+          "training"
         ]
       }
     }

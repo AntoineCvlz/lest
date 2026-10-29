@@ -1,12 +1,12 @@
-"""Catalogue d'exercices (importé de wger, ADR 0004) : exercices, muscles et équipements.
+"""Musculation : catalogue d'exercices (importé de wger, ADR 0004), séances et séries.
 
-Le catalogue est commun à tous les comptes. Les séances, séries et records (propres à chaque
-compte) arrivent dans les PR suivantes.
+Le catalogue est commun à tous les comptes ; séances et séries sont propres à chacun.
 """
 
 from typing import ClassVar
 from uuid import uuid4
 
+from django.conf import settings
 from django.db import models
 
 
@@ -93,3 +93,90 @@ class Exercise(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+# --- Séances (propres à chaque compte) ------------------------------------------------------
+# Identifiants générés par le client et écritures par `PUT` (ADR 0003) : `id` n'a pas de
+# valeur par défaut, le client la fournit toujours. Charges en kilogrammes (unités SI).
+
+MAX_WEIGHT_KG = 1000
+MAX_REPS = 1000
+
+
+class Workout(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="workouts"
+    )
+    started_at = models.DateTimeField()
+    ended_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-started_at",)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(ended_at__isnull=True)
+                | models.Q(ended_at__gte=models.F("started_at")),
+                name="training_workout_ends_after_start",
+            ),
+        ]
+
+    # Identifiant seul : ni dates ni charges dans les journaux et l'admin (minimisation).
+    def __str__(self) -> str:
+        return f"Séance {self.pk}"
+
+
+class WorkoutExercise(models.Model):
+    """Exercice d'une séance, à sa place dans l'ordre de la séance."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="exercises")
+    # PROTECT : un exercice utilisé n'est jamais supprimé du catalogue (désactivé, ADR 0004).
+    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    position = models.PositiveSmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("position", "created_at")
+
+    def __str__(self) -> str:
+        return f"Exercice de séance {self.pk}"
+
+
+class Set(models.Model):
+    id = models.UUIDField(primary_key=True, editable=False)
+    workout_exercise = models.ForeignKey(
+        WorkoutExercise, on_delete=models.CASCADE, related_name="sets"
+    )
+    position = models.PositiveSmallIntegerField()
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=2)
+    reps = models.PositiveSmallIntegerField()
+    # Effort perçu (1 à 10, par demi-points), facultatif.
+    rpe = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
+    is_warmup = models.BooleanField(default=False)
+    # Heure réelle de la série, fournie par le client (hors ligne compris, ADR 0003).
+    performed_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("position", "performed_at")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(weight_kg__gte=0, weight_kg__lte=MAX_WEIGHT_KG),
+                name="training_set_weight_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(reps__lte=MAX_REPS), name="training_set_reps_range"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rpe__isnull=True) | models.Q(rpe__gte=1, rpe__lte=10),
+                name="training_set_rpe_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Série {self.pk}"

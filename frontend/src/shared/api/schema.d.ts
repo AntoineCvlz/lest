@@ -74,6 +74,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sets/{set_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistrer une série */
+        put: operations["apps_training_api_router_write_set"];
+        post?: never;
+        /** Supprimer une série */
+        delete: operations["apps_training_api_router_remove_set"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workout-exercises/{workout_exercise_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajouter ou remplacer un exercice de séance */
+        put: operations["apps_training_api_router_write_workout_exercise"];
+        post?: never;
+        /** Retirer un exercice de séance et ses séries */
+        delete: operations["apps_training_api_router_remove_workout_exercise"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workouts/{workout_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Séance et séries */
+        get: operations["apps_training_api_router_read_workout"];
+        /** Créer ou remplacer une séance */
+        put: operations["apps_training_api_router_write_workout"];
+        post?: never;
+        /** Supprimer une séance */
+        delete: operations["apps_training_api_router_remove_workout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -149,6 +204,165 @@ export interface components {
              * @enum {string}
              */
             unit_system: "metric" | "imperial";
+        };
+        /** SetIn */
+        SetIn: {
+            /**
+             * Is Warmup
+             * @default false
+             */
+            is_warmup: boolean;
+            /**
+             * Performed At
+             * Format: date-time
+             */
+            performed_at: string;
+            /** Position */
+            position: number;
+            /** Reps */
+            reps: number;
+            /** Rpe */
+            rpe?: number | string | null;
+            /** Weight Kg */
+            weight_kg: number | string;
+            /**
+             * Workout Exercise Id
+             * Format: uuid
+             */
+            workout_exercise_id: string;
+        };
+        /** SetOut */
+        SetOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Warmup */
+            is_warmup: boolean;
+            /**
+             * Performed At
+             * Format: date-time
+             */
+            performed_at: string;
+            /** Position */
+            position: number;
+            /** Reps */
+            reps: number;
+            /** Rpe */
+            rpe: number | null;
+            /** Weight Kg */
+            weight_kg: number;
+            /**
+             * Workout Exercise Id
+             * Format: uuid
+             */
+            workout_exercise_id: string;
+        };
+        /** WorkoutDetailOut */
+        WorkoutDetailOut: {
+            /** Ended At */
+            ended_at: string | null;
+            /** Exercises */
+            exercises: components["schemas"]["WorkoutExerciseDetailOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Volume Kg */
+            volume_kg: number;
+        };
+        /** WorkoutExerciseDetailOut */
+        WorkoutExerciseDetailOut: {
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            /** Exercise Name */
+            exercise_name: string;
+            /** Exercise Name Language */
+            exercise_name_language: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Sets */
+            sets: components["schemas"]["SetOut"][];
+            /**
+             * Workout Id
+             * Format: uuid
+             */
+            workout_id: string;
+        };
+        /** WorkoutExerciseIn */
+        WorkoutExerciseIn: {
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            /** Position */
+            position: number;
+            /**
+             * Workout Id
+             * Format: uuid
+             */
+            workout_id: string;
+        };
+        /** WorkoutExerciseOut */
+        WorkoutExerciseOut: {
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /**
+             * Workout Id
+             * Format: uuid
+             */
+            workout_id: string;
+        };
+        /** WorkoutIn */
+        WorkoutIn: {
+            /** Ended At */
+            ended_at?: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /** WorkoutOut */
+        WorkoutOut: {
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
         };
     };
     responses: never;
@@ -289,6 +503,193 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProfileOut"];
                 };
+            };
+        };
+    };
+    apps_training_api_router_write_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SetOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_remove_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_training_api_router_write_workout_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutExerciseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutExerciseOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutExerciseOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_remove_workout_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_training_api_router_read_workout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutDetailOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_write_workout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkoutIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_remove_workout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

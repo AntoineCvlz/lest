@@ -10,6 +10,7 @@ EXPORTED_MODELS = {
     "account.emailaddress",
     "mfa.authenticator",
     "usersessions.usersession",
+    "training.workout",  # avec ses exercices de séance et ses séries
 }
 
 EXCLUDED_FROM_EXPORT = {
