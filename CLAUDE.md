@@ -141,7 +141,7 @@ lest/
 │   ├── tests/e2e/            # Playwright
 │   ├── package.json pnpm-lock.yaml Dockerfile
 ├── docs/
-│   ├── adr/                  # 0001-choix-auth.md, 0002-offline-sync.md…
+│   ├── adr/                  # 0001-choix-auth.md, 0003-ecritures-idempotentes-hors-ligne.md…
 │   ├── architecture.md       # diagrammes C4 en Mermaid
 │   └── design-system.md
 ├── .github/ workflows/ CODEOWNERS dependabot.yml pull_request_template.md
