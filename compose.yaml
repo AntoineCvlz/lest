@@ -90,6 +90,26 @@ services:
       - celery -A config worker --loglevel=INFO --concurrency=2
       - /app
 
+  # Planificateur des tâches périodiques (`CELERY_BEAT_SCHEDULE`) : une seule instance, relancée
+  # comme le worker à chaque modification. Fichier d'état dans /tmp, inscriptible par
+  # l'utilisateur non-root et sans intérêt à conserver.
+  beat:
+    <<: *backend
+    command:
+      - watchfiles
+      - --filter
+      - python
+      - celery -A config beat --loglevel=INFO --schedule /tmp/celerybeat-schedule
+      - /app
+    # Prêt quand le fichier d'état existe : beat a démarré et chargé sa planification. (L'image
+    # de prod embarque le healthcheck HTTP de l'API ; beat n'écoute aucun port.)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys; sys.exit(0 if os.path.exists('/tmp/celerybeat-schedule') else 1)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+
   web:
     build:
       context: ./frontend

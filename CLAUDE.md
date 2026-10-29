@@ -111,6 +111,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 | `redis` | `redis:7-alpine` | Cache + broker |
 | `api` | `backend/Dockerfile` cible `dev` | `runserver 0.0.0.0:8000`, code monté, attend `db` healthy |
 | `worker` | même image que `api` | Celery avec rechargement auto (`watchfiles`) |
+| `beat` | même image que `api` | Planificateur Celery, une seule instance (`CELERY_BEAT_SCHEDULE` : `clearsessions` chaque nuit) |
 | `web` | `frontend/Dockerfile` cible `dev` | `next dev --turbopack`, `node_modules` en volume anonyme |
 | `mailpit` | `axllent/mailpit` | Capture des e-mails |
 | `proxy` (option) | Caddy | Un seul domaine `localhost` pour front + `/api` |

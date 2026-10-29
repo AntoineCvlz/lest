@@ -32,6 +32,11 @@ services:
       start_period: 15s
       retries: 5
 
+  beat:
+    <<: *backend-prod
+    develop: !reset null
+    command: ["celery", "-A", "config", "beat", "--loglevel=INFO", "--schedule", "/tmp/celerybeat-schedule"]
+
   web:
     build:
       context: ./frontend
