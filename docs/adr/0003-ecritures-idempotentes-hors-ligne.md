@@ -41,12 +41,13 @@ et l'API n'aura pas à changer.
 
 | Règle | Choix |
 | --- | --- |
-| Identifiant | UUID généré par le client (`crypto.randomUUID()`), clé primaire du modèle |
+| Identifiant | UUID **version 4** généré par le client (`crypto.randomUUID()`), clé primaire du modèle ; nul, v1 et autres versions refusés (422) |
 | Création ou mise à jour | `PUT /api/v1/<ressource>/{uuid}` : 201 à la création, 200 à la mise à jour, même corps de réponse |
 | Identifiant d'un autre compte | 404 `problem+json`, comme une ressource absente : rien n'est écrit, et l'existence n'est pas confirmée |
 | Suppression | `DELETE` idempotent : 204 même si la ressource n'existe plus (déjà supprimée) |
 | Parent absent | 422 (`workout` inconnu pour une série) : la file d'attente rejoue dans l'ordre de saisie |
-| Horodatage | `performed_at` fourni par le client (heure réelle de la série, hors ligne compris), `created_at` et `updated_at` posés par le serveur |
+| Horodatage | `performed_at` fourni par le client (heure réelle de la série, hors ligne compris), avec fuseau, entre 2000 et le lendemain ; `created_at` et `updated_at` posés par le serveur |
+| Écritures concurrentes | parent relu et verrouillé (`FOR UPDATE`) dans la transaction de l'écriture ; une seule nouvelle tentative sur violation d'unicité (second premier envoi = mise à jour) ; toute autre violation : 409 sans détail |
 | Conflits | dernière écriture reçue gagne, champ par champ remplacé (`PUT` complet) ; un seul appareil saisit une séance en pratique |
 | Effets dérivés | volume et records recalculés à chaque écriture, de façon déterministe : rejouer n'en crée pas de nouveaux |
 
@@ -60,6 +61,11 @@ et l'API n'aura pas à changer.
   écritures.
 - ⚠️ Records et volume doivent être recalculés (pas incrémentés) : une série modifiée ou rejouée
   donne le même résultat. Testé explicitement.
+- ⚠️ Risque accepté : un `PUT` révèle si un identifiant est déjà pris (404 au lieu de 201).
+  Énumérer est irréaliste (122 bits aléatoires, v4 imposée) ; un identifiant de la file hors
+  ligne ne doit jamais s'afficher dans l'interface ni dans les journaux du client.
+- ⚠️ Pas encore de limite de débit ni de quota sur ces écritures : à ajouter avant l'ouverture
+  au public (même mécanisme que les limites d'allauth, par compte).
 - ⚠️ « Dernière écriture gagne » peut écraser une modification faite sur un autre appareil
   pendant une coupure. Accepté : une séance se saisit sur un seul téléphone. À revoir si la
   saisie à plusieurs appareils devient un besoin.

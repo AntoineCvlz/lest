@@ -6,6 +6,8 @@ from allauth.usersessions.models import UserSession
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 
+from apps.training.selectors import export_workouts
+
 from .models import Profile, User
 
 
@@ -66,6 +68,8 @@ def export_account(user: User) -> dict[str, Any]:
                 ),
             ).order_by("created_at")
         ],
+        # Séances, exercices et séries (domaine `training`, lu par son sélecteur).
+        "workouts": export_workouts(owner=user),
         "profile": (
             {
                 "height_m": float(profile.height_m),

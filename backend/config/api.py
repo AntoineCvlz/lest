@@ -4,6 +4,7 @@ from django.conf import settings
 from ninja import NinjaAPI
 
 from apps.accounts.api.router import router as accounts_router
+from apps.training.api.router import router as training_router
 from common.auth import jwt_auth
 from common.health.api import router as health_router
 from common.problems import register_problem_handlers
@@ -21,3 +22,4 @@ register_problem_handlers(api)
 
 api.add_router("/", health_router)
 api.add_router("/", accounts_router)
+api.add_router("/", training_router)

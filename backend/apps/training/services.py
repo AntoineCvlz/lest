@@ -1,10 +1,17 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
 
-from django.db import transaction
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, models, transaction
+
+from apps.accounts.models import User
 
 from . import wger
-from .models import Equipment, Exercise, Muscle, NameLanguage
+from .models import Equipment, Exercise, Muscle, NameLanguage, Set, Workout, WorkoutExercise
 
 
 class EmptyCatalogError(Exception):
@@ -89,3 +96,161 @@ def _usable_name(item: wger.WgerExercise) -> tuple[str, NameLanguage] | None:
     if item.name_en:
         return item.name_en[:200], NameLanguage.ENGLISH
     return None
+
+
+# --- Séances : écritures idempotentes (ADR 0003) -------------------------------------------
+
+
+class NotFoundError(Exception):
+    """Identifiant inconnu, ou d'un autre compte : l'API répond 404 dans les deux cas, sans
+    rien écrire ni confirmer que l'identifiant existe."""
+
+
+def _unknown(field: str) -> ValidationError:
+    # Parent absent ou d'un autre compte : 422, la file hors ligne rejoue dans l'ordre (ADR 0003).
+    return ValidationError({field: ValidationError("Inconnu.", code="unknown")})
+
+
+class WriteConflictError(Exception):
+    """Écriture refusée par la base pour une autre raison qu'un rejeu (409, sans détail : le
+    message de Postgres reprendrait les valeurs de la série)."""
+
+
+Resolver = Callable[[], dict[str, Any]]
+
+
+def _locked[M: models.Model](model: type[M], pk: UUID) -> M | None:
+    """Ligne `pk` verrouillée jusqu'à la fin de la transaction, ou `None`."""
+    return model._default_manager.select_for_update().filter(pk=pk).first()
+
+
+def _put[M: models.Model](
+    model: type[M], *, pk: UUID, owned: models.Q, values: dict[str, Any], parents: Resolver
+) -> tuple[M, bool]:
+    """Crée ou remplace `model(pk)`. `owned` filtre les objets du compte : un objet existant
+    hors de ce filtre lève `NotFoundError`. `parents` relit et verrouille les parents dans la
+    même transaction (`_unknown` s'ils ont disparu) : une suppression concurrente ne peut pas
+    laisser une clé étrangère orpheline. Valide le modèle avant d'écrire.
+
+    Une seule nouvelle tentative sur `IntegrityError` : un second premier envoi simultané
+    devient une mise à jour, un parent supprimé entre-temps devient un 422 ; toute autre
+    violation est un `WriteConflictError`.
+    """
+    for attempt in range(2):
+        try:
+            with transaction.atomic():
+                resolved = parents()
+                existing = _locked(model, pk)
+                if (
+                    existing is not None
+                    and not model._default_manager.filter(owned, pk=pk).exists()
+                ):
+                    raise NotFoundError
+                instance = existing or model(pk=pk)
+                for field, value in {**values, **resolved}.items():
+                    setattr(instance, field, value)
+                instance.full_clean(validate_unique=False)
+                instance.save(force_insert=existing is None)
+            return instance, existing is None
+        except IntegrityError:
+            if attempt == 0:
+                continue
+            raise WriteConflictError from None
+    raise AssertionError  # pragma: no cover — la boucle revient ou lève
+
+
+def _no_parent() -> dict[str, Any]:
+    return {}
+
+
+def put_workout(
+    *, owner: User, workout_id: UUID, started_at: datetime, ended_at: datetime | None
+) -> tuple[Workout, bool]:
+    """Crée ou remplace une séance de `owner`. Renvoie la séance et `True` si elle est créée."""
+    return _put(
+        Workout,
+        pk=workout_id,
+        owned=models.Q(owner=owner),
+        values={"owner": owner, "started_at": started_at, "ended_at": ended_at},
+        parents=_no_parent,
+    )
+
+
+def put_workout_exercise(
+    *, owner: User, workout_exercise_id: UUID, workout_id: UUID, exercise_id: UUID, position: int
+) -> tuple[WorkoutExercise, bool]:
+    """Crée ou remplace un exercice d'une séance de `owner`. Un exercice désactivé du
+    catalogue reste accepté : une saisie hors ligne peut le rejouer après sa désactivation."""
+
+    def parents() -> dict[str, Any]:
+        workout = Workout.objects.select_for_update().filter(pk=workout_id, owner=owner).first()
+        if workout is None:
+            raise _unknown("workout_id")
+        exercise = Exercise.objects.filter(pk=exercise_id).first()
+        if exercise is None:
+            raise _unknown("exercise_id")
+        return {"workout": workout, "exercise": exercise}
+
+    return _put(
+        WorkoutExercise,
+        pk=workout_exercise_id,
+        owned=models.Q(workout__owner=owner),
+        values={"position": position},
+        parents=parents,
+    )
+
+
+def put_set(
+    *,
+    owner: User,
+    set_id: UUID,
+    workout_exercise_id: UUID,
+    position: int,
+    weight_kg: Decimal,
+    reps: int,
+    rpe: Decimal | None,
+    is_warmup: bool,
+    performed_at: datetime,
+) -> tuple[Set, bool]:
+    """Crée ou remplace une série d'un exercice de séance de `owner`."""
+
+    def parents() -> dict[str, Any]:
+        workout_exercise = (
+            WorkoutExercise.objects.select_for_update()
+            .filter(pk=workout_exercise_id, workout__owner=owner)
+            .first()
+        )
+        if workout_exercise is None:
+            raise _unknown("workout_exercise_id")
+        return {"workout_exercise": workout_exercise}
+
+    return _put(
+        Set,
+        pk=set_id,
+        owned=models.Q(workout_exercise__workout__owner=owner),
+        values={
+            "position": position,
+            "weight_kg": weight_kg,
+            "reps": reps,
+            "rpe": rpe,
+            "is_warmup": is_warmup,
+            "performed_at": performed_at,
+        },
+        parents=parents,
+    )
+
+
+def delete_workout(*, owner: User, workout_id: UUID) -> None:
+    """Supprime une séance de `owner` (et ses séries). Idempotent : sans effet si elle n'existe
+    plus ou appartient à un autre compte."""
+    Workout.objects.filter(pk=workout_id, owner=owner).delete()
+
+
+def delete_workout_exercise(*, owner: User, workout_exercise_id: UUID) -> None:
+    """Supprime un exercice de séance de `owner` et ses séries. Idempotent."""
+    WorkoutExercise.objects.filter(pk=workout_exercise_id, workout__owner=owner).delete()
+
+
+def delete_set(*, owner: User, set_id: UUID) -> None:
+    """Supprime une série de `owner`. Idempotent."""
+    Set.objects.filter(pk=set_id, workout_exercise__workout__owner=owner).delete()
