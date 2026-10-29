@@ -6,6 +6,7 @@ Toute valeur variable ou secrète vient de l'environnement (voir `.env.example`)
 from pathlib import Path
 
 import environ
+from celery.schedules import crontab
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -185,6 +186,13 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_TIME_LIMIT = 300
 CELERY_TASK_SOFT_TIME_LIMIT = 240
 CELERY_TIMEZONE = TIME_ZONE
+# Tâches périodiques, lancées par le service `beat` (une seule instance).
+CELERY_BEAT_SCHEDULE = {
+    "clear-expired-sessions": {
+        "task": "common.tasks.clear_expired_sessions",
+        "schedule": crontab(hour=4, minute=0),
+    },
+}
 
 # Journaux : format sobre, jamais de corps de requête (données de santé, PII).
 LOGGING = {

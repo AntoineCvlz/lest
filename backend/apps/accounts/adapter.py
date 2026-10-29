@@ -1,11 +1,11 @@
 import ipaddress
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.core import ratelimit
 from django.contrib.auth.hashers import make_password
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 
 from .models import normalize_email
 
@@ -44,6 +44,15 @@ class AccountAdapter(DefaultAccountAdapter):
             # Sans proxy (appel direct en dev) : REMOTE_ADDR, allauth ignorant X-Forwarded-For.
             ip: str = super().get_client_ip(request)
             return ip
+
+    def pre_login(self, request: HttpRequest, user: Any, **kwargs: Any) -> HttpResponse | None:
+        """Une connexion commence (mot de passe, code, passkey, inscription) : la session reprend
+        la durée normale. Elle a pu naître d'une demande d'options de passkey, raccourcie à
+        quelques minutes (`PasswordlessLoginView.get`) ; sans cela, le parcours de second facteur
+        puis la session connectée expireraient avec elle (`cycle_key` garde les données).
+        """
+        request.session.set_expiry(None)
+        return cast(HttpResponse | None, super().pre_login(request, user, **kwargs))
 
     def pre_authenticate(self, request: HttpRequest, **credentials: Any) -> None:
         """Limites d'allauth, puis les plafonds journaliers propres à Lest.
