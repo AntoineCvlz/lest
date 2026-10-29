@@ -2,7 +2,9 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.accounts.mfa_views import (
+    PasskeyReauthenticateView,
     PasswordlessLoginView,
+    SecondFactorAuthenticateView,
     SecondFactorRecoveryCodesView,
     SecondFactorTOTPView,
     SecondFactorWebAuthnView,
@@ -36,6 +38,17 @@ urlpatterns = [
         "api/v1/auth/app/v1/auth/webauthn/login",
         PasswordlessLoginView.as_api_view(client="app"),
         name="lest_login_webauthn",
+    ),
+    # Second facteur et confirmation par passkey : défi à usage unique.
+    path(
+        "api/v1/auth/app/v1/auth/webauthn/authenticate",
+        SecondFactorAuthenticateView.as_api_view(client="app"),
+        name="lest_authenticate_webauthn",
+    ),
+    path(
+        "api/v1/auth/app/v1/auth/webauthn/reauthenticate",
+        PasskeyReauthenticateView.as_api_view(client="app"),
+        name="lest_reauthenticate_webauthn",
     ),
     # Comptes (allauth headless, client `app`) : sous /api/v1/ pour passer par le proxy Next.js.
     path("api/v1/auth/", include("allauth.headless.urls")),

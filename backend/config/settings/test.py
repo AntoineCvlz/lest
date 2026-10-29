@@ -27,3 +27,11 @@ EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# Origine publique fixe, quel que soit l'environnement du conteneur (E2E local : l'API tourne
+# avec `FRONTEND_URL=http://localhost:3101`) : les passkeys des tests signent pour celle-ci.
+FRONTEND_URL = "http://localhost:3000"
+HEADLESS_FRONTEND_URLS = {
+    "account_signup": f"{FRONTEND_URL}/inscription",
+    "account_reset_password": f"{FRONTEND_URL}/mot-de-passe-oublie",
+}

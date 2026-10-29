@@ -17,15 +17,18 @@ from allauth.core import ratelimit
 from allauth.core.exceptions import ReauthenticationRequired
 from allauth.headless.internal.restkit.response import ErrorResponse
 from allauth.headless.mfa.views import (
+    AuthenticateWebAuthnView,
     LoginWebAuthnView,
     ManageRecoveryCodesView,
     ManageTOTPView,
     ManageWebAuthnView,
+    ReauthenticateWebAuthnView,
 )
 from allauth.mfa.adapter import get_adapter
 from allauth.mfa.models import Authenticator
-from allauth.mfa.webauthn.internal.auth import parse_authentication_response
+from allauth.mfa.webauthn.internal.auth import clear_state, parse_authentication_response
 from django.http import HttpRequest, HttpResponse
+from django.http.response import HttpResponseBase
 
 # Facteurs qui protègent la connexion ; les codes de secours n'en sont que la roue de secours.
 FACTOR_TYPES = (Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN)
@@ -33,6 +36,26 @@ FACTOR_TYPES = (Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN)
 FACTORS_ADDED_SESSION_KEY = "lest_factors_added"
 # Limite des demandes d'options de connexion par passkey (`ACCOUNT_RATE_LIMITS`).
 PASSKEY_LOGIN_OPTIONS = "passkey_login_options"
+# Durée de vie d'une session anonyme ouverte par une demande d'options de connexion : elle ne
+# porte qu'un défi. Sans cela, chaque demande laisserait une session de 14 jours en base.
+PASSKEY_LOGIN_SESSION_SECONDS = 300
+
+
+class SingleUseChallengeMixin:
+    """Un défi WebAuthn ne sert qu'une fois : effacé aussi après un refus.
+
+    allauth ne l'efface qu'en cas de succès ; un défi refusé resterait valable jusqu'à la
+    demande suivante. `handle` couvre aussi les refus de la validation d'entrée, faite avant
+    `post`. Une confirmation à refaire (`ReauthenticationRequired`, levée dans `post`) arrive
+    après cette validation, qui a déjà consommé le défi. La session est enregistrée ensuite par
+    allauth (`authentication_context`).
+    """
+
+    def handle(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponseBase:
+        response = cast(HttpResponseBase, super().handle(request, *args, **kwargs))  # type: ignore[misc]
+        if request.method == "POST" and response.status_code != HTTPStatus.OK:
+            clear_state()
+        return response
 
 
 def require_second_factor_confirmation(request: HttpRequest) -> None:
@@ -99,7 +122,7 @@ class SecondFactorTOTPView(ManageTOTPView):
         return cast(HttpResponse, super().delete(request, *args, **kwargs))
 
 
-class SecondFactorWebAuthnView(ManageWebAuthnView):
+class SecondFactorWebAuthnView(SingleUseChallengeMixin, ManageWebAuthnView):
     def put(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         # Renommer : sans gain d'accès, mais un nom trompeur pousserait à retirer la bonne clé.
         require_second_factor_confirmation(request)
@@ -130,7 +153,7 @@ class SecondFactorRecoveryCodesView(ManageRecoveryCodesView):
         return cast(HttpResponse, super().post(request, *args, **kwargs))
 
 
-class PasswordlessLoginView(LoginWebAuthnView):
+class PasswordlessLoginView(SingleUseChallengeMixin, LoginWebAuthnView):
     """Connexion sans mot de passe : seulement par une passkey, avec vérification de l'utilisateur.
 
     allauth demande la vérification (PIN, biométrie) en simple préférence : une clé enregistrée
@@ -144,7 +167,14 @@ class PasswordlessLoginView(LoginWebAuthnView):
         limited = ratelimit.consume_or_429(request, action=PASSKEY_LOGIN_OPTIONS, limit_get=True)
         if limited:
             return cast(HttpResponse, limited)
-        return cast(HttpResponse, super().get(request, *args, **kwargs))
+        # Seule une session ouverte par cette demande est raccourcie : jamais un parcours en cours
+        # (second facteur en attente…). La durée normale revient dès qu'une connexion commence
+        # (`AccountAdapter.pre_login`), par passkey ou par mot de passe.
+        created = request.session.session_key is None
+        response = cast(HttpResponse, super().get(request, *args, **kwargs))
+        if created and not request.user.is_authenticated:
+            request.session.set_expiry(PASSKEY_LOGIN_SESSION_SECONDS)
+        return response
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
         authenticator = self.input.cleaned_data["credential"]
@@ -156,3 +186,11 @@ class PasswordlessLoginView(LoginWebAuthnView):
             error = get_adapter().validation_error("incorrect_code")
             return cast(HttpResponse, ErrorResponse(request, exception=error))
         return cast(HttpResponse, super().post(request, *args, **kwargs))
+
+
+class SecondFactorAuthenticateView(SingleUseChallengeMixin, AuthenticateWebAuthnView):
+    """Second facteur par passkey à la connexion, défi à usage unique."""
+
+
+class PasskeyReauthenticateView(SingleUseChallengeMixin, ReauthenticateWebAuthnView):
+    """Confirmation par passkey, défi à usage unique."""
