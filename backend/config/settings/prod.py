@@ -8,6 +8,8 @@ from .base import env
 
 HEADLESS_JWT_PRIVATE_KEY = private_key_from_env(env("JWT_PRIVATE_KEY"))
 FIELD_ENCRYPTION_KEYS = keys_from_env(env("FIELD_ENCRYPTION_KEYS"))
+# Origine publique : liens des e-mails et domaine des passkeys (contrôle accounts.E003).
+FRONTEND_URL = env("FRONTEND_URL").rstrip("/")
 
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 

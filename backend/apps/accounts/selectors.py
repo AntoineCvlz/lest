@@ -31,10 +31,16 @@ def export_account(user: User) -> dict[str, Any]:
             {"email": address.email, "verified": address.verified, "primary": address.primary}
             for address in EmailAddress.objects.filter(user=user).order_by("email")
         ],
-        # Méthodes de double authentification : type et dates seulement, jamais leurs secrets.
+        # Méthodes de double authentification : type, nom des passkeys et dates, jamais leurs
+        # secrets ni leurs clés publiques.
         "authenticators": [
             {
                 "type": authenticator.type,
+                "name": (
+                    authenticator.wrap().name
+                    if authenticator.type == Authenticator.Type.WEBAUTHN
+                    else None
+                ),
                 "created_at": authenticator.created_at.isoformat(),
                 "last_used_at": (
                     authenticator.last_used_at.isoformat() if authenticator.last_used_at else None

@@ -2,14 +2,17 @@ from typing import Any
 
 import pytest
 from allauth.mfa.models import Authenticator
+from django.conf import settings
 from django.core.cache import cache
 from django.test import Client, override_settings
 
-from apps.accounts.checks import check_webauthn_origin
+from apps.accounts.checks import check_frontend_url, check_webauthn_origin
 from apps.accounts.models import User
+from apps.accounts.selectors import export_account
 from apps.accounts.tests.auth import APP, bearer, login
 from apps.accounts.tests.factories import TEST_PASSWORD, make_verified_user
 from apps.accounts.tests.test_mfa import (
+    RECOVERY,
     TOTP,
     current_code,
     enable_totp,
@@ -36,11 +39,13 @@ def add_passkey(client: Client, token: str, key: SoftAuthenticator) -> Any:
     )
 
 
-def enable_passkey(client: Client, user: User) -> tuple[SoftAuthenticator, str]:
+def enable_passkey(
+    client: Client, user: User, key: SoftAuthenticator | None = None
+) -> tuple[SoftAuthenticator, str]:
     """Ajoute une passkey à un compte sans facteur (confirmation par mot de passe)."""
     token = login(client, user.email)["access_token"]
     reauthenticate_with_password(client, token)
-    key = SoftAuthenticator()
+    key = key or SoftAuthenticator()
     added = add_passkey(client, token, key)
     assert added.status_code == 200, added.content
     return key, token
@@ -95,6 +100,37 @@ def test_a_passkey_signs_in_without_a_password(client: Client) -> None:
     assert response.status_code == 200, response.content
     assert response.json()["meta"]["is_authenticated"] is True
     assert response.json()["meta"]["access_token"]
+
+
+def test_a_passkey_login_requires_user_verification(client: Client) -> None:
+    # Sans PIN ni biométrie, la seule possession de la clé ne connecte pas.
+    user = make_verified_user()
+    key, _ = enable_passkey(client, user)
+    key.verifies_user = False
+
+    response = passkey_login(key)
+
+    assert response.status_code == 400
+    assert response.json()["errors"][0]["code"] == "incorrect_code"
+
+
+def test_a_second_factor_key_cannot_sign_in_without_a_password(client: Client) -> None:
+    user = make_verified_user()
+    key, _ = enable_passkey(client, user, SoftAuthenticator(resident=False))
+
+    assert passkey_login(key).status_code == 400
+
+
+def test_another_session_cannot_ride_on_a_factor_added_meanwhile() -> None:
+    # Session A confirmée par mot de passe ; le titulaire active l'application dans la session B :
+    # A ne doit pas pour autant lire les codes de secours.
+    user = make_verified_user()
+    session_a = Client()
+    token_a = login(session_a, user.email)["access_token"]
+    reauthenticate_with_password(session_a, token_a)
+    enable_totp(Client(), user)
+
+    assert session_a.get(RECOVERY, headers=bearer(token_a)).status_code == 401
 
 
 def test_adding_a_passkey_generates_recovery_codes(client: Client) -> None:
@@ -231,3 +267,96 @@ def test_the_password_still_works_for_login_without_any_factor() -> None:
     )
 
     assert response.status_code == 200
+
+
+def test_allauth_uses_the_exact_origin_server() -> None:
+    # Garde-fou : une mise à jour d'allauth ne doit pas défaire le remplacement en silence.
+    from allauth.mfa.webauthn.internal import auth as webauthn_auth
+
+    from apps.accounts.webauthn import get_server
+
+    assert webauthn_auth.get_server is get_server
+
+
+@pytest.mark.parametrize("origin", ["https://evil.localhost", "http://localhost:6006"])
+def test_a_passkey_is_refused_from_a_sibling_origin(client: Client, origin: str) -> None:
+    # Sous-domaine ou autre port : accepté par fido2 seul, refusé par l'origine exacte.
+    user = make_verified_user()
+    key, _ = enable_passkey(client, user)
+
+    assert passkey_login(key, origin=origin).status_code == 400
+
+
+def test_a_passkey_cannot_be_registered_from_another_origin(client: Client) -> None:
+    user = make_verified_user()
+    token = login(client, user.email)["access_token"]
+    reauthenticate_with_password(client, token)
+
+    added = add_passkey(client, token, SoftAuthenticator(origin="http://localhost:6006"))
+
+    assert added.status_code == 400
+    assert not Authenticator.objects.filter(user=user, type=Authenticator.Type.WEBAUTHN).exists()
+
+
+def test_a_passkey_without_credprops_still_signs_in(client: Client) -> None:
+    # Navigateur qui ne renvoie pas `credProps` : la passkey reste utilisable (UV signé exigé).
+    user = make_verified_user()
+    key = SoftAuthenticator(resident=None)  # extension `credProps` absente
+    enable_passkey(client, user, key)
+
+    assert passkey_login(key).status_code == 200
+
+
+@override_settings(
+    ACCOUNT_RATE_LIMITS={**settings.ACCOUNT_RATE_LIMITS, "passkey_login_options": "2/m/ip"}
+)
+def test_passkey_login_options_are_rate_limited() -> None:
+    def options() -> int:
+        return Client().get(PASSKEY_LOGIN, headers={"X-Lest-Client-IP": "203.0.113.9"}).status_code
+
+    assert [options(), options(), options()] == [200, 200, 429]
+
+
+def test_renaming_a_passkey_requires_a_second_factor(client: Client) -> None:
+    user = make_verified_user()
+    _, token = enable_passkey(client, user)
+    passkey = Authenticator.objects.get(user=user, type=Authenticator.Type.WEBAUTHN)
+    reauthenticate_with_password(client, token)
+
+    response = client.put(
+        WEBAUTHN,
+        {"id": passkey.pk, "name": "Ancienne clé, à supprimer"},
+        content_type="application/json",
+        headers=bearer(token),
+    )
+
+    assert response.status_code == 401
+    passkey.refresh_from_db()
+    assert passkey.wrap().name == "Téléphone"
+
+
+def test_the_export_names_passkeys_without_their_keys(client: Client) -> None:
+    user = make_verified_user()
+    enable_passkey(client, user)
+
+    exported = export_account(user)
+
+    passkeys = [a for a in exported["authenticators"] if a["type"] == "webauthn"]
+    assert passkeys == [{**passkeys[0], "name": "Téléphone"}]
+    assert "credential" not in str(exported)
+    assert "authenticatorData" not in str(exported)
+
+
+@pytest.mark.parametrize(
+    ("url", "errors"),
+    [
+        ("http://localhost:3000", 1),
+        ("http://lest.example", 1),
+        ("https://10.0.0.1", 1),
+        ("https://lest.example/app", 1),
+        ("https://lest.example", 0),
+    ],
+)
+def test_the_frontend_url_must_be_a_public_https_origin(url: str, errors: int) -> None:
+    with override_settings(FRONTEND_URL=url):
+        assert len(check_frontend_url(None)) == errors

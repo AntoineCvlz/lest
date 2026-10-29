@@ -24,8 +24,13 @@ UP, UV, AT = 0x01, 0x04, 0x40
 class SoftAuthenticator:
     """Une passkey : un identifiant, une clé privée et l'identifiant utilisateur reçu."""
 
-    def __init__(self, origin: str = ORIGIN) -> None:
+    def __init__(
+        self, origin: str = ORIGIN, *, resident: bool | None = True, verifies_user: bool = True
+    ) -> None:
         self.origin = origin
+        # Clé résidente (passkey) ou simple clé de second facteur ; vérification PIN/biométrie.
+        self.resident = resident
+        self.verifies_user = verifies_user
         self.credential_id = secrets.token_bytes(16)
         self.private_key = ec.generate_private_key(ec.SECP256R1())
         self.user_handle = ""
@@ -71,7 +76,9 @@ class SoftAuthenticator:
             "rawId": websafe_encode(self.credential_id),
             "type": "public-key",
             "authenticatorAttachment": "platform",
-            "clientExtensionResults": {"credProps": {"rk": True}},
+            "clientExtensionResults": (
+                {} if self.resident is None else {"credProps": {"rk": self.resident}}
+            ),
             "response": {
                 "clientDataJSON": websafe_encode(client_data),
                 "attestationObject": websafe_encode(attestation),
@@ -85,7 +92,7 @@ class SoftAuthenticator:
         self.counter += 1
         auth_data = (
             sha256(self.rp_id.encode()).digest()
-            + bytes([UP | UV])
+            + bytes([UP | UV if self.verifies_user else UP])
             + self.counter.to_bytes(4, "big")
         )
         client_data = json.dumps(

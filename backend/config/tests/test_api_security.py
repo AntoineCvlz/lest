@@ -39,10 +39,11 @@ def test_only_allauth_ninja_and_hardened_mfa_views_are_mounted_under_the_api_pre
     assert mounted == {
         "api/v1/auth/",
         "api/v1/",
-        # Vues MFA d'allauth durcies (second facteur exigé), sur les URL d'allauth.
+        # Vues MFA d'allauth durcies, sur les URL d'allauth.
         "api/v1/auth/app/v1/account/authenticators/totp",
         "api/v1/auth/app/v1/account/authenticators/recovery-codes",
         "api/v1/auth/app/v1/account/authenticators/webauthn",
+        "api/v1/auth/app/v1/auth/webauthn/login",
     }
     ninja = next(p for p in get_resolver().url_patterns if str(p.pattern) == "api/v1/")
     assert isinstance(ninja, URLResolver)

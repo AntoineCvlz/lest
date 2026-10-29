@@ -141,6 +141,8 @@ ACCOUNT_RATE_LIMITS = {
     # par un reset ; mots de passe faux par (compte, IP), pour qu'un tiers ne bloque pas le compte.
     "login_failed_daily": "30/86400s/key",
     "login_failed_ip_daily": "50/86400s/key",
+    # Options de connexion par passkey (GET, non limité par allauth) : chacune crée une session.
+    "passkey_login_options": "10/m/ip",
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.
     "reauthenticate": "10/m/user,30/86400s/user",
