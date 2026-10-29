@@ -20,7 +20,7 @@ test("connexion puis déconnexion, sans jeton lisible par le JavaScript", async 
   await page.goto("/connexion");
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(EMAIL);
   await page.getByLabel("Mot de passe").fill(PASSWORD);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
 
   await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByRole("status").filter({ hasText: "Connecté avec" })).toHaveText(

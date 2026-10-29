@@ -1,4 +1,4 @@
-import { awaitsEmailVerification } from "./form";
+import { awaitsEmailVerification, pendingSecondFactorTypes } from "./form";
 
 describe("awaitsEmailVerification", () => {
   it("reconnaît une vérification d'e-mail en attente", () => {
@@ -17,5 +17,24 @@ describe("awaitsEmailVerification", () => {
     ["un corps vide", null],
   ])("ne confond pas avec %s", (_label, body) => {
     expect(awaitsEmailVerification(body)).toBe(false);
+  });
+});
+
+describe("pendingSecondFactorTypes", () => {
+  it("donne les méthodes du compte quand un second facteur est attendu", () => {
+    const body = {
+      data: {
+        flows: [
+          { id: "login" },
+          { id: "mfa_authenticate", is_pending: true, types: ["recovery_codes", "webauthn", 3] },
+        ],
+      },
+    };
+    expect(pendingSecondFactorTypes(body)).toEqual(["recovery_codes", "webauthn"]);
+  });
+
+  it("renvoie null sans connexion en attente", () => {
+    expect(pendingSecondFactorTypes({ data: { flows: [{ id: "mfa_authenticate" }] } })).toBeNull();
+    expect(pendingSecondFactorTypes({ meta: { is_authenticated: false } })).toBeNull();
   });
 });

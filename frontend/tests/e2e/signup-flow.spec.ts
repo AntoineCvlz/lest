@@ -105,7 +105,7 @@ test("mot de passe oublié : code reçu, nouveau mot de passe, reconnexion", asy
   await expect(page.getByRole("heading", { level: 1, name: "Connexion" })).toBeVisible();
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
   await page.getByLabel("Mot de passe").fill(newPassword);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
 });
@@ -120,7 +120,7 @@ test("connexion depuis une page privée : retour sur cette page", async ({ page 
   await expect(page).toHaveURL("/connexion?suivant=%2Fprofil");
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
   await page.getByLabel("Mot de passe").fill(password);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
 
   await expect(page).toHaveURL("/profil", { timeout: RESPONSE_TIMEOUT });
   await expect(page.getByRole("radio", { name: "Prise de masse" })).toBeChecked();
@@ -159,7 +159,7 @@ test("mes données : export JSON puis suppression définitive du compte", async 
   await page.goto("/connexion");
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
   await page.getByLabel("Mot de passe").fill(password);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "Adresse e-mail ou mot de passe incorrect." }),
   ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
@@ -197,7 +197,7 @@ test("double authentification : activation, puis connexion avec un code de secou
   await page.goto("/connexion");
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
   await page.getByLabel("Mot de passe").fill(password);
-  await page.getByRole("button", { name: "Se connecter" }).click();
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
 
   await expect(page).toHaveURL("/connexion/code", { timeout: RESPONSE_TIMEOUT });
   await expectNoAxeViolations(page);
@@ -218,7 +218,7 @@ test("double authentification : activation, puis connexion avec un code de secou
   ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
 });
 
-test("passkeys : ajout avec le mot de passe, puis retrait confirmé par la passkey", async ({
+test("passkeys : ajout, second facteur, connexion sans mot de passe, puis retrait", async ({
   page,
 }, testInfo) => {
   const { email, password } = freshAccount(testInfo, "passkey");
@@ -243,6 +243,29 @@ test("passkeys : ajout avec le mot de passe, puis retrait confirmé par la passk
   const passkeys = page.getByRole("list", { name: "Passkeys enregistrées" });
   await expect(passkeys).toContainText("Téléphone de test");
   await expectNoAxeViolations(page);
+
+  // La passkey sert de second facteur après le mot de passe…
+  await page.goto("/");
+  await page.getByRole("button", { name: "Se déconnecter" }).click();
+  await expect(page.getByText("Vous n’êtes pas connecté.")).toBeVisible();
+  await page.goto("/connexion");
+  await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
+  await page.getByLabel("Mot de passe").fill(password);
+  await page.getByRole("button", { name: "Se connecter", exact: true }).click();
+  await expect(page).toHaveURL("/connexion/code", { timeout: RESPONSE_TIMEOUT });
+  const usePasskey = page.getByRole("button", { name: "Utiliser une passkey" });
+  await expect(usePasskey).toBeEnabled({ timeout: RESPONSE_TIMEOUT });
+  await expectNoAxeViolations(page);
+  await usePasskey.click();
+  await expect(page).toHaveURL("/", { timeout: RESPONSE_TIMEOUT });
+  await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
+
+  // … et suffit seule, sans e-mail ni mot de passe.
+  await page.getByRole("button", { name: "Se déconnecter" }).click();
+  await expect(page.getByText("Vous n’êtes pas connecté.")).toBeVisible();
+  await page.goto("/connexion?suivant=/profil");
+  await page.getByRole("button", { name: "Se connecter avec une passkey" }).click();
+  await expect(page).toHaveURL("/profil", { timeout: RESPONSE_TIMEOUT });
 
   // Retrait : second facteur exigé, ici la passkey elle-même.
   await passkeys.getByRole("button", { name: "Retirer la passkey Téléphone de test" }).click();

@@ -6,6 +6,7 @@ import type { SubmitEvent } from "react";
 
 import { authClient } from "@/shared/api/auth-client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
+import { getPasskey, PASSKEY_FAILED, PasskeyError, passkeysSupported } from "@/shared/lib/webauthn";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
@@ -23,6 +24,10 @@ import type { PrivateRoute } from "./private-routes";
 import { TextLink } from "./text-link";
 
 type LoginOutcome = Outcome<"signed-in" | "verify-email" | "second-factor">;
+type Credentials = { by: "password"; email: string; password: string } | { by: "passkey" };
+
+export const PASSKEY_UNKNOWN =
+  "Passkey non reconnue. Connectez-vous avec votre e-mail et votre mot de passe.";
 
 async function login(email: string, password: string): Promise<LoginOutcome> {
   const { response, error } = await authClient.POST("/api/v1/auth/app/v1/auth/login", {
@@ -42,14 +47,42 @@ async function login(email: string, password: string): Promise<LoginOutcome> {
   return refused(UNAVAILABLE);
 }
 
+/**
+ * Connexion sans mot de passe. Les options sont demandées au clic, pas à l'affichage : chaque
+ * demande ouvre un parcours côté serveur, limité par IP (`passkey_login_options`).
+ */
+async function loginWithPasskey(): Promise<LoginOutcome> {
+  const options = await authClient.GET("/api/v1/auth/app/v1/auth/webauthn/login");
+  if (!options.data) return refused(options.response.status === 429 ? RATE_LIMITED : UNAVAILABLE);
+  let credential: Record<string, unknown>;
+  try {
+    credential = await getPasskey(options.data.data.request_options);
+  } catch (error) {
+    return refused(error instanceof PasskeyError ? error.message : PASSKEY_FAILED);
+  }
+  const { response, error } = await authClient.POST("/api/v1/auth/app/v1/auth/webauthn/login", {
+    body: { credential },
+  });
+  if (response.ok || response.status === 409) return { kind: "signed-in" };
+  // Passkey d'un compte inconnu, retirée, ou sans vérification de l'utilisateur.
+  if (response.status === 400) return refused(PASSKEY_UNKNOWN);
+  if (response.status === 401 && awaitsEmailVerification(error)) return { kind: "verify-email" };
+  if (response.status === 429) return refused(RATE_LIMITED);
+  return refused(UNAVAILABLE);
+}
+
 /** Formulaire de connexion : e-mail et mot de passe, erreurs annoncées, puis `redirectTo`. */
 export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/" }) {
   const hydrated = useHydrated();
   const router = useRouter();
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({ email, password }: { email: string; password: string }) =>
-      login(email, password),
+    // Mot de passe ou code dans les variables : rien ne reste en mémoire après le démontage.
+    gcTime: 0,
+    mutationFn: (credentials: Credentials) =>
+      credentials.by === "passkey"
+        ? loginWithPasskey()
+        : login(credentials.email, credentials.password),
     onSuccess: (outcome) => {
       if (outcome.kind === "verify-email") router.push("/verification");
       if (outcome.kind === "second-factor") {
@@ -64,11 +97,16 @@ export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/
     },
   });
   const errors = errorsOf(mutation.data, mutation.isError);
+  const pending = mutation.isPending ? mutation.variables.by : null;
 
   function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    mutation.mutate({ email: textValue(form, "email"), password: textValue(form, "password") });
+    mutation.mutate({
+      by: "password",
+      email: textValue(form, "email"),
+      password: textValue(form, "password"),
+    });
   }
 
   return (
@@ -102,8 +140,22 @@ export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/
           block
           disabled={!hydrated || mutation.isPending}
         >
-          {mutation.isPending ? "Connexion…" : "Se connecter"}
+          {pending === "password" ? "Connexion…" : "Se connecter"}
         </Button>
+        {/* Connu après l'hydratation seulement : rien n'est proposé que le navigateur refuserait. */}
+        {hydrated && passkeysSupported() && (
+          <Button
+            variant="secondary"
+            block
+            className="mt-3"
+            disabled={mutation.isPending}
+            onClick={() => {
+              mutation.mutate({ by: "passkey" });
+            }}
+          >
+            {pending === "passkey" ? "Connexion…" : "Se connecter avec une passkey"}
+          </Button>
+        )}
       </div>
     </form>
   );
