@@ -30,6 +30,8 @@ from allauth.mfa.webauthn.internal.auth import clear_state, parse_authentication
 from django.http import HttpRequest, HttpResponse
 from django.http.response import HttpResponseBase
 
+from .services import sign_out_other_devices
+
 # Facteurs qui protègent la connexion ; les codes de secours n'en sont que la roue de secours.
 FACTOR_TYPES = (Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN)
 # Facteurs ajoutés dans la session courante (`remember_factor_added`).
@@ -90,9 +92,10 @@ def require_second_factor_confirmation(request: HttpRequest) -> None:
 
 
 def remember_factor_added(request: HttpRequest, response: HttpResponse) -> HttpResponse:
-    """Après un ajout réussi, note le facteur dans la session : seule celle-ci profite de
-    l'exception de `require_second_factor_confirmation`. (Le signal `authenticator_added`
-    d'allauth part après la transaction, trop tard ou jamais selon le contexte.)"""
+    """Après un ajout réussi, note le facteur dans la session (seule celle-ci profite de
+    l'exception de `require_second_factor_confirmation`) et ferme les autres sessions du compte.
+    (Le signal `authenticator_added` d'allauth part après la transaction, trop tard ou jamais
+    selon le contexte.)"""
     if response.status_code == HTTPStatus.OK:
         newest = (
             Authenticator.objects.filter(user=request.user.pk, type__in=FACTOR_TYPES)
@@ -102,6 +105,7 @@ def remember_factor_added(request: HttpRequest, response: HttpResponse) -> HttpR
         )
         added = request.session.get(FACTORS_ADDED_SESSION_KEY, [])
         request.session[FACTORS_ADDED_SESSION_KEY] = [*added, newest]
+        sign_out_other_devices(request)
     return response
 
 

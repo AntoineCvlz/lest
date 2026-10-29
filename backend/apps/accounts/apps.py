@@ -27,3 +27,11 @@ class AccountsConfig(AppConfig):
         from apps.accounts.webauthn import get_server
 
         webauthn_auth.get_server = get_server
+        # Pas d'admin pour les sessions par appareil : IP et navigateurs de tous les comptes
+        # (données personnelles, comme la santé : pas d'admin). Celui d'allauth cherche en plus
+        # sur `username`, absent du modèle `User`.
+        from allauth.usersessions.models import UserSession
+        from django.contrib import admin
+
+        if admin.site.is_registered(UserSession):
+            admin.site.unregister(UserSession)

@@ -2,12 +2,14 @@ import logging
 from decimal import ROUND_HALF_UP, Decimal
 
 from allauth.account.models import EmailAddress
+from allauth.usersessions.internal.flows.sessions import end_other_sessions
 from django.conf import settings
 from django.contrib.admin.models import LogEntry
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.contenttypes.models import ContentType
 from django.core.mail import send_mail
 from django.db import transaction
+from django.http import HttpRequest
 from django.template.loader import render_to_string
 
 from .models import Profile, User, normalize_email
@@ -95,3 +97,13 @@ def send_account_mail(template_prefix: str, email: str) -> None:
         # Sans l'exception ni sa trace : elles contiennent l'adresse du destinataire.
         # Toute erreur (SMTP, réseau, configuration) est attendue ici : l'envoi est au mieux.
         logger.warning("Account email could not be sent (%s)", template_prefix)
+
+
+def sign_out_other_devices(request: HttpRequest) -> None:
+    """Ferme toutes les sessions du compte sauf celle de `request` : leurs jetons (accès et
+    refresh, validés avec état) cessent aussitôt de fonctionner.
+
+    Appelé quand un second facteur est ajouté : une session ouverte avant, peut-être par
+    quelqu'un qui connaissait le mot de passe, ne doit pas survivre à la protection nouvelle.
+    """
+    end_other_sessions(request, request.user)

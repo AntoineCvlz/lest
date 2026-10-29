@@ -2,6 +2,8 @@ from typing import Any
 
 from allauth.account.models import EmailAddress
 from allauth.mfa.models import Authenticator
+from allauth.usersessions.models import UserSession
+from django.contrib.sessions.models import Session
 from django.utils import timezone
 
 from .models import Profile, User
@@ -16,7 +18,7 @@ def export_account(user: User) -> dict[str, Any]:
     """
     Données du compte, lisibles par la personne (droit d'accès et de portabilité, RGPD).
 
-    Sans empreinte de mot de passe, sessions, jetons ni identifiants internes. Chaque table
+    Sans empreinte de mot de passe, clés de session, jetons ni identifiants internes. Chaque table
     listée dans `gdpr.EXPORTED_MODELS` doit y figurer.
     """
     profile = get_profile(user)
@@ -47,6 +49,22 @@ def export_account(user: User) -> dict[str, Any]:
                 ),
             }
             for authenticator in Authenticator.objects.filter(user=user).order_by("created_at")
+        ],
+        # Appareils connectés (sessions encore valables, comme la liste de l'app) : adresse IP,
+        # navigateur et dates, jamais la clé de session.
+        "sessions": [
+            {
+                "ip": session.ip,
+                "user_agent": session.user_agent,
+                "created_at": session.created_at.isoformat(),
+                "last_seen_at": session.last_seen_at.isoformat(),
+            }
+            for session in UserSession.objects.filter(
+                user=user,
+                session_key__in=Session.objects.filter(expire_date__gt=timezone.now()).values(
+                    "session_key"
+                ),
+            ).order_by("created_at")
         ],
         "profile": (
             {
