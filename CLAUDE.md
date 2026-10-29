@@ -29,11 +29,11 @@ Une app Django par domaine, **aucun import croisé direct entre leurs modèles**
 | App | MVP | Entités |
 | --- | --- | --- |
 | `accounts` | Inscription, connexion, profil (taille, objectif, unités kg/lb), export et suppression RGPD | User, Profile, Goal |
-| `training` | Programmes, séance en cours + minuteur de repos, séries (poids, reps, RPE, échauffement), historique par exercice, records (1RM estimé Epley/Brzycki) | Exercise, Program, Workout, WorkoutExercise, Set, PersonalRecord |
+| `training` | Programmes, séance en cours + minuteur de repos, séries (poids, reps, RPE, échauffement), historique par exercice, records (1RM estimé Epley/Brzycki) | Exercise, Muscle, Equipment, Program, Workout, WorkoutExercise, Set, PersonalRecord |
 | `activities` | Autres sports : type, durée, distance, FC moyenne, ressenti, métriques libres (JSON validé par schéma) | SportType, Activity |
 | `nutrition` | Journal des repas, aliments (Open Food Facts + perso), scan code-barres, objectifs kcal/macros (Mifflin-St Jeor + surplus), eau | Food, Meal, MealItem, NutritionTarget |
 | `body` | Poids quotidien (moyenne mobile 7 j), mensurations, photos privées | BodyMetric, Measurement, ProgressPhoto |
-| `gyms` | Salles, équipements disponibles pour filtrer les exercices | Gym, Equipment |
+| `gyms` | Salles, équipements disponibles pour filtrer les exercices | Gym (l'`Equipment` vit dans `training` avec le catalogue : `gyms` y accède par un service) |
 | `insights` | Tableau de bord : poids vs objectif, volume hebdo par groupe musculaire, progression d'un exercice, adhérence nutrition | Lectures agrégées, pas de table propre |
 
 ### Règles métier à tester en priorité

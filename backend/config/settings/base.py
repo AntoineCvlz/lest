@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     # (`USERSESSIONS_TRACK_ACTIVITY`) : pas d'écriture en base à chaque requête.
     "allauth.usersessions",
     "apps.accounts",
+    "apps.training",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
@@ -196,7 +197,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "common.tasks.clear_expired_sessions",
         "schedule": crontab(hour=4, minute=0),
     },
+    # Catalogue d'exercices wger (ADR 0004), le 1er de chaque mois.
+    "import-exercises": {
+        "task": "apps.training.tasks.import_exercises",
+        "schedule": crontab(day_of_month=1, hour=3, minute=30),
+    },
 }
+# API publique de wger (catalogue d'exercices, ADR 0004).
+WGER_API_URL = env("WGER_API_URL", default="https://wger.de/api/v2")
 
 # Journaux : format sobre, jamais de corps de requête (données de santé, PII).
 LOGGING = {
