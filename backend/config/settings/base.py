@@ -141,6 +141,8 @@ ACCOUNT_RATE_LIMITS = {
     # par un reset ; mots de passe faux par (compte, IP), pour qu'un tiers ne bloque pas le compte.
     "login_failed_daily": "30/86400s/key",
     "login_failed_ip_daily": "50/86400s/key",
+    # Options de connexion par passkey (GET, non limité par allauth) : chacune crée une session.
+    "passkey_login_options": "10/m/ip",
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.
     "reauthenticate": "10/m/user,30/86400s/user",
@@ -167,8 +169,12 @@ HEADLESS_JWT_STATEFUL_VALIDATION_ENABLED = True
 # Double authentification (optionnelle) : application TOTP et codes de secours ; secrets chiffrés
 # en base par `MFAAdapter` (ADR 0002). Jamais de `MFA_TOTP_INSECURE_BYPASS_CODE`.
 MFA_ADAPTER = "apps.accounts.mfa_adapter.MFAAdapter"
-MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
 MFA_TOTP_ISSUER = "Lest"
+# Passkeys : connexion sans mot de passe (clé résidente, vérification de l'utilisateur). Le RP ID
+# est le domaine public (`FRONTEND_URL`), jamais l'hôte interne vu par Django derrière le proxy.
+# Jamais de `MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN` (contrôle de déploiement accounts.E002).
+MFA_PASSKEY_LOGIN_ENABLED = True
 
 # Celery
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=env("REDIS_URL"))

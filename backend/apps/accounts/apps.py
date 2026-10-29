@@ -20,3 +20,10 @@ class AccountsConfig(AppConfig):
         import_module(ALLAUTH_TEMPLATE_TAGS)
         import_module("apps.accounts.checks")  # enregistre les vérifications système
         import_module("apps.accounts.signals")  # branche les récepteurs (alertes MFA)
+        # Passkeys : origine exacte (voir `apps.accounts.webauthn`). allauth appelle
+        # `get_server()` de ce module à chaque cérémonie ; un test vérifie le remplacement.
+        from allauth.mfa.webauthn.internal import auth as webauthn_auth
+
+        from apps.accounts.webauthn import get_server
+
+        webauthn_auth.get_server = get_server

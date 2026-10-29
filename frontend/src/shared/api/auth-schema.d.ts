@@ -184,6 +184,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/app/v1/account/authenticators/webauthn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get WebAuthn credential creation options
+         * @description Returns the WebAuthn credential creation options, that can be
+         *     processed using `parseCreationOptionsFromJSON()` on the frontend.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /**
+                     * @description When present (regardless of its value), enables passwordless sign-in via a WebAuthn credential (Passkey),
+                     *     but may enforce additional multi-factor authentication (MFA) requirements. Omit the parameter to disable.
+                     */
+                    passwordless?: components["parameters"]["PasswordLess"];
+                };
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["WebAuthnCreationOptionsResponse"];
+                401: components["responses"]["ReauthenticationRequired"];
+                409: components["responses"]["AddAuthenticatorConflict"];
+            };
+        };
+        /**
+         * Rename a WebAuthn credential
+         * @description You can alter the name of a WebAuthn credential by PUT'ting the ID and
+         *     name of the authenticator representing that credential. You can obtain
+         *     the credentials via the "List authenticators" endpoint.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: components["requestBodies"]["UpdateWebAuthn"];
+            responses: {
+                200: components["responses"]["WebAuthnAuthenticator"];
+                401: components["responses"]["ReauthenticationRequired"];
+            };
+        };
+        /** Add a WebAuthn credential */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: components["requestBodies"]["AddWebAuthnAuthenticator"];
+            responses: {
+                200: components["responses"]["AddWebAuthnAuthenticator"];
+                401: components["responses"]["ReauthenticationRequired"];
+                409: components["responses"]["AddAuthenticatorConflict"];
+            };
+        };
+        /** Delete a WebAuthn credential */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: components["requestBodies"]["DeleteWebAuthn"];
+            responses: {
+                200: components["responses"]["StatusOK"];
+                401: components["responses"]["ReauthenticationRequired"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/app/v1/account/email": {
         parameters: {
             query?: never;
@@ -1248,6 +1345,204 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ConflictResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/webauthn/authenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get WebAuthn credential request options for 2FA
+         * @description Returns the WebAuthn credential request options, that can be
+         *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["WebAuthnRequestOptionsResponse"];
+            };
+        };
+        put?: never;
+        /**
+         * Perform 2FA using WebAuthn
+         * @description Perform Two-Factor Authentication using a WebAuthn credential.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["AuthenticateWebAuthn"];
+            responses: {
+                200: components["responses"]["Authenticated"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/webauthn/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get WebAuthn credential request options for login
+         * @description Returns the WebAuthn credential request options, that can be
+         *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["WebAuthnRequestOptionsResponse"];
+            };
+        };
+        put?: never;
+        /**
+         * Login using WebAuthn
+         * @description Login using a WebAuthn credential (Passkey). Both 200 and 401 can be
+         *     expected after a successful request.  The 401 can, for example, occur
+         *     when the credential passed was valid, but the email attached to the
+         *     account still requires verification.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["LoginWebAuthn"];
+            responses: {
+                200: components["responses"]["Authenticated"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthenticationResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/webauthn/reauthenticate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get WebAuthn credential request options for reauthentication
+         * @description Returns the WebAuthn credential request options, that can be
+         *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["WebAuthnRequestOptionsResponse"];
+            };
+        };
+        put?: never;
+        /**
+         * Reauthenticate using WebAuthn
+         * @description Reauthenticate the user using a WebAuthn credential.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["ReauthenticateWebAuthn"];
+            responses: {
+                200: components["responses"]["Authenticated"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };

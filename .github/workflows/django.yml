@@ -38,6 +38,7 @@ jobs:
           DATABASE_URL: postgres://ci:ci@localhost:5432/ci
           REDIS_URL: redis://localhost:6379/0
           EMAIL_HOST: smtp.example
+          FRONTEND_URL: https://lest.example
         run: uv run python manage.py check --deploy --fail-level WARNING
       - name: Aucune migration manquante
         working-directory: backend

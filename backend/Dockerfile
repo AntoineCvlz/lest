@@ -49,6 +49,7 @@ RUN JWT_PRIVATE_KEY="$(python -c 'from common.keys import generate_rsa_private_k
     DATABASE_URL=postgres://build@localhost/build \
     REDIS_URL=redis://localhost:6379/0 \
     EMAIL_HOST=localhost \
+    FRONTEND_URL=https://build.invalid \
     python manage.py collectstatic --noinput
 
 # --- Prod --------------------------------------------------------------------------------
