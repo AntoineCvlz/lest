@@ -39,6 +39,7 @@ const REFRESH_PATH_SUFFIX = "/tokens/refresh";
 // comptes chez allauth ; refusée aussi par Django (`RefusePasswordResetLookupMiddleware`).
 const RESET_LOOKUP_SUFFIX = "/auth/password/reset";
 const SESSION_PATH = "/api/v1/auth/app/v1/auth/session";
+const DEVICE_SESSIONS_PATH = "/api/v1/auth/app/v1/auth/sessions";
 const ACCOUNT_PATH = "/api/v1/me";
 
 // Ni `cookie` (les cookies sont ceux de Next.js), ni `authorization` : posés par le BFF.
@@ -175,7 +176,9 @@ async function proxy(request: NextRequest): Promise<Response> {
   const isLogout = request.method === "DELETE" && routed === SESSION_PATH;
   // Suppression du compte : l'action la plus destructrice, protégée comme la déconnexion.
   const isAccountDeletion = request.method === "DELETE" && routed === ACCOUNT_PATH;
-  if ((isLogout || isAccountDeletion) && !hasValidCsrf(request)) {
+  // Déconnexion d'autres appareils : même protection que la déconnexion.
+  const isDeviceSignOut = request.method === "DELETE" && routed === DEVICE_SESSIONS_PATH;
+  if ((isLogout || isAccountDeletion || isDeviceSignOut) && !hasValidCsrf(request)) {
     return problem(403, "Forbidden", pathname);
   }
 

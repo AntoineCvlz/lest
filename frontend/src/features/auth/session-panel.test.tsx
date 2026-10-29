@@ -6,6 +6,7 @@ import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
+import { DEVICE_SESSIONS_KEY } from "@/features/security/device-sessions";
 
 import { SessionPanel } from "./session-panel";
 
@@ -121,16 +122,18 @@ describe("SessionPanel et cache des données de santé", () => {
     expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
   });
 
-  it("retire le profil du cache quand la session a expiré", async () => {
+  it("retire profil et appareils du cache quand la session a expiré", async () => {
     server.use(http.get(ME_URL, () => HttpResponse.json(UNAUTHORIZED, { status: 401 })));
     const { queryClient } = renderWithQuery(<SessionPanel />);
-    // Profil d'une session précédente encore en cache (même onglet, poste partagé).
+    // Données d'une session précédente encore en cache (même onglet, poste partagé).
     queryClient.setQueryData(PROFILE_QUERY_KEY, PROFILE);
+    queryClient.setQueryData(DEVICE_SESSIONS_KEY, [{ id: 1, ip: "203.0.113.7" }]);
 
     await screen.findByText("Vous n’êtes pas connecté.");
 
     await waitFor(() => {
       expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
     });
+    expect(queryClient.getQueryData(DEVICE_SESSIONS_KEY)).toBeUndefined();
   });
 });

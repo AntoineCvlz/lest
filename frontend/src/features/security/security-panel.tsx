@@ -19,6 +19,7 @@ import {
 import { FormAlert } from "../auth/form-alert";
 import { requiresReauthentication, textValue } from "../auth/form";
 import { ConfirmForm, type Proof } from "./confirm-form";
+import { DEVICE_SESSIONS_KEY } from "./device-sessions";
 import { PasskeyList, type Passkey } from "./passkey-list";
 import { QrCode } from "./qr-code";
 import {
@@ -161,6 +162,8 @@ export function SecurityPanel() {
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
+    // Un facteur ajouté déconnecte les autres appareils (API) : la liste change aussi.
+    await queryClient.invalidateQueries({ queryKey: DEVICE_SESSIONS_KEY });
   }
 
   /** 401 de réauthentification : les facteurs ont pu changer (autre session), le mode de

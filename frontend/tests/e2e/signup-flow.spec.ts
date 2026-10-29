@@ -279,3 +279,46 @@ test("passkeys : ajout, second facteur, connexion sans mot de passe, puis retrai
   await expect(page.getByText("Passkey retirée.")).toBeVisible({ timeout: RESPONSE_TIMEOUT });
   await expect(passkeys).toHaveCount(0);
 });
+
+test("appareils connectés : un autre appareil est déconnecté à distance", async ({
+  page,
+  browser,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "appareils");
+  await signUp(page, email, password);
+
+  // Second appareil : autre contexte de navigateur, mêmes identifiants.
+  const other = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL,
+    locale: "fr-FR",
+    userAgent: "Mozilla/5.0 (X11; Linux x86_64; rv:144.0) Gecko/20100101 Firefox/144.0",
+  });
+  // Fermé même en cas d'échec : sa session ne doit pas rester ouverte jusqu'à la fin du worker.
+  try {
+    const otherPage = await other.newPage();
+    await otherPage.goto("/connexion");
+    await otherPage.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
+    await otherPage.getByLabel("Mot de passe").fill(password);
+    await otherPage.getByRole("button", { name: "Se connecter", exact: true }).click();
+    await expect(otherPage.getByText(`Connecté avec ${email}`)).toBeVisible({
+      timeout: RESPONSE_TIMEOUT,
+    });
+
+    await page.getByRole("link", { name: "Mon profil" }).click();
+    const devices = page.getByRole("list", { name: "Appareils connectés" });
+    await expect(devices.getByRole("listitem")).toHaveCount(2, { timeout: RESPONSE_TIMEOUT });
+    await expect(devices).toContainText("(cet appareil)");
+    await expectNoAxeViolations(page);
+    await devices.getByRole("button", { name: /^Déconnecter Firefox sur Linux/ }).click();
+    await expect(page.getByText("Appareil déconnecté.")).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+    await expect(devices.getByRole("listitem")).toHaveCount(1);
+
+    // L'autre appareil n'a plus accès à ses données.
+    await otherPage.goto("/profil");
+    await expect(otherPage.getByText("Connectez-vous pour voir votre profil.")).toBeVisible({
+      timeout: RESPONSE_TIMEOUT,
+    });
+  } finally {
+    await other.close();
+  }
+});

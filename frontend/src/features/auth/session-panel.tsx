@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect } from "react";
 
-import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
+import { useProfile } from "@/features/profile/use-profile";
 import { $api } from "@/shared/api/client";
 import { authClient } from "@/shared/api/auth-client";
 import { Button } from "@/shared/ui/button";
@@ -26,10 +26,14 @@ export function SessionPanel() {
   const queryClient = useQueryClient();
   const me = $api.useQuery("get", "/api/v1/me/", {}, { retry: false });
   const profile = useProfile({ enabled: Boolean(me.data) });
-  // Session expirée ou révoquée : ne pas garder en mémoire le profil (donnée de santé) de la
-  // session précédente, qu'un autre écran de l'onglet afficherait encore.
+  // Session expirée ou révoquée : ne rien garder en mémoire de la session précédente (profil,
+  // donnée de santé ; appareils et leurs IP…), qu'un autre écran de l'onglet afficherait
+  // encore. Seule la requête de session elle-même reste, pour afficher l'état déconnecté.
   useEffect(() => {
-    if (me.isError) queryClient.removeQueries({ queryKey: PROFILE_QUERY_KEY });
+    if (!me.isError) return;
+    queryClient.removeQueries({
+      predicate: ({ queryKey }) => !(queryKey[0] === "get" && queryKey[1] === "/api/v1/me/"),
+    });
   }, [me.isError, queryClient]);
   const logout = useMutation({
     mutationFn: signOut,

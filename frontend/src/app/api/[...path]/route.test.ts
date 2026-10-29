@@ -861,3 +861,45 @@ describe("suppression du compte", () => {
     expect(response.headers.getSetCookie()).toEqual([]);
   });
 });
+
+describe("déconnexion d'autres appareils", () => {
+  const SESSIONS_PATH = "/api/v1/auth/app/v1/auth/sessions";
+
+  it("exige le jeton CSRF double-submit", async () => {
+    const response = await DELETE(
+      request(SESSIONS_PATH, {
+        method: "DELETE",
+        body: '{"sessions":[1]}',
+        cookies: { lest_at: "at-9" },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("relaie la demande avec le jeton CSRF, sans effacer la session courante", async () => {
+    fetchMock.mockResolvedValue(json({ status: 200, data: [] }));
+
+    const response = await DELETE(
+      request(SESSIONS_PATH, {
+        method: "DELETE",
+        body: '{"sessions":[1]}',
+        cookies: { lest_at: "at-10", lest_rt: unique("rt"), lest_csrf: CSRF },
+        headers: { "x-lest-csrf": CSRF },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(lastCall().init.method).toBe("DELETE");
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("la lecture de la liste n'exige pas de jeton CSRF", async () => {
+    fetchMock.mockResolvedValue(json({ status: 200, data: [] }));
+
+    const response = await GET(request(SESSIONS_PATH, { cookies: { lest_at: "at-11" } }));
+
+    expect(response.status).toBe(200);
+  });
+});
