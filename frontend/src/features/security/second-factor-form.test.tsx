@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -36,7 +36,7 @@ describe("SecondFactorForm", () => {
 
     await submit("123 456");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/profil");
     });
     expect(body).toEqual({ code: "123456" });

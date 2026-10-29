@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -61,7 +61,7 @@ describe("LoginForm, passkey", () => {
 
     await clickPasskey();
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/profil");
     });
     expect(getPasskey).toHaveBeenCalledWith(OPTIONS);
@@ -135,7 +135,7 @@ describe("LoginForm, passkey", () => {
 
     unmount();
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(
         JSON.stringify(
           queryClient

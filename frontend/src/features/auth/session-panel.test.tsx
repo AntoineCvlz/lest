@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -129,7 +129,7 @@ describe("SessionPanel et cache des données de santé", () => {
 
     await screen.findByText("Vous n’êtes pas connecté.");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
     });
   });

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -37,7 +37,7 @@ describe("LoginForm", () => {
 
     await submit("membre@example.com", "un-mot-de-passe");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/");
     });
     expect(body).toEqual({ email: "membre@example.com", password: "un-mot-de-passe" });
@@ -49,7 +49,7 @@ describe("LoginForm", () => {
 
     await submit("membre@example.com", "un-mot-de-passe");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/profil");
     });
   });
@@ -87,7 +87,7 @@ describe("LoginForm", () => {
     await submit("membre@", "x");
 
     const email = screen.getByRole("textbox", { name: "Adresse e-mail" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(email).toBeInvalid();
     });
     expect(email).toHaveAccessibleDescription("Saisissez une adresse e-mail valide.");
@@ -118,7 +118,7 @@ describe("LoginForm", () => {
 
     await submit("membre@example.com", "un-mot-de-passe");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/verification");
     });
   });
@@ -136,7 +136,7 @@ describe("LoginForm", () => {
 
     await submit("membre@example.com", "un-mot-de-passe");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/connexion/code?suivant=/profil");
     });
   });

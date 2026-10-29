@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -47,7 +47,7 @@ describe("SignupForm", () => {
 
     await submit("nouveau@example.com", STRONG_PASSWORD);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/verification");
     });
     expect(body).toEqual({ email: "nouveau@example.com", password: STRONG_PASSWORD });
@@ -76,7 +76,7 @@ describe("SignupForm", () => {
     await submit("nouveau@example.com", "court");
 
     const password = screen.getByLabelText("Mot de passe");
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(password).toBeInvalid();
     });
     expect(password).toHaveAccessibleDescription(

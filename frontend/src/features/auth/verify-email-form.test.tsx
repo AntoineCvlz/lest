@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -36,7 +36,7 @@ describe("VerifyEmailForm", () => {
 
     await submitCode(" abcd-efgh ");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/bienvenue");
     });
     expect(body).toEqual({ key: "ABCD-EFGH" });

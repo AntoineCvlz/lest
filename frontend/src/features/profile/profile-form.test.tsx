@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -45,7 +45,7 @@ describe("ProfileForm", () => {
     await user.type(screen.getByRole("textbox", { name: "Taille (cm)" }), "180");
     await user.click(screen.getByRole("button", { name: "Commencer" }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/");
     });
     expect(body()).toEqual({ goal: "gain", unit_system: "metric", height_m: 1.8 });
@@ -63,7 +63,7 @@ describe("ProfileForm", () => {
     expect(screen.getByRole("textbox", { name: "Pieds" })).toHaveValue("5");
     expect(screen.getByRole("textbox", { name: "Pouces" })).toHaveValue("11");
     await user.click(screen.getByRole("button", { name: "Commencer" }));
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(body()).toEqual({ goal: "cut", unit_system: "imperial", height_m: 1.8 });
     });
   });

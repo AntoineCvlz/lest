@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -212,7 +212,7 @@ describe("Passkeys", () => {
     await user.click(await screen.findByRole("button", { name: "Confirmer avec une passkey" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(PASSKEY_REFUSED);
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(challenges).toBe(2);
     });
     expect(removed).toBe(false);
@@ -315,11 +315,11 @@ describe("Passkeys", () => {
     expect(submit).toBeDisabled();
     expect(screen.getByRole("button", { name: "Annuler" })).toBeEnabled();
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(answer).toBeDefined();
     });
     answer?.();
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(submit).toBeEnabled();
     });
   });

@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -36,7 +36,7 @@ describe("ForgotPasswordForm", () => {
       "membre@example.com{Enter}",
     );
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/mot-de-passe-oublie/code");
     });
     expect(body).toEqual({ email: "membre@example.com" });
@@ -56,7 +56,7 @@ describe("ForgotPasswordForm", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Adresse e-mail" }), "x{Enter}");
 
     const email = screen.getByRole("textbox", { name: "Adresse e-mail" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(email).toBeInvalid();
     });
     expect(push).not.toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe("ResetPasswordForm", () => {
 
     await submitReset("ABCD-EFGH", NEW_PASSWORD);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/");
     });
   });
@@ -130,7 +130,7 @@ describe("ResetPasswordForm", () => {
     await submitReset("ABCD-0000", "court");
 
     const code = screen.getByRole("textbox", { name: "Code reçu par e-mail" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(code).toBeInvalid();
     });
     expect(screen.getByLabelText("Nouveau mot de passe")).toHaveAccessibleDescription(
