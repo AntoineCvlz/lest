@@ -112,24 +112,44 @@ async function refreshUpstream(refreshToken: string): Promise<RefreshResult> {
   return pair ? { kind: "ok", pair } : { kind: "unavailable" };
 }
 
-/** Chemin tel que Django le route : segments décodés, sans slash final. */
-/** 401 d'allauth dont `meta.is_authenticated` est vrai : action à reconfirmer, jeton valide. */
-async function stillAuthenticated(response: Response): Promise<boolean> {
+/**
+ * 401 d'allauth qui n'est pas un refus du jeton : session valide (action à reconfirmer,
+ * `meta.is_authenticated`), ou parcours en attente lié au jeton de parcours (second facteur
+ * attendu après le mot de passe…). Un refresh n'y changerait rien, et un refresh refusé
+ * (cookies d'une session révoquée) effacerait le jeton du parcours.
+ */
+async function isFlowAnswer(response: Response): Promise<boolean> {
   try {
     const body: unknown = await response.clone().json();
-    if (typeof body !== "object" || body === null || !("meta" in body)) return false;
-    const { meta } = body;
-    return (
-      typeof meta === "object" &&
-      meta !== null &&
-      "is_authenticated" in meta &&
-      meta.is_authenticated === true
-    );
+    if (typeof body !== "object" || body === null) return false;
+    const authenticated =
+      "meta" in body &&
+      typeof body.meta === "object" &&
+      body.meta !== null &&
+      "is_authenticated" in body.meta &&
+      body.meta.is_authenticated === true;
+    return authenticated || hasPendingFlow(body);
   } catch {
     return false;
   }
 }
 
+function hasPendingFlow(body: object): boolean {
+  if (!("data" in body) || typeof body.data !== "object" || body.data === null) return false;
+  const flows = "flows" in body.data ? body.data.flows : undefined;
+  return (
+    Array.isArray(flows) &&
+    flows.some(
+      (flow: unknown) =>
+        typeof flow === "object" &&
+        flow !== null &&
+        "is_pending" in flow &&
+        flow.is_pending === true,
+    )
+  );
+}
+
+/** Chemin tel que Django le route : segments décodés, sans slash final. */
 function routedPath(pathname: string): string {
   return decodeURIComponent(pathname).replace(/\/+$/, "");
 }
@@ -211,13 +231,13 @@ async function proxy(request: NextRequest): Promise<Response> {
     if (!credentials.access) await renew();
     const sentAccess = credentials.access;
     upstream = await send();
-    // Accès refusé : un seul renouvellement, puis un seul rejeu. Sauf 401 d'allauth sur une
-    // session valide (réauthentification requise) : le jeton n'y est pour rien.
+    // Accès refusé : un seul renouvellement, puis un seul rejeu. Sauf 401 d'allauth propre à un
+    // parcours (réauthentification, second facteur) : le jeton n'y est pour rien.
     if (
       upstream.status === 401 &&
       sentAccess &&
       !isLogout &&
-      !(isAuthRoute && (await stillAuthenticated(upstream))) &&
+      !(isAuthRoute && (await isFlowAnswer(upstream))) &&
       (await renew())
     ) {
       upstream = await send();
@@ -254,7 +274,14 @@ async function proxy(request: NextRequest): Promise<Response> {
 
   // Compte supprimé : plus aucune session à garder, comme après une déconnexion.
   const signsOut = isLogout || (isAccountDeletion && upstream.status === 204);
-  for (const cookie of cookiesFor({ request, isLogout: signsOut, issued, rotated, signedOut })) {
+  for (const cookie of cookiesFor({
+    request,
+    isLogout: signsOut,
+    isAuthRoute,
+    issued,
+    rotated,
+    signedOut,
+  })) {
     responseHeaders.append("set-cookie", cookie);
   }
   return new Response(responseBody, {
@@ -267,12 +294,14 @@ async function proxy(request: NextRequest): Promise<Response> {
 function cookiesFor({
   request,
   isLogout,
+  isAuthRoute,
   issued,
   rotated,
   signedOut,
 }: {
   request: NextRequest;
   isLogout: boolean;
+  isAuthRoute: boolean;
   issued: IssuedTokens;
   rotated: TokenPair | null;
   signedOut: boolean;
@@ -301,13 +330,15 @@ function cookiesFor({
     const csrf = CSRF_TOKEN_SHAPE.test(current) ? current : randomBytes(32).toString("base64url");
     cookies.push(setCookie(CSRF_COOKIE, csrf));
   } else if (signedOut) {
-    // Session refusée (révoquée, expirée) : plus aucun indice de session côté navigateur.
-    cookies.push(
-      clearCookie(ACCESS_COOKIE),
-      clearCookie(REFRESH_COOKIE),
-      clearCookie(SESSION_COOKIE),
-      clearCookie(CSRF_COOKIE),
-    );
+    // Session refusée (révoquée, expirée) : plus aucun indice de session côté navigateur. Sauf
+    // le jeton d'un parcours que cette réponse vient d'ouvrir (connexion commencée avec des
+    // cookies périmés, second facteur attendu) : sans lui, la connexion ne peut pas aboutir.
+    // Hors routes d'auth, le jeton de parcours n'est jamais envoyé à Django : il n'y est pour
+    // rien, on n'y touche pas (un appel de page pendant le second facteur ne casse pas la
+    // connexion).
+    cookies.push(clearCookie(ACCESS_COOKIE), clearCookie(REFRESH_COOKIE), clearCookie(CSRF_COOKIE));
+    if (issued.session) cookies.push(setCookie(SESSION_COOKIE, issued.session));
+    else if (isAuthRoute) cookies.push(clearCookie(SESSION_COOKIE));
   } else if (issued.session) {
     // Parcours en attente (inscription, vérification d'e-mail) : jeton gardé pour la suite.
     cookies.push(setCookie(SESSION_COOKIE, issued.session));
