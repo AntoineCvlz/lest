@@ -89,6 +89,7 @@ describe("ProfileForm", () => {
           height_m: 1.8,
           goal: "maintain",
           unit_system: "metric",
+          one_rm_formula: "epley",
           onboarded_at: "2026-10-28T09:00:00Z",
         }}
         submitLabel="Enregistrer"

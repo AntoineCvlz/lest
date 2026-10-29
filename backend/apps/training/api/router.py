@@ -6,16 +6,25 @@ d'un autre compte répond 404 comme un identifiant inconnu ; un parent inconnu, 
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
+from allauth.core import ratelimit
 from django.http import Http404, HttpRequest
 from django.utils import timezone
 from ninja import Field, Router, Schema, Status
 from pydantic import UUID4, AfterValidator, AwareDatetime
 
+from apps.accounts.models import User
 from apps.training import selectors, services
-from apps.training.models import MAX_REPS, MAX_WEIGHT_KG, Set, Workout, WorkoutExercise
+from apps.training.models import (
+    MAX_REPS,
+    MAX_WEIGHT_KG,
+    PersonalRecord,
+    Set,
+    Workout,
+    WorkoutExercise,
+)
 from common.auth import request_user
 from common.problems import ProblemError
 
@@ -24,6 +33,10 @@ router = Router(tags=["training"])
 MAX_POSITION = 1000
 EARLIEST = datetime(2000, 1, 1, tzinfo=UTC)
 WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
+RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
+# Écritures de séance par compte (`ACCOUNT_RATE_LIMITS`) : une file hors ligne rejoue vite,
+# un script pas indéfiniment (chaque écriture recalcule des records).
+WRITE_ACTION = "training_write"
 
 
 def _plausible(moment: datetime) -> datetime:
@@ -61,6 +74,12 @@ class SetIn(Schema):
     performed_at: Moment
 
 
+class RecordOut(Schema):
+    kind: Literal["weight", "e1rm"]
+    value_kg: float
+    achieved_at: datetime
+
+
 class SetOut(Schema):
     id: UUID
     workout_exercise_id: UUID
@@ -70,6 +89,12 @@ class SetOut(Schema):
     rpe: float | None
     is_warmup: bool
     performed_at: datetime
+    # Records établis par cette série (« Nouveau record » à l'écran).
+    records: list[RecordOut]
+
+
+class ExerciseRecordsOut(Schema):
+    history: list[RecordOut]
 
 
 class WorkoutExerciseOut(Schema):
@@ -106,6 +131,15 @@ def _set_out(one: Set) -> SetOut:
         rpe=float(one.rpe) if one.rpe is not None else None,
         is_warmup=one.is_warmup,
         performed_at=one.performed_at,
+        records=[_record_out(record) for record in one.records.all()],
+    )
+
+
+def _record_out(record: PersonalRecord) -> RecordOut:
+    return RecordOut(
+        kind=record.kind,  # type: ignore[arg-type]  # garanti par la contrainte en base
+        value_kg=float(record.value_kg),
+        achieved_at=record.achieved_at,
     )
 
 
@@ -125,6 +159,16 @@ def _status[T](created: bool, body: T) -> Status[T]:
 
 def _conflict() -> ProblemError:
     return ProblemError(409, "Écriture refusée, réessayez.", type_=WRITE_CONFLICT_TYPE)
+
+
+def _writer(request: HttpRequest) -> User:
+    """Compte qui écrit, après la limite de débit des écritures de séance (429 au-delà)."""
+    user = request_user(request)
+    if not ratelimit.consume(request, action=WRITE_ACTION, user=user):
+        raise ProblemError(
+            429, "Trop d'écritures. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
+        )
+    return user
 
 
 @router.get("/workouts/{workout_id}/", response=WorkoutDetailOut, summary="Séance et séries")
@@ -162,7 +206,7 @@ def write_workout(
 ) -> Status[WorkoutOut]:
     try:
         workout, created = services.put_workout(
-            owner=request_user(request),
+            owner=_writer(request),
             workout_id=workout_id,
             started_at=payload.started_at,
             ended_at=payload.ended_at,
@@ -176,7 +220,7 @@ def write_workout(
 
 @router.delete("/workouts/{workout_id}/", response={204: None}, summary="Supprimer une séance")
 def remove_workout(request: HttpRequest, workout_id: ClientId) -> Status[None]:
-    services.delete_workout(owner=request_user(request), workout_id=workout_id)
+    services.delete_workout(owner=_writer(request), workout_id=workout_id)
     return Status(204, None)
 
 
@@ -190,7 +234,7 @@ def write_workout_exercise(
 ) -> Status[WorkoutExerciseOut]:
     try:
         item, created = services.put_workout_exercise(
-            owner=request_user(request),
+            owner=_writer(request),
             workout_exercise_id=workout_exercise_id,
             workout_id=payload.workout_id,
             exercise_id=payload.exercise_id,
@@ -210,7 +254,7 @@ def write_workout_exercise(
 )
 def remove_workout_exercise(request: HttpRequest, workout_exercise_id: ClientId) -> Status[None]:
     services.delete_workout_exercise(
-        owner=request_user(request), workout_exercise_id=workout_exercise_id
+        owner=_writer(request), workout_exercise_id=workout_exercise_id
     )
     return Status(204, None)
 
@@ -219,7 +263,7 @@ def remove_workout_exercise(request: HttpRequest, workout_exercise_id: ClientId)
 def write_set(request: HttpRequest, set_id: ClientId, payload: SetIn) -> Status[SetOut]:
     try:
         one, created = services.put_set(
-            owner=request_user(request),
+            owner=_writer(request),
             set_id=set_id,
             workout_exercise_id=payload.workout_exercise_id,
             position=payload.position,
@@ -236,7 +280,17 @@ def write_set(request: HttpRequest, set_id: ClientId, payload: SetIn) -> Status[
     return _status(created, _set_out(one))
 
 
+@router.get(
+    "/exercises/{exercise_id}/records/",
+    response=ExerciseRecordsOut,
+    summary="Historique des records d'un exercice",
+)
+def read_exercise_records(request: HttpRequest, exercise_id: UUID) -> ExerciseRecordsOut:
+    history = selectors.records_history(owner=request_user(request), exercise_id=exercise_id)
+    return ExerciseRecordsOut(history=[_record_out(record) for record in history])
+
+
 @router.delete("/sets/{set_id}/", response={204: None}, summary="Supprimer une série")
 def remove_set(request: HttpRequest, set_id: ClientId) -> Status[None]:
-    services.delete_set(owner=request_user(request), set_id=set_id)
+    services.delete_set(owner=_writer(request), set_id=set_id)
     return Status(204, None)

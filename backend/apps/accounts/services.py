@@ -12,7 +12,8 @@ from django.db import transaction
 from django.http import HttpRequest
 from django.template.loader import render_to_string
 
-from .models import Profile, User, normalize_email
+from . import events
+from .models import OneRepMaxFormula, Profile, User, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -32,22 +33,46 @@ def create_verified_user(*, email: str, password: str) -> User:
     return user
 
 
-def save_profile(*, user: User, height_m: float, goal: str, unit_system: str) -> Profile:
+def lock_account(user: User) -> None:
+    """Verrouille le compte jusqu'à la fin de la transaction : sérialise les recalculs propres
+    au compte (records de `training`) et le changement de formule du profil."""
+    User.objects.select_for_update().filter(pk=user.pk).first()
+
+
+def save_profile(
+    *,
+    user: User,
+    height_m: float,
+    goal: str,
+    unit_system: str,
+    one_rm_formula: str | None = None,
+) -> Profile:
     """
     Crée le profil de `user` (fin de l'onboarding) ou le met à jour.
 
-    La taille est stockée en mètres, arrondie au centimètre. Lève `ValidationError` pour une
-    valeur hors des bornes du modèle, sans rien enregistrer.
+    La taille est stockée en mètres, arrondie au centimètre. `one_rm_formula` absente : formule
+    actuelle gardée (Epley à la création). Un changement de formule émet
+    `events.one_rm_formula_changed` (records recalculés par `training`), dans la même
+    transaction. Lève `ValidationError` pour une valeur hors des bornes, sans rien enregistrer.
     """
-    values = {
-        "height_m": Decimal(str(height_m)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
-        "goal": goal,
-        "unit_system": unit_system,
-    }
-    # Valeurs validées sans l'unicité, puis écriture atomique : deux premiers envois simultanés
-    # (double tap, rejeu hors ligne) donnent un seul profil, sans erreur.
-    Profile(user=user, **values).full_clean(validate_unique=False)
-    profile, _ = Profile.objects.update_or_create(user=user, defaults=values)
+    with transaction.atomic():
+        # Même ordre de verrous que les écritures de séries (compte, puis profil) : pas
+        # d'interblocage, et aucune série ne se recalcule avec la formule qui s'en va.
+        lock_account(user)
+        current = Profile.objects.select_for_update().filter(user=user).first()
+        previous_formula = current.one_rm_formula if current else OneRepMaxFormula.EPLEY
+        values = {
+            "height_m": Decimal(str(height_m)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            "goal": goal,
+            "unit_system": unit_system,
+            "one_rm_formula": one_rm_formula or previous_formula,
+        }
+        # Valeurs validées sans l'unicité, puis écriture atomique : deux premiers envois
+        # simultanés (double tap, rejeu hors ligne) donnent un seul profil, sans erreur.
+        Profile(user=user, **values).full_clean(validate_unique=False)
+        profile, _ = Profile.objects.update_or_create(user=user, defaults=values)
+        if profile.one_rm_formula != previous_formula:
+            events.one_rm_formula_changed.send(sender=Profile, user=user)
     return profile
 
 

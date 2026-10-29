@@ -6,14 +6,20 @@ from allauth.usersessions.models import UserSession
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 
-from apps.training.selectors import export_workouts
+from apps.training.selectors import export_records, export_workouts
 
-from .models import Profile, User
+from .models import OneRepMaxFormula, Profile, User
 
 
 def get_profile(user: User) -> Profile | None:
     """Profil de `user`, ou `None` s'il n'a pas fini l'onboarding."""
     return Profile.objects.filter(user=user).first()
+
+
+def get_one_rm_formula(user: User) -> str:
+    """Formule du 1RM estimé de `user` (Epley sans profil)."""
+    profile = get_profile(user)
+    return profile.one_rm_formula if profile else OneRepMaxFormula.EPLEY
 
 
 def export_account(user: User) -> dict[str, Any]:
@@ -70,11 +76,13 @@ def export_account(user: User) -> dict[str, Any]:
         ],
         # Séances, exercices et séries (domaine `training`, lu par son sélecteur).
         "workouts": export_workouts(owner=user),
+        "personal_records": export_records(owner=user),
         "profile": (
             {
                 "height_m": float(profile.height_m),
                 "goal": profile.goal,
                 "unit_system": profile.unit_system,
+                "one_rm_formula": profile.one_rm_formula,
                 "onboarded_at": profile.onboarded_at.isoformat(),
             }
             if profile

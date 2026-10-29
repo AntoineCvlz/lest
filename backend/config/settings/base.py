@@ -152,6 +152,9 @@ ACCOUNT_RATE_LIMITS = {
     "reset_password": "20/m/ip,3/900s/key",
     # Réauthentification (ex. suppression du compte) : plafond journalier en plus de 10/min.
     "reauthenticate": "10/m/user,30/86400s/user",
+    # Écritures de séance (séries, exercices, séances) : 300/min par compte, de quoi vider une
+    # file hors ligne d'un coup, pas de remplir la base par script.
+    "training_write": "300/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.

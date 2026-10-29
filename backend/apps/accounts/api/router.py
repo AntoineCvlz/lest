@@ -22,6 +22,7 @@ WRONG_CREDENTIALS_TYPE = "urn:lest:problem:incorrect-password"
 
 GoalValue = Literal["gain", "maintain", "cut"]
 UnitSystemValue = Literal["metric", "imperial"]
+OneRepMaxFormulaValue = Literal["epley", "brzycki"]
 
 
 class MeOut(Schema):
@@ -34,12 +35,15 @@ class ProfileIn(Schema):
     height_m: float = Field(strict=True, ge=float(MIN_HEIGHT_M), le=float(MAX_HEIGHT_M))
     goal: GoalValue
     unit_system: UnitSystemValue
+    # Absente : formule actuelle gardée (le formulaire de profil ne la remet pas à zéro).
+    one_rm_formula: OneRepMaxFormulaValue | None = None
 
 
 class ProfileOut(Schema):
     height_m: float
     goal: GoalValue
     unit_system: UnitSystemValue
+    one_rm_formula: OneRepMaxFormulaValue
     onboarded_at: datetime
 
 
@@ -48,6 +52,7 @@ def _profile_out(profile: Profile) -> ProfileOut:
         height_m=float(profile.height_m),
         goal=profile.goal,  # type: ignore[arg-type]  # garanti par la contrainte en base
         unit_system=profile.unit_system,  # type: ignore[arg-type]
+        one_rm_formula=profile.one_rm_formula,  # type: ignore[arg-type]
         onboarded_at=profile.onboarded_at,
     )
 
@@ -73,6 +78,7 @@ def write_profile(request: HttpRequest, payload: ProfileIn) -> ProfileOut:
         height_m=payload.height_m,
         goal=payload.goal,
         unit_system=payload.unit_system,
+        one_rm_formula=payload.one_rm_formula,
     )
     return _profile_out(profile)
 
