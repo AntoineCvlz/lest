@@ -13,18 +13,18 @@ import {
   PASSKEY_REMOVED,
   SecurityPanel,
 } from "./security-panel";
-import type * as Webauthn from "./webauthn";
+import type * as Webauthn from "@/shared/lib/webauthn";
 import {
   createPasskey,
   getPasskey,
   PASSKEY_CANCELLED,
   PasskeyError,
   passkeysSupported,
-} from "./webauthn";
+} from "@/shared/lib/webauthn";
 
 // Les cérémonies du navigateur sont testées dans `webauthn.test.ts` (et en E2E avec
 // l'authentificateur virtuel de Chromium) ; ici, seul leur résultat compte.
-vi.mock("./webauthn", async (importOriginal) => ({
+vi.mock("@/shared/lib/webauthn", async (importOriginal) => ({
   ...(await importOriginal<typeof Webauthn>()),
   passkeysSupported: vi.fn(() => true),
   createPasskey: vi.fn(),

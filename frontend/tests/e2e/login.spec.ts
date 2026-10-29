@@ -20,7 +20,7 @@ for (const scheme of THEMES) {
       // Adresse inconnue : ne consomme pas le quota d'échecs du compte E2E.
       await page.getByRole("textbox", { name: "Adresse e-mail" }).fill("inconnu@example.com");
       await page.getByLabel("Mot de passe").fill("mauvais-mot-de-passe");
-      await page.getByRole("button", { name: "Se connecter" }).click();
+      await page.getByRole("button", { name: "Se connecter", exact: true }).click();
       // `filter` : Next.js ajoute sa propre région `alert` (annonce des changements de route).
       await expect(
         page.getByRole("alert").filter({ hasText: "Adresse e-mail ou mot de passe incorrect." }),
@@ -50,7 +50,7 @@ test.describe("Sans JavaScript", () => {
     await page.getByLabel("Mot de passe").fill("un-mot-de-passe");
     await page.getByLabel("Mot de passe").press("Enter");
 
-    await expect(page.getByRole("button", { name: "Se connecter" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Se connecter", exact: true })).toBeDisabled();
     await expect(page).toHaveURL("/connexion");
     expect(requests).toEqual([]);
   });

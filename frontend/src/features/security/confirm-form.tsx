@@ -9,7 +9,7 @@ import { TextField } from "@/shared/ui/text-field";
 import type { FormErrors } from "../auth/errors";
 import { FormAlert } from "../auth/form-alert";
 import { textValue } from "../auth/form";
-import { getPasskey, PASSKEY_FAILED, PasskeyError } from "./webauthn";
+import { getPasskey, PASSKEY_FAILED, PasskeyError } from "@/shared/lib/webauthn";
 
 /** Preuve d'identité donnée pour confirmer une action sensible. */
 export type Proof =

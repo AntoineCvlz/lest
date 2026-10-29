@@ -21,7 +21,12 @@ import { requiresReauthentication, textValue } from "../auth/form";
 import { ConfirmForm, type Proof } from "./confirm-form";
 import { PasskeyList, type Passkey } from "./passkey-list";
 import { QrCode } from "./qr-code";
-import { createPasskey, PASSKEY_FAILED, PasskeyError, passkeysSupported } from "./webauthn";
+import {
+  createPasskey,
+  PASSKEY_FAILED,
+  PasskeyError,
+  passkeysSupported,
+} from "@/shared/lib/webauthn";
 
 const AUTHENTICATORS = "/api/v1/auth/app/v1/account/authenticators";
 const TOTP = "/api/v1/auth/app/v1/account/authenticators/totp";

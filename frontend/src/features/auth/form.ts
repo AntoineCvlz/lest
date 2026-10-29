@@ -27,22 +27,37 @@ export function textValue(form: FormData, name: string): string {
  * l'utilisateur serait envoyé vers une saisie qui ne peut pas aboutir.
  */
 export function awaitsFlow(body: unknown, flowId: string): boolean {
-  if (typeof body !== "object" || body === null || !("data" in body)) return false;
+  return pendingFlow(body, flowId) !== undefined;
+}
+
+function pendingFlow(body: unknown, flowId: string): object | undefined {
+  if (typeof body !== "object" || body === null || !("data" in body)) return undefined;
   const { data } = body;
-  if (typeof data !== "object" || data === null || !("flows" in data)) return false;
+  if (typeof data !== "object" || data === null || !("flows" in data)) return undefined;
   const { flows } = data;
-  return (
-    Array.isArray(flows) &&
-    flows.some(
-      (flow: unknown) =>
-        typeof flow === "object" &&
-        flow !== null &&
-        "id" in flow &&
-        flow.id === flowId &&
-        "is_pending" in flow &&
-        flow.is_pending === true,
-    )
+  if (!Array.isArray(flows)) return undefined;
+  return flows.find(
+    (flow: unknown): flow is object =>
+      typeof flow === "object" &&
+      flow !== null &&
+      "id" in flow &&
+      flow.id === flowId &&
+      "is_pending" in flow &&
+      flow.is_pending === true,
   );
+}
+
+/**
+ * Méthodes de second facteur du compte dont la connexion attend un second facteur (`totp`,
+ * `recovery_codes`, `webauthn`), ou `null` s'il n'y a pas de connexion en attente.
+ */
+export function pendingSecondFactorTypes(body: unknown): string[] | null {
+  const flow = pendingFlow(body, "mfa_authenticate");
+  if (!flow) return null;
+  const types = "types" in flow ? flow.types : undefined;
+  return Array.isArray(types)
+    ? types.filter((type: unknown): type is string => typeof type === "string")
+    : [];
 }
 
 /**
