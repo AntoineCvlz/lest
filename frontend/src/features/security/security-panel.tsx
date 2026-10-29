@@ -19,7 +19,7 @@ import {
 import { FormAlert } from "../auth/form-alert";
 import { requiresReauthentication, textValue } from "../auth/form";
 import { ConfirmForm, type Proof } from "./confirm-form";
-import { DEVICE_SESSIONS_KEY } from "./device-sessions";
+import { DEVICE_SESSIONS_KEY, MFA_QUERY_KEY } from "./query-keys";
 import { PasskeyList, type Passkey } from "./passkey-list";
 import { QrCode } from "./qr-code";
 import {
@@ -29,11 +29,12 @@ import {
   passkeysSupported,
 } from "@/shared/lib/webauthn";
 
+export { MFA_QUERY_KEY };
+
 const AUTHENTICATORS = "/api/v1/auth/app/v1/account/authenticators";
 const TOTP = "/api/v1/auth/app/v1/account/authenticators/totp";
 const WEBAUTHN = "/api/v1/auth/app/v1/account/authenticators/webauthn";
 const RECOVERY_CODES = "/api/v1/auth/app/v1/account/authenticators/recovery-codes";
-export const MFA_QUERY_KEY = ["mfa-authenticators"] as const;
 export const MFA_ENABLED = "Double authentification activée (application).";
 export const PASSKEY_ADDED = "Passkey ajoutée : vous pouvez l’utiliser pour vous connecter.";
 export const PASSKEY_REMOVED = "Passkey retirée.";

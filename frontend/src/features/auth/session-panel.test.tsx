@@ -136,4 +136,19 @@ describe("SessionPanel et cache des données de santé", () => {
     });
     expect(queryClient.getQueryData(DEVICE_SESSIONS_KEY)).toBeUndefined();
   });
+
+  it("garde les requêtes publiques quand la session a expiré (état de l'API)", async () => {
+    server.use(http.get(ME_URL, () => HttpResponse.json(UNAUTHORIZED, { status: 401 })));
+    const { queryClient } = renderWithQuery(<SessionPanel />);
+    const health = ["get", "/api/v1/health/", {}];
+    queryClient.setQueryData(health, { status: "ok" });
+    queryClient.setQueryData(PROFILE_QUERY_KEY, PROFILE);
+
+    await screen.findByText("Vous n’êtes pas connecté.");
+
+    await waitFor(() => {
+      expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
+    });
+    expect(queryClient.getQueryData(health)).toEqual({ status: "ok" });
+  });
 });

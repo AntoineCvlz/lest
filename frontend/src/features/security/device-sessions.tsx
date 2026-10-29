@@ -10,9 +10,11 @@ import { Button } from "@/shared/ui/button";
 
 import { UNAVAILABLE } from "../auth/errors";
 import { FormAlert } from "../auth/form-alert";
+import { DEVICE_SESSIONS_KEY } from "./query-keys";
+
+export { DEVICE_SESSIONS_KEY };
 
 const SESSIONS = "/api/v1/auth/app/v1/auth/sessions";
-export const DEVICE_SESSIONS_KEY = ["device-sessions"] as const;
 export const DEVICE_SIGNED_OUT = "Appareil déconnecté.";
 export const OTHERS_SIGNED_OUT = "Les autres appareils sont déconnectés.";
 export const SESSION_ENDED = "Votre session a pris fin. Reconnectez-vous pour gérer vos appareils.";
