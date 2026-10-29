@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -111,7 +111,7 @@ describe("SecurityPanel", () => {
     await user.click(screen.getByRole("button", { name: "Continuer" }));
 
     const field = screen.getByLabelText("Mot de passe, pour confirmer");
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(field).toBeInvalid();
     });
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

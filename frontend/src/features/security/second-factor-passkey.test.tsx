@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -55,13 +55,13 @@ describe("SecondFactorForm, passkey", () => {
     renderWithQuery(<SecondFactorForm redirectTo="/profil" />);
 
     const passkey = await screen.findByRole("button", { name: "Utiliser une passkey" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(passkey).toBeEnabled();
     });
     expect(screen.getByText(/L’un de vos codes de secours/)).toBeInTheDocument();
     await userEvent.click(passkey);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/profil");
     });
     expect(getPasskey).toHaveBeenCalledWith(OPTIONS);
@@ -89,13 +89,13 @@ describe("SecondFactorForm, passkey", () => {
     renderWithQuery(<SecondFactorForm />);
 
     const passkey = await screen.findByRole("button", { name: "Utiliser une passkey" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(passkey).toBeEnabled();
     });
     await userEvent.click(passkey);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(PASSKEY_REFUSED);
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(challenges).toBe(2);
     });
     expect(push).not.toHaveBeenCalled();
@@ -106,7 +106,7 @@ describe("SecondFactorForm, passkey", () => {
     renderWithQuery(<SecondFactorForm />);
 
     expect(await screen.findByText(/Le code à 6 chiffres/)).toBeInTheDocument();
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(screen.getByRole("button", { name: "Valider" })).toBeEnabled();
     });
     expect(screen.queryByRole("button", { name: "Utiliser une passkey" })).not.toBeInTheDocument();
@@ -125,7 +125,7 @@ describe("SecondFactorForm, passkey", () => {
     renderWithQuery(<SecondFactorForm />);
 
     const passkey = await screen.findByRole("button", { name: "Utiliser une passkey" });
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(passkey).toBeEnabled();
     });
     await userEvent.click(passkey);

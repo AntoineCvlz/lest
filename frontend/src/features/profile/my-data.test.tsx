@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -32,7 +32,7 @@ describe("MyData", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Télécharger mes données (JSON)" }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(createObjectURL).toHaveBeenCalledOnce();
     });
     vi.unstubAllGlobals();
@@ -48,7 +48,7 @@ describe("MyData", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Télécharger mes données (JSON)" }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/connexion?suivant=/profil");
     });
     expect(createObjectURL).not.toHaveBeenCalled();
@@ -80,7 +80,7 @@ describe("MyData", () => {
     expect(screen.queryByLabelText("Mot de passe, pour confirmer")).not.toBeInTheDocument();
     await confirmWith("mon-mot-de-passe");
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(push).toHaveBeenCalledWith("/compte-supprime");
     });
     expect(body).toEqual({ password: "mon-mot-de-passe" });
@@ -101,7 +101,7 @@ describe("MyData", () => {
     await confirmWith("faux");
 
     const field = screen.getByLabelText("Mot de passe, pour confirmer");
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(field).toBeInvalid();
     });
     expect(field).toHaveAccessibleDescription(WRONG_PASSWORD);
