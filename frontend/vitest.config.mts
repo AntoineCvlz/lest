@@ -22,6 +22,9 @@ export default defineConfig({
           setupFiles: ["./vitest.setup.ts"],
           include: ["src/**/*.test.{ts,tsx}"],
           restoreMocks: true,
+          // Parcours saisis touche par touche : sur une machine chargée, certains dépassent les
+          // 5 s par défaut. Un test bloqué échoue toujours, plus tard.
+          testTimeout: 15_000,
         },
       },
       {
