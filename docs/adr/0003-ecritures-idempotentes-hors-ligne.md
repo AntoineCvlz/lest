@@ -1,6 +1,6 @@
 # ADR 0003 — Rendre les écritures de séance idempotentes dès la Phase 2, pour le hors-ligne
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-10-29
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

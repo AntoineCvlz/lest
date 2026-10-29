@@ -1,6 +1,6 @@
 # ADR 0004 — Importer le catalogue d'exercices depuis wger, sous licence CC-BY-SA
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-10-29
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

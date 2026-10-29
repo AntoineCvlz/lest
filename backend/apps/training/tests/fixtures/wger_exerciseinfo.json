@@ -1,0 +1,265 @@
+[
+  {
+    "count": 5,
+    "next": "https://wger.de/api/v2/exerciseinfo/?limit=100&offset=3",
+    "previous": null,
+    "results": [
+      {
+        "id": 0,
+        "uuid": "11111111-1111-4111-8111-111111111111",
+        "created": "2024-01-01T00:00:00+01:00",
+        "last_update": "2026-09-01T10:00:00+02:00",
+        "last_update_global": "2026-09-01T10:00:00+02:00",
+        "category": {
+          "id": 11,
+          "name": "-"
+        },
+        "muscles": [
+          {
+            "id": 4
+          }
+        ],
+        "muscles_secondary": [
+          {
+            "id": 2
+          },
+          {
+            "id": 5
+          }
+        ],
+        "equipment": [
+          {
+            "id": 1
+          },
+          {
+            "id": 8
+          }
+        ],
+        "license": {
+          "id": 0,
+          "full_name": "CC-BY-SA 4",
+          "short_name": "CC-BY-SA 4",
+          "url": ""
+        },
+        "license_author": "auteur-wger-1",
+        "images": [],
+        "videos": [],
+        "variation_group": null,
+        "author_history": [],
+        "total_authors_history": [],
+        "translations": [
+          {
+            "id": 0,
+            "language": 2,
+            "name": "Bench press",
+            "description": ""
+          },
+          {
+            "id": 0,
+            "language": 12,
+            "name": "Développé couché",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": 0,
+        "uuid": "22222222-2222-4222-8222-222222222222",
+        "created": "2024-01-01T00:00:00+01:00",
+        "last_update": "2026-09-01T10:00:00+02:00",
+        "last_update_global": "2026-09-01T10:00:00+02:00",
+        "category": {
+          "id": 9,
+          "name": "-"
+        },
+        "muscles": [
+          {
+            "id": 8
+          }
+        ],
+        "muscles_secondary": [
+          {
+            "id": 11
+          }
+        ],
+        "equipment": [
+          {
+            "id": 1
+          },
+          {
+            "id": 8
+          }
+        ],
+        "license": {
+          "id": 0,
+          "full_name": "CC-BY-SA 3",
+          "short_name": "CC-BY-SA 3",
+          "url": ""
+        },
+        "license_author": "auteur-wger-2",
+        "images": [],
+        "videos": [],
+        "variation_group": null,
+        "author_history": [],
+        "total_authors_history": [],
+        "translations": [
+          {
+            "id": 0,
+            "language": 2,
+            "name": "Hip thrust",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": 0,
+        "uuid": "33333333-3333-4333-8333-333333333333",
+        "created": "2024-01-01T00:00:00+01:00",
+        "last_update": "2026-09-01T10:00:00+02:00",
+        "last_update_global": "2026-09-01T10:00:00+02:00",
+        "category": {
+          "id": 10,
+          "name": "-"
+        },
+        "muscles": [
+          {
+            "id": 6
+          }
+        ],
+        "muscles_secondary": [
+          {
+            "id": 14
+          }
+        ],
+        "equipment": [
+          {
+            "id": 7
+          }
+        ],
+        "license": {
+          "id": 0,
+          "full_name": "CC0",
+          "short_name": "CC0",
+          "url": ""
+        },
+        "license_author": null,
+        "images": [],
+        "videos": [],
+        "variation_group": null,
+        "author_history": [],
+        "total_authors_history": [],
+        "translations": [
+          {
+            "id": 0,
+            "language": 12,
+            "name": "Gainage",
+            "description": ""
+          },
+          {
+            "id": 0,
+            "language": 2,
+            "name": "Plank",
+            "description": ""
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "count": 5,
+    "next": null,
+    "previous": null,
+    "results": [
+      {
+        "id": 0,
+        "uuid": "44444444-4444-4444-8444-444444444444",
+        "created": "2024-01-01T00:00:00+01:00",
+        "last_update": "2026-09-01T10:00:00+02:00",
+        "last_update_global": "2026-09-01T10:00:00+02:00",
+        "category": {
+          "id": 8,
+          "name": "-"
+        },
+        "muscles": [
+          {
+            "id": 1
+          }
+        ],
+        "muscles_secondary": [],
+        "equipment": [
+          {
+            "id": 3
+          }
+        ],
+        "license": {
+          "id": 0,
+          "full_name": "ODbL",
+          "short_name": "ODbL",
+          "url": ""
+        },
+        "license_author": "auteur-wger-3",
+        "images": [],
+        "videos": [],
+        "variation_group": null,
+        "author_history": [],
+        "total_authors_history": [],
+        "translations": [
+          {
+            "id": 0,
+            "language": 2,
+            "name": "Curl",
+            "description": ""
+          }
+        ]
+      },
+      {
+        "id": 0,
+        "uuid": "55555555-5555-4555-8555-555555555555",
+        "created": "2024-01-01T00:00:00+01:00",
+        "last_update": "2026-09-01T10:00:00+02:00",
+        "last_update_global": "2026-09-01T10:00:00+02:00",
+        "category": {
+          "id": 8,
+          "name": "-"
+        },
+        "muscles": [
+          {
+            "id": 5
+          }
+        ],
+        "muscles_secondary": [],
+        "equipment": [
+          {
+            "id": 3
+          }
+        ],
+        "license": {
+          "id": 0,
+          "full_name": "CC-BY-SA 4",
+          "short_name": "CC-BY-SA 4",
+          "url": ""
+        },
+        "license_author": "auteur-wger-4",
+        "images": [],
+        "videos": [],
+        "variation_group": null,
+        "author_history": [],
+        "total_authors_history": [],
+        "translations": [
+          {
+            "id": 0,
+            "language": 1,
+            "name": "Trizepsdrücken",
+            "description": ""
+          },
+          {
+            "id": 0,
+            "language": 12,
+            "name": "  ",
+            "description": ""
+          }
+        ]
+      }
+    ]
+  }
+]

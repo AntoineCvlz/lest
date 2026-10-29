@@ -6,4 +6,4 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 
 app = Celery("lest")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-app.autodiscover_tasks(["common"])
+app.autodiscover_tasks(["common", "apps.training"])
