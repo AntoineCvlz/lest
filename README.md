@@ -2,7 +2,7 @@
 
 Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé d'une main entre deux séries, même sans réseau en salle.
 
-> Projet en Phase 1 : comptes (inscription avec code e-mail, connexion, mot de passe oublié), onboarding et profil, design system « Fonte calibrée ». Les fonctionnalités d'entraînement arrivent en Phase 2, voir la [roadmap](CLAUDE.md#roadmap).
+> Phase 1 terminée : comptes (inscription avec code e-mail, connexion, mot de passe oublié), onboarding et profil, export et suppression du compte, double authentification et passkeys, appareils connectés, design system « Fonte calibrée ». Prochaine étape, la musculation (Phase 2) : voir la [roadmap](CLAUDE.md#roadmap).
 
 ## Ce que fait Lest
 
@@ -42,7 +42,7 @@ Sinon, s'inscrire sur `/inscription` et lire le code dans Mailpit.
 
 ## Architecture
 
-Navigateur → Next.js (SSR + proxy `/api`) → API Django Ninja → PostgreSQL / Redis, avec un worker Celery.
+Navigateur → Next.js (SSR + proxy `/api`) → API Django Ninja → PostgreSQL / Redis, avec un worker Celery et son planificateur (`beat`).
 
 Le proxy Next.js est un *Backend for Frontend* : les jetons JWT d'allauth ne quittent jamais le serveur ; le navigateur n'a que des cookies `HttpOnly`, et aucun jeton n'est lisible par le JavaScript.
 

@@ -1,6 +1,6 @@
 # ADR 0002 — Chiffrer au repos les secrets et les champs sensibles avec Fernet
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-10-28
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 
