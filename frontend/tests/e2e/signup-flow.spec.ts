@@ -7,6 +7,7 @@ import type { Page, TestInfo } from "@playwright/test";
 import { expect, test } from "./fixtures";
 import { lastCodeSentTo } from "./mailpit";
 import { totp } from "./totp";
+import { addVirtualAuthenticator } from "./webauthn";
 
 // Attente d’une réponse d’allauth (hachage Argon2, envoi d’e-mail).
 const RESPONSE_TIMEOUT = 15_000;
@@ -215,4 +216,39 @@ test("double authentification : activation, puis connexion avec un code de secou
   await expect(
     page.getByRole("button", { name: "Activer la double authentification" }),
   ).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+});
+
+test("passkeys : ajout avec le mot de passe, puis retrait confirmé par la passkey", async ({
+  page,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "passkey");
+  await addVirtualAuthenticator(page);
+  await signUp(page, email, password);
+  await page.getByRole("link", { name: "Mon profil" }).click();
+
+  // Premier facteur du compte : le mot de passe suffit pour l'ajouter.
+  await page.getByRole("button", { name: "Ajouter une passkey" }).click();
+  await page.getByLabel("Mot de passe, pour confirmer").fill(password);
+  await page.getByRole("button", { name: "Continuer" }).click();
+  const name = page.getByRole("textbox", { name: "Nom de la passkey" });
+  await expect(name).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+  await expectNoAxeViolations(page);
+  await name.fill("Téléphone de test");
+  await page.getByRole("button", { name: "Créer la passkey" }).click();
+
+  // Codes de secours générés avec le premier facteur.
+  const codes = page.getByRole("list", { name: "Codes de secours" }).getByRole("listitem");
+  await expect(codes.first()).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+  await page.getByRole("button", { name: "J’ai noté mes codes" }).click();
+  const passkeys = page.getByRole("list", { name: "Passkeys enregistrées" });
+  await expect(passkeys).toContainText("Téléphone de test");
+  await expectNoAxeViolations(page);
+
+  // Retrait : second facteur exigé, ici la passkey elle-même.
+  await passkeys.getByRole("button", { name: "Retirer la passkey Téléphone de test" }).click();
+  await expect(page.getByLabel("Mot de passe, pour confirmer")).toHaveCount(0);
+  await expectNoAxeViolations(page);
+  await page.getByRole("button", { name: "Confirmer avec une passkey" }).click();
+  await expect(page.getByText("Passkey retirée.")).toBeVisible({ timeout: RESPONSE_TIMEOUT });
+  await expect(passkeys).toHaveCount(0);
 });

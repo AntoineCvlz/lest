@@ -2205,7 +2205,9 @@ export interface components {
          *       }
          *     }
          */
-        WebAuthnCredential: Record<string, never>;
+        WebAuthnCredential: {
+            [key: string]: unknown;
+        };
         WebAuthnCredentialCreationOptions: {
             /**
              * @example {

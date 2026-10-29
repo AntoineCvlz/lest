@@ -44,4 +44,8 @@ def auth_schema() -> dict[str, Any]:
     text = json.dumps(raw, default=str).replace(f'"{random_id}"', f'"{EXAMPLE_USER_ID}"')
     schema: dict[str, Any] = _placeholder_tokens(json.loads(text))
     schema["info"].pop("description", None)
+    # La réponse WebAuthn est le JSON du navigateur, qu'allauth décrit par un simple exemple :
+    # sans propriétés déclarées, openapi-typescript en ferait un objet vide (`Record<string,
+    # never>`), impossible à envoyer. Elle est opaque pour le front : fido2 la vérifie.
+    schema["components"]["schemas"]["WebAuthnCredential"]["additionalProperties"] = True
     return schema

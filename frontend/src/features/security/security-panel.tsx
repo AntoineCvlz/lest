@@ -18,53 +18,103 @@ import {
 } from "../auth/errors";
 import { FormAlert } from "../auth/form-alert";
 import { requiresReauthentication, textValue } from "../auth/form";
+import { ConfirmForm, type Proof } from "./confirm-form";
+import { PasskeyList, type Passkey } from "./passkey-list";
 import { QrCode } from "./qr-code";
+import { createPasskey, PASSKEY_FAILED, PasskeyError, passkeysSupported } from "./webauthn";
 
 const AUTHENTICATORS = "/api/v1/auth/app/v1/account/authenticators";
 const TOTP = "/api/v1/auth/app/v1/account/authenticators/totp";
+const WEBAUTHN = "/api/v1/auth/app/v1/account/authenticators/webauthn";
 const RECOVERY_CODES = "/api/v1/auth/app/v1/account/authenticators/recovery-codes";
 export const MFA_QUERY_KEY = ["mfa-authenticators"] as const;
 export const MFA_ENABLED = "Double authentification activée (application).";
+export const PASSKEY_ADDED = "Passkey ajoutée : vous pouvez l’utiliser pour vous connecter.";
+export const PASSKEY_REMOVED = "Passkey retirée.";
 export const CONFIRM_AGAIN = "Votre confirmation a expiré : confirmez à nouveau pour continuer.";
 export const CODES_UNAVAILABLE =
   "Vos codes de secours n’ont pas pu être affichés. Affichez-les avant de quitter cet écran.";
+export const PASSKEY_REFUSED = "Passkey refusée. Utilisez une passkey enregistrée sur ce compte.";
+export const FACTORS_UNAVAILABLE =
+  "Vos méthodes de connexion n’ont pas pu être chargées. Réessayez pour les gérer.";
 
 /**
- * Ce que l'utilisateur confirme : l'activation se confirme par le mot de passe ; désactiver ou
- * afficher les codes de secours exige un second facteur (code de l'application ou de secours),
- * pour qu'un mot de passe vu par-dessus l'épaule ne suffise pas. L'API l'impose aussi.
+ * Ce que l'utilisateur confirme. Tant que le compte n'a aucun facteur, le mot de passe suffit
+ * pour en ajouter un ; ensuite, toute action sur les facteurs ou les codes de secours exige un
+ * second facteur (code ou passkey), pour qu'un mot de passe vu par-dessus l'épaule ne suffise
+ * pas. L'API l'impose aussi (`apps/accounts/mfa_views.py`).
  */
-type Intent = "enable" | "disable" | "codes";
-const bySecondFactor = (intent: Intent): boolean => intent !== "enable";
+type Intent =
+  | { kind: "enable-totp" }
+  | { kind: "disable-totp" }
+  | { kind: "codes" }
+  | { kind: "add-passkey" }
+  | { kind: "remove-passkey"; passkey: Passkey };
+
 type Step =
   | { kind: "idle" }
   | { kind: "confirm"; intent: Intent }
   | { kind: "setup"; secret: string; url: string }
-  | { kind: "codes"; codes: string[] };
+  | { kind: "name-passkey"; options: unknown }
+  | { kind: "codes"; codes: string[]; notice: string };
+
+const SUBMIT_LABELS: Record<Intent["kind"], string> = {
+  "enable-totp": "Continuer",
+  "disable-totp": "Désactiver",
+  codes: "Continuer",
+  "add-passkey": "Continuer",
+  "remove-passkey": "Retirer la passkey",
+};
 
 function errorsFrom(status: number, body: unknown, messages?: Record<string, string>): FormErrors {
   if (status === 400) return formErrors(body, messages);
   return { fields: {}, global: [status === 429 ? RATE_LIMITED : UNAVAILABLE] };
 }
 
-/** Méthodes actives du compte (`totp`, `recovery_codes`). */
+const failure = (message: string): FormErrors => ({ fields: {}, global: [message] });
+
+/** Facteurs du compte : application (`totp`) et passkeys. */
 function useAuthenticators() {
   return useQuery({
     queryKey: MFA_QUERY_KEY,
-    queryFn: async (): Promise<string[]> => {
+    queryFn: async () => {
       const { data, response } = await authClient.GET(AUTHENTICATORS);
       if (!data) throw new Error(`Méthodes indisponibles (${String(response.status)})`);
-      return data.data.map((authenticator) => authenticator.type);
+      const passkeys: Passkey[] = [];
+      for (const authenticator of data.data) {
+        if (authenticator.type === "webauthn") {
+          const { id, name, created_at } = authenticator;
+          passkeys.push({ id, name, createdAt: created_at });
+        }
+      }
+      return { totp: data.data.some(({ type }) => type === "totp"), passkeys };
     },
     retry: false,
   });
 }
 
+async function reauthenticate(proof: Proof) {
+  switch (proof.by) {
+    case "password":
+      return authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
+        body: { password: proof.password },
+      });
+    case "code":
+      return authClient.POST("/api/v1/auth/app/v1/auth/2fa/reauthenticate", {
+        body: { code: proof.code },
+      });
+    case "passkey":
+      return authClient.POST("/api/v1/auth/app/v1/auth/webauthn/reauthenticate", {
+        body: { credential: proof.credential },
+      });
+  }
+}
+
 /**
- * Double authentification, optionnelle : activation (mot de passe, QR code, premier code, codes
- * de secours) et désactivation (second facteur). Les secrets ne quittent pas cet écran : rien
- * n'est gardé dans le cache de requêtes, et les mutations sont remises à zéro une fois réglées
- * (ni mot de passe ni code dans leurs variables).
+ * Double authentification, optionnelle : application (QR code, premier code, codes de secours)
+ * et passkeys. Les secrets ne quittent pas cet écran : rien n'est gardé dans le cache de
+ * requêtes, et les mutations sont remises à zéro une fois réglées (ni mot de passe ni code dans
+ * leurs variables).
  */
 export function SecurityPanel() {
   const hydrated = useHydrated();
@@ -72,60 +122,134 @@ export function SecurityPanel() {
   const authenticators = useAuthenticators();
   const [step, setStep] = useState<Step>({ kind: "idle" });
   const [errors, setErrors] = useState<FormErrors>(NO_ERRORS);
-  const enabled = authenticators.data?.includes("totp") ?? false;
+  const [notice, setNotice] = useState<string | null>(null);
+  // Change à chaque confirmation et après un refus : un défi de passkey ne sert qu'une fois.
+  const [challenge, setChallenge] = useState(0);
 
-  function confirmAgain(intent: Intent) {
+  const totpEnabled = authenticators.data?.totp ?? false;
+  const passkeys = authenticators.data?.passkeys ?? [];
+  const hasFactor = totpEnabled || passkeys.length > 0;
+  const supported = hydrated && passkeysSupported();
+  const bySecondFactor = (intent: Intent): boolean =>
+    hasFactor || (intent.kind !== "enable-totp" && intent.kind !== "add-passkey");
+
+  const confirming = step.kind === "confirm" && bySecondFactor(step.intent);
+  const passkeyOptions = useQuery({
+    queryKey: ["passkey-reauthentication", challenge],
+    enabled: confirming && supported && passkeys.length > 0,
+    gcTime: 0,
+    staleTime: Infinity,
+    retry: false,
+    queryFn: async () => {
+      const { data } = await authClient.GET("/api/v1/auth/app/v1/auth/webauthn/reauthenticate");
+      if (!data) throw new Error("Options de passkey indisponibles");
+      return data.data.request_options;
+    },
+  });
+
+  function startConfirm(intent: Intent, message?: string) {
+    setChallenge((value) => value + 1);
+    setNotice(null);
     setStep({ kind: "confirm", intent });
-    setErrors({ fields: {}, global: [CONFIRM_AGAIN] });
+    setErrors(message ? failure(message) : NO_ERRORS);
   }
 
-  async function showRecoveryCodes(): Promise<void> {
+  async function refresh() {
+    await queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
+  }
+
+  /** 401 de réauthentification : les facteurs ont pu changer (autre session), le mode de
+   * confirmation aussi. On les recharge avant de redemander. */
+  async function confirmAgain(intent: Intent) {
+    await refresh();
+    startConfirm(intent, CONFIRM_AGAIN);
+  }
+
+  async function showRecoveryCodes(notice: string): Promise<void> {
     const { data, error, response } = await authClient.GET(RECOVERY_CODES);
     if (requiresReauthentication(response.status, error)) {
-      confirmAgain("codes");
+      await confirmAgain({ kind: "codes" });
       return;
     }
     // Liste vide : l'écran le signale et propose de réessayer (jamais une liste vide « à noter »).
     setStep({
       kind: "codes",
       codes: data && "unused_codes" in data.data ? data.data.unused_codes : [],
+      notice,
     });
+  }
+
+  /** Action confirmée : chaque branche décide de l'étape suivante. */
+  async function perform(intent: Intent): Promise<void> {
+    switch (intent.kind) {
+      case "codes":
+        await showRecoveryCodes(MFA_ENABLED);
+        return;
+      case "disable-totp": {
+        const { response } = await authClient.DELETE(TOTP);
+        setStep({ kind: "idle" });
+        if (!response.ok) setErrors(failure(UNAVAILABLE));
+        await refresh();
+        return;
+      }
+      case "remove-passkey": {
+        const { response } = await authClient.DELETE(WEBAUTHN, {
+          body: { authenticators: [intent.passkey.id] },
+        });
+        setStep({ kind: "idle" });
+        if (response.ok) setNotice(PASSKEY_REMOVED);
+        else setErrors(failure(UNAVAILABLE));
+        await refresh();
+        return;
+      }
+      case "add-passkey": {
+        // `passwordless` : clé résidente et vérification de l'utilisateur exigées (connexion
+        // sans mot de passe). Options chargées avant le geste qui ouvre la passkey.
+        const { data, error, response } = await authClient.GET(WEBAUTHN, {
+          params: { query: { passwordless: true } },
+        });
+        if (requiresReauthentication(response.status, error)) {
+          await confirmAgain(intent);
+          return;
+        }
+        if (!data) {
+          setErrors(failure(UNAVAILABLE));
+          return;
+        }
+        setStep({ kind: "name-passkey", options: data.data.creation_options });
+        return;
+      }
+      case "enable-totp": {
+        // 404 : pas encore actif ; allauth propose alors un secret et son URL `otpauth://`.
+        const { error, response } = await authClient.GET(TOTP);
+        const meta = response.status === 404 && error && "meta" in error ? error.meta : undefined;
+        if (!meta || !("secret" in meta)) {
+          setErrors(failure(UNAVAILABLE));
+          return;
+        }
+        setStep({ kind: "setup", secret: meta.secret, url: meta.totp_url });
+        return;
+      }
+    }
   }
 
   const confirm = useMutation({
     gcTime: 0,
-    mutationFn: async ({ secret, intent }: { secret: string; intent: Intent }) => {
-      const reauth = bySecondFactor(intent)
-        ? await authClient.POST("/api/v1/auth/app/v1/auth/2fa/reauthenticate", {
-            body: { code: secret },
-          })
-        : await authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
-            body: { password: secret },
-          });
+    mutationFn: async ({ proof, intent }: { proof: Proof; intent: Intent }) => {
+      const reauth = await reauthenticate(proof);
       if (!reauth.response.ok) {
-        setErrors(errorsFrom(reauth.response.status, reauth.error, SECOND_FACTOR_MESSAGES));
+        const { status } = reauth.response;
+        if (proof.by === "passkey") {
+          // allauth rattache le refus au paramètre `credential`, sans champ à l'écran.
+          setErrors(status === 400 ? failure(PASSKEY_REFUSED) : errorsFrom(status, reauth.error));
+          setChallenge((value) => value + 1);
+        } else {
+          setErrors(errorsFrom(status, reauth.error, SECOND_FACTOR_MESSAGES));
+        }
         return;
       }
       setErrors(NO_ERRORS);
-      if (intent === "codes") {
-        await showRecoveryCodes();
-        return;
-      }
-      if (intent === "disable") {
-        const { response } = await authClient.DELETE(TOTP);
-        setStep({ kind: "idle" });
-        if (!response.ok) setErrors({ fields: {}, global: [UNAVAILABLE] });
-        await queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
-        return;
-      }
-      // 404 : pas encore actif ; allauth propose alors un secret et son URL `otpauth://`.
-      const { error, response } = await authClient.GET(TOTP);
-      const meta = response.status === 404 && error && "meta" in error ? error.meta : undefined;
-      if (!meta || !("secret" in meta)) {
-        setErrors({ fields: {}, global: [UNAVAILABLE] });
-        return;
-      }
-      setStep({ kind: "setup", secret: meta.secret, url: meta.totp_url });
+      await perform(intent);
     },
   });
 
@@ -135,7 +259,7 @@ export function SecurityPanel() {
       const activated = await authClient.POST(TOTP, { body: { code } });
       // Confirmation trop ancienne (QR code scanné après le délai d'allauth) : la refaire.
       if (requiresReauthentication(activated.response.status, activated.error)) {
-        confirmAgain("enable");
+        await confirmAgain({ kind: "enable-totp" });
         return;
       }
       if (!activated.response.ok) {
@@ -143,27 +267,44 @@ export function SecurityPanel() {
         return;
       }
       setErrors(NO_ERRORS);
-      await showRecoveryCodes();
+      await showRecoveryCodes(MFA_ENABLED);
     },
   });
 
-  const busy = confirm.isPending || activate.isPending;
+  const addPasskey = useMutation({
+    gcTime: 0,
+    mutationFn: async ({ options, name }: { options: unknown; name: string }) => {
+      let credential: Record<string, unknown>;
+      try {
+        credential = await createPasskey(options);
+      } catch (error) {
+        // Annulation : l'étape reste ouverte, les mêmes options resservent.
+        setErrors(failure(error instanceof PasskeyError ? error.message : PASSKEY_FAILED));
+        return;
+      }
+      const added = await authClient.POST(WEBAUTHN, { body: { name, credential } });
+      if (requiresReauthentication(added.response.status, added.error)) {
+        await confirmAgain({ kind: "add-passkey" });
+        return;
+      }
+      if (!added.data) {
+        // Défi consommé ou réponse refusée : tout recommencer depuis la liste.
+        setStep({ kind: "idle" });
+        setErrors(failure(PASSKEY_FAILED));
+        return;
+      }
+      setErrors(NO_ERRORS);
+      if (added.data.meta.recovery_codes_generated) {
+        await showRecoveryCodes(PASSKEY_ADDED);
+      } else {
+        setStep({ kind: "idle" });
+        setNotice(PASSKEY_ADDED);
+      }
+      await refresh();
+    },
+  });
 
-  function onConfirm(event: SubmitEvent<HTMLFormElement>, intent: Intent) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const secret = bySecondFactor(intent)
-      ? textValue(form, "code").replace(/\s+/g, "")
-      : textValue(form, "password");
-    confirm.mutate(
-      { secret, intent },
-      {
-        onSettled: () => {
-          confirm.reset();
-        },
-      },
-    );
-  }
+  const busy = confirm.isPending || activate.isPending || addPasskey.isPending;
 
   function onCode(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -172,6 +313,19 @@ export function SecurityPanel() {
         activate.reset();
       },
     });
+  }
+
+  function onName(event: SubmitEvent<HTMLFormElement>, options: unknown) {
+    event.preventDefault();
+    const name = textValue(new FormData(event.currentTarget), "name").trim();
+    addPasskey.mutate(
+      { options, name },
+      {
+        onSettled: () => {
+          addPasskey.reset();
+        },
+      },
+    );
   }
 
   function cancel() {
@@ -190,65 +344,114 @@ export function SecurityPanel() {
 
       {step.kind === "idle" && (
         <>
-          <p role="status" className={enabled ? "text-ink font-semibold" : "text-ink-muted"}>
+          <h3 className="text-lg font-bold [font-stretch:112%]">Application d’authentification</h3>
+          <p role="status" className={totpEnabled ? "text-ink font-semibold" : "text-ink-muted"}>
             {authenticators.isPending
               ? "Vérification…"
-              : enabled
-                ? MFA_ENABLED
-                : "Ajoutez un code de vérification à la connexion : votre compte reste protégé même si votre mot de passe fuite."}
+              : authenticators.isError
+                ? FACTORS_UNAVAILABLE
+                : totpEnabled
+                  ? MFA_ENABLED
+                  : "Ajoutez un code de vérification à la connexion : votre compte reste protégé même si votre mot de passe fuite."}
           </p>
           <FormAlert messages={errors.global} />
-          {!authenticators.isPending && (
+          {authenticators.isError && (
             <Button
-              variant={enabled ? "danger" : "secondary"}
+              variant="secondary"
               onClick={() => {
-                setErrors(NO_ERRORS);
-                setStep({ kind: "confirm", intent: enabled ? "disable" : "enable" });
+                void authenticators.refetch();
               }}
             >
-              {enabled
-                ? "Désactiver la double authentification"
-                : "Activer la double authentification"}
+              Réessayer
             </Button>
+          )}
+          {/* Sans la liste des facteurs, pas d'action : l'écran mentirait sur leur état. */}
+          {authenticators.isSuccess && (
+            <>
+              <Button
+                variant={totpEnabled ? "danger" : "secondary"}
+                onClick={() => {
+                  startConfirm({ kind: totpEnabled ? "disable-totp" : "enable-totp" });
+                }}
+              >
+                {totpEnabled
+                  ? "Désactiver la double authentification"
+                  : "Activer la double authentification"}
+              </Button>
+              <PasskeyList
+                passkeys={passkeys}
+                supported={supported}
+                hydrated={hydrated}
+                notice={notice}
+                onAdd={() => {
+                  startConfirm({ kind: "add-passkey" });
+                }}
+                onRemove={(passkey) => {
+                  startConfirm({ kind: "remove-passkey", passkey });
+                }}
+              />
+            </>
           )}
         </>
       )}
 
       {step.kind === "confirm" && (
+        <>
+          {step.intent.kind === "remove-passkey" && (
+            <p>
+              Retirer la passkey « {step.intent.passkey.name} » : elle ne permettra plus de vous
+              connecter.
+            </p>
+          )}
+          <ConfirmForm
+            bySecondFactor={bySecondFactor(step.intent)}
+            appCode={totpEnabled || passkeys.length === 0}
+            passkeyOptions={passkeyOptions.data}
+            submitLabel={SUBMIT_LABELS[step.intent.kind]}
+            danger={step.intent.kind === "disable-totp" || step.intent.kind === "remove-passkey"}
+            busy={busy}
+            // Un défi de passkey en cours d'enregistrement écraserait le suivant (une seule clé
+            // de session côté allauth) : pas d'envoi avant sa réponse.
+            loadingChallenge={passkeyOptions.isFetching}
+            errors={errors}
+            onProof={(proof) => {
+              confirm.mutate(
+                { proof, intent: step.intent },
+                {
+                  onSettled: () => {
+                    confirm.reset();
+                  },
+                },
+              );
+            }}
+            onPasskeyError={(message) => {
+              setErrors(failure(message));
+            }}
+            onCancel={cancel}
+          />
+        </>
+      )}
+
+      {step.kind === "name-passkey" && (
         <form
           method="post"
           noValidate
           onSubmit={(event) => {
-            onConfirm(event, step.intent);
+            onName(event, step.options);
           }}
           className="flex flex-col gap-4"
         >
-          {bySecondFactor(step.intent) ? (
-            <TextField
-              label="Code de l’application ou code de secours, pour confirmer"
-              name="code"
-              autoComplete="one-time-code"
-              maxLength={20}
-              error={errors.fields.code}
-            />
-          ) : (
-            <TextField
-              label="Mot de passe, pour confirmer"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              error={errors.fields.password}
-            />
-          )}
+          <TextField
+            label="Nom de la passkey"
+            name="name"
+            defaultValue="Passkey"
+            maxLength={100}
+            hint="Pour la reconnaître dans la liste : téléphone, ordinateur, clé de sécurité…"
+          />
           <FormAlert messages={errors.global} />
-          <Button
-            type="submit"
-            variant={step.intent === "disable" ? "danger" : "secondary"}
-            disabled={!hydrated || busy}
-          >
-            {step.intent === "disable" ? "Désactiver" : "Continuer"}
+          <Button type="submit" variant="secondary" disabled={!hydrated || busy}>
+            Créer la passkey
           </Button>
-          {/* Désactivé pendant l'envoi : une réponse arrivée après coup ne rouvre pas l'écran. */}
           <Button variant="ghost" onClick={cancel} disabled={busy}>
             Annuler
           </Button>
@@ -286,7 +489,7 @@ export function SecurityPanel() {
       {step.kind === "codes" && (
         <div className="flex flex-col gap-4">
           <p role="status" className="font-semibold">
-            {MFA_ENABLED}
+            {step.notice}
           </p>
           {step.codes.length === 0 ? (
             <>
@@ -294,8 +497,7 @@ export function SecurityPanel() {
               <Button
                 variant="secondary"
                 onClick={() => {
-                  setErrors(NO_ERRORS);
-                  setStep({ kind: "confirm", intent: "codes" });
+                  startConfirm({ kind: "codes" });
                 }}
               >
                 Afficher mes codes de secours
@@ -305,7 +507,7 @@ export function SecurityPanel() {
             <>
               <p>
                 Notez ces codes de secours maintenant et gardez-les à l’abri : chacun permet une
-                connexion si vous n’avez plus votre application.
+                connexion si vous n’avez plus votre application ni votre passkey.
               </p>
               <ul
                 aria-label="Codes de secours"
@@ -319,7 +521,7 @@ export function SecurityPanel() {
                 variant="secondary"
                 onClick={() => {
                   setStep({ kind: "idle" });
-                  void queryClient.invalidateQueries({ queryKey: MFA_QUERY_KEY });
+                  void refresh();
                 }}
               >
                 J’ai noté mes codes
