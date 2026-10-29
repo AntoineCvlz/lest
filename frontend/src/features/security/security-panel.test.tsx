@@ -199,6 +199,7 @@ describe("SecurityPanel", () => {
       http.post(`${BASE}/account/authenticators/totp`, () =>
         HttpResponse.json({ status: 200, data: { type: "totp" } }),
       ),
+      http.post(`${BASE}/auth/2fa/reauthenticate`, () => HttpResponse.json({ status: 200 })),
       http.get(`${BASE}/account/authenticators/recovery-codes`, () =>
         codesAvailable
           ? HttpResponse.json({ status: 200, data: { unused_codes: ["55556666"] } })
@@ -220,7 +221,14 @@ describe("SecurityPanel", () => {
 
     codesAvailable = true;
     await user.click(screen.getByRole("button", { name: "Afficher mes codes de secours" }));
-    await user.type(screen.getByLabelText("Mot de passe, pour confirmer"), "mot-de-passe");
+    // Codes déjà émis : les révéler exige un second facteur, jamais le seul mot de passe.
+    expect(screen.queryByLabelText("Mot de passe, pour confirmer")).not.toBeInTheDocument();
+    await user.type(
+      screen.getByRole("textbox", {
+        name: "Code de l’application ou code de secours, pour confirmer",
+      }),
+      "654321",
+    );
     await user.click(screen.getByRole("button", { name: "Continuer" }));
     expect(await screen.findByRole("list", { name: "Codes de secours" })).toHaveTextContent(
       "55556666",

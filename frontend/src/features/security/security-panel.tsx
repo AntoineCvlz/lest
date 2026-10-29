@@ -30,11 +30,12 @@ export const CODES_UNAVAILABLE =
   "Vos codes de secours n’ont pas pu être affichés. Affichez-les avant de quitter cet écran.";
 
 /**
- * Ce que l'utilisateur confirme : activer et afficher les codes se confirment par le mot de
- * passe ; désactiver exige un second facteur (code de l'application ou de secours), pour qu'un
- * mot de passe vu par-dessus l'épaule ne suffise pas à retirer la protection.
+ * Ce que l'utilisateur confirme : l'activation se confirme par le mot de passe ; désactiver ou
+ * afficher les codes de secours exige un second facteur (code de l'application ou de secours),
+ * pour qu'un mot de passe vu par-dessus l'épaule ne suffise pas. L'API l'impose aussi.
  */
 type Intent = "enable" | "disable" | "codes";
+const bySecondFactor = (intent: Intent): boolean => intent !== "enable";
 type Step =
   | { kind: "idle" }
   | { kind: "confirm"; intent: Intent }
@@ -94,14 +95,13 @@ export function SecurityPanel() {
   const confirm = useMutation({
     gcTime: 0,
     mutationFn: async ({ secret, intent }: { secret: string; intent: Intent }) => {
-      const reauth =
-        intent === "disable"
-          ? await authClient.POST("/api/v1/auth/app/v1/auth/2fa/reauthenticate", {
-              body: { code: secret },
-            })
-          : await authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
-              body: { password: secret },
-            });
+      const reauth = bySecondFactor(intent)
+        ? await authClient.POST("/api/v1/auth/app/v1/auth/2fa/reauthenticate", {
+            body: { code: secret },
+          })
+        : await authClient.POST("/api/v1/auth/app/v1/auth/reauthenticate", {
+            body: { password: secret },
+          });
       if (!reauth.response.ok) {
         setErrors(errorsFrom(reauth.response.status, reauth.error, SECOND_FACTOR_MESSAGES));
         return;
@@ -152,10 +152,9 @@ export function SecurityPanel() {
   function onConfirm(event: SubmitEvent<HTMLFormElement>, intent: Intent) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const secret =
-      intent === "disable"
-        ? textValue(form, "code").replace(/\s+/g, "")
-        : textValue(form, "password");
+    const secret = bySecondFactor(intent)
+      ? textValue(form, "code").replace(/\s+/g, "")
+      : textValue(form, "password");
     confirm.mutate(
       { secret, intent },
       {
@@ -224,7 +223,7 @@ export function SecurityPanel() {
           }}
           className="flex flex-col gap-4"
         >
-          {step.intent === "disable" ? (
+          {bySecondFactor(step.intent) ? (
             <TextField
               label="Code de l’application ou code de secours, pour confirmer"
               name="code"
