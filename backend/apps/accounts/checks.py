@@ -19,3 +19,18 @@ def check_mfa_bypass(app_configs: Any, **kwargs: Any) -> list[Error]:
             )
         ]
     return []
+
+
+@register("security", deploy=True)
+def check_webauthn_origin(app_configs: Any, **kwargs: Any) -> list[Error]:
+    """Refuse `MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN` : il désactive la vérification de l'origine
+    des passkeys, donc la protection contre l'hameçonnage qui fait leur intérêt."""
+    if getattr(settings, "MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN", False):
+        return [
+            Error(
+                "MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN est activé.",
+                hint="Retirer ce réglage : toute origine serait acceptée pour les passkeys.",
+                id="accounts.E002",
+            )
+        ]
+    return []

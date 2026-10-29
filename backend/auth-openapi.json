@@ -3266,6 +3266,104 @@
         ]
       }
     },
+    "/api/v1/auth/app/v1/account/authenticators/webauthn": {
+      "delete": {
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/DeleteWebAuthn"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/StatusOK"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          }
+        },
+        "summary": "Delete a WebAuthn credential\n",
+        "tags": [
+          "Account: WebAuthn"
+        ]
+      },
+      "get": {
+        "description": "Returns the WebAuthn credential creation options, that can be\nprocessed using `parseCreationOptionsFromJSON()` on the frontend.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          },
+          {
+            "$ref": "#/components/parameters/PasswordLess"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WebAuthnCreationOptionsResponse"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          },
+          "409": {
+            "$ref": "#/components/responses/AddAuthenticatorConflict"
+          }
+        },
+        "summary": "Get WebAuthn credential creation options\n",
+        "tags": [
+          "Account: WebAuthn"
+        ]
+      },
+      "post": {
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/AddWebAuthnAuthenticator"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AddWebAuthnAuthenticator"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          },
+          "409": {
+            "$ref": "#/components/responses/AddAuthenticatorConflict"
+          }
+        },
+        "summary": "Add a WebAuthn credential\n",
+        "tags": [
+          "Account: WebAuthn"
+        ]
+      },
+      "put": {
+        "description": "You can alter the name of a WebAuthn credential by PUT'ting the ID and\nname of the authenticator representing that credential. You can obtain\nthe credentials via the \"List authenticators\" endpoint.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/UpdateWebAuthn"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WebAuthnAuthenticator"
+          },
+          "401": {
+            "$ref": "#/components/responses/ReauthenticationRequired"
+          }
+        },
+        "summary": "Rename a WebAuthn credential\n",
+        "tags": [
+          "Account: WebAuthn"
+        ]
+      }
+    },
     "/api/v1/auth/app/v1/account/email": {
       "delete": {
         "description": "Used to remove an email address.\n",
@@ -4211,6 +4309,168 @@
         "summary": "Signup",
         "tags": [
           "Authentication: Account"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/webauthn/authenticate": {
+      "get": {
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
+          }
+        },
+        "summary": "Get WebAuthn credential request options for 2FA",
+        "tags": [
+          "Authentication: WebAuthn: Login"
+        ]
+      },
+      "post": {
+        "description": "Perform Two-Factor Authentication using a WebAuthn credential.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/AuthenticateWebAuthn"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Authenticated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          }
+        },
+        "summary": "Perform 2FA using WebAuthn",
+        "tags": [
+          "Authentication: WebAuthn: Login"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/webauthn/login": {
+      "get": {
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
+          }
+        },
+        "summary": "Get WebAuthn credential request options for login",
+        "tags": [
+          "Authentication: WebAuthn: Login"
+        ]
+      },
+      "post": {
+        "description": "Login using a WebAuthn credential (Passkey). Both 200 and 401 can be\nexpected after a successful request.  The 401 can, for example, occur\nwhen the credential passed was valid, but the email attached to the\naccount still requires verification.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/LoginWebAuthn"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Authenticated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "examples": {
+                  "pending_email": {
+                    "$ref": "#/components/examples/UnauthenticatedPendingEmailVerification"
+                  }
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationResponse"
+                }
+              }
+            },
+            "description": "Not authenticated.\n"
+          }
+        },
+        "summary": "Login using WebAuthn",
+        "tags": [
+          "Authentication: WebAuthn: Login"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/webauthn/reauthenticate": {
+      "get": {
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
+          }
+        },
+        "summary": "Get WebAuthn credential request options for reauthentication",
+        "tags": [
+          "Authentication: WebAuthn: Login"
+        ]
+      },
+      "post": {
+        "description": "Reauthenticate the user using a WebAuthn credential.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SessionToken"
+          }
+        ],
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ReauthenticateWebAuthn"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Authenticated"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          }
+        },
+        "summary": "Reauthenticate using WebAuthn",
+        "tags": [
+          "Authentication: WebAuthn: Login"
         ]
       }
     },

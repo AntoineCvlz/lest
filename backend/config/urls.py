@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.urls import include, path
 
-from apps.accounts.mfa_views import SecondFactorRecoveryCodesView, SecondFactorTOTPView
+from apps.accounts.mfa_views import (
+    SecondFactorRecoveryCodesView,
+    SecondFactorTOTPView,
+    SecondFactorWebAuthnView,
+)
 
 from .api import api
 
@@ -9,12 +13,17 @@ MFA_AUTHENTICATORS = "api/v1/auth/app/v1/account/authenticators/"
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # Retirer ou révéler un second facteur exige un second facteur : ces vues durcies passent
-    # avant celles d'allauth, sur les mêmes URL.
+    # Ajouter, retirer ou révéler un second facteur exige un second facteur : ces vues durcies
+    # passent avant celles d'allauth, sur les mêmes URL.
     path(
         f"{MFA_AUTHENTICATORS}totp",
         SecondFactorTOTPView.as_api_view(client="app"),
         name="lest_manage_totp",
+    ),
+    path(
+        f"{MFA_AUTHENTICATORS}webauthn",
+        SecondFactorWebAuthnView.as_api_view(client="app"),
+        name="lest_manage_webauthn",
     ),
     path(
         f"{MFA_AUTHENTICATORS}recovery-codes",
