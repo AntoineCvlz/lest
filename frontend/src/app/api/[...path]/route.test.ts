@@ -408,6 +408,47 @@ describe("appels authentifiés", () => {
 
     expect(calls()).toHaveLength(1);
   });
+
+  it("ne renouvelle pas un 401 de réauthentification (session valide) et relaie son corps", async () => {
+    fetchMock.mockResolvedValue(
+      json(
+        {
+          status: 401,
+          data: { flows: [{ id: "reauthenticate" }] },
+          meta: { is_authenticated: true },
+        },
+        401,
+      ),
+    );
+
+    const response = await GET(
+      request("/api/v1/auth/app/v1/account/authenticators/recovery-codes", {
+        cookies: { lest_at: "at-5", lest_rt: unique("rt") },
+      }),
+    );
+
+    expect(calls()).toHaveLength(1);
+    expect(response.status).toBe(401);
+    expect(await response.json()).toMatchObject({ meta: { is_authenticated: true } });
+  });
+
+  it("renouvelle un 401 d'allauth qui ne reconnaît plus la session (jeton expiré)", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        urlOf(input) === REFRESH_URL
+          ? refreshed("at-new", "rt-new")
+          : json({ status: 401, meta: { is_authenticated: false } }, 401),
+      ),
+    );
+
+    await GET(
+      request("/api/v1/auth/app/v1/account/authenticators", {
+        cookies: { lest_at: "at-old", lest_rt: unique("rt") },
+      }),
+    );
+
+    expect(calls().filter((call) => call.url === REFRESH_URL)).toHaveLength(1);
+  });
 });
 
 describe("déconnexion", () => {

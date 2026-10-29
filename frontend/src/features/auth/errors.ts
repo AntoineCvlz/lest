@@ -38,14 +38,20 @@ function isErrorList(value: unknown): value is AllauthError[] {
 }
 
 /** Erreurs d'une réponse 400 d'allauth, ou un message général si le corps est inattendu. */
-export function formErrors(body: unknown): FormErrors {
+/** Code TOTP ou de secours refusé : un code d'application ne se « redemande » pas. */
+export const SECOND_FACTOR_MESSAGES: Record<string, string> = {
+  incorrect_code:
+    "Code incorrect. Saisissez le code affiché par l’application, ou l’un de vos codes de secours.",
+};
+
+export function formErrors(body: unknown, messages: Record<string, string> = {}): FormErrors {
   const list = typeof body === "object" && body !== null && "errors" in body ? body.errors : null;
   if (!isErrorList(list) || list.length === 0) return { fields: {}, global: [UNAVAILABLE] };
 
   const result: FormErrors = { fields: {}, global: [] };
   for (const { code, message, param } of list) {
     const text =
-      (typeof code === "string" ? MESSAGES[code] : undefined) ??
+      (typeof code === "string" ? (messages[code] ?? MESSAGES[code]) : undefined) ??
       (typeof message === "string" ? message : UNAVAILABLE);
     const isGlobal = typeof code === "string" && GLOBAL_CODES.has(code);
     const fieldError = typeof param === "string" && param !== "" && !isGlobal;

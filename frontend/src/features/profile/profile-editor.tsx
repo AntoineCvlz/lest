@@ -1,6 +1,7 @@
 "use client";
 
 import { TextLink } from "../auth/text-link";
+import { SecurityPanel } from "../security/security-panel";
 import { MyData } from "./my-data";
 import { ProfileForm } from "./profile-form";
 import { useProfile } from "./use-profile";
@@ -14,6 +15,7 @@ export function ProfileEditor() {
     return (
       <div className="flex flex-col gap-12">
         <ProfileForm initial={profile.data} submitLabel="Enregistrer" />
+        <SecurityPanel />
         <MyData />
       </div>
     );

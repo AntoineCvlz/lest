@@ -17,6 +17,8 @@
   --color-on-accent: var(--lest-on-accent);
   --color-accent-ink: var(--lest-accent-ink);
   --color-danger: var(--lest-danger);
+  --color-qr-light: var(--lest-qr-light);
+  --color-qr-dark: var(--lest-qr-dark);
 
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 

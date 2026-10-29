@@ -113,6 +113,23 @@ async function refreshUpstream(refreshToken: string): Promise<RefreshResult> {
 }
 
 /** Chemin tel que Django le route : segments décodés, sans slash final. */
+/** 401 d'allauth dont `meta.is_authenticated` est vrai : action à reconfirmer, jeton valide. */
+async function stillAuthenticated(response: Response): Promise<boolean> {
+  try {
+    const body: unknown = await response.clone().json();
+    if (typeof body !== "object" || body === null || !("meta" in body)) return false;
+    const { meta } = body;
+    return (
+      typeof meta === "object" &&
+      meta !== null &&
+      "is_authenticated" in meta &&
+      meta.is_authenticated === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 function routedPath(pathname: string): string {
   return decodeURIComponent(pathname).replace(/\/+$/, "");
 }
@@ -194,8 +211,15 @@ async function proxy(request: NextRequest): Promise<Response> {
     if (!credentials.access) await renew();
     const sentAccess = credentials.access;
     upstream = await send();
-    // Accès refusé : un seul renouvellement, puis un seul rejeu.
-    if (upstream.status === 401 && sentAccess && !isLogout && (await renew())) {
+    // Accès refusé : un seul renouvellement, puis un seul rejeu. Sauf 401 d'allauth sur une
+    // session valide (réauthentification requise) : le jeton n'y est pour rien.
+    if (
+      upstream.status === 401 &&
+      sentAccess &&
+      !isLogout &&
+      !(isAuthRoute && (await stillAuthenticated(upstream))) &&
+      (await renew())
+    ) {
       upstream = await send();
     }
   } catch (error) {

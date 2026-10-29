@@ -341,3 +341,68 @@ def test_support_can_lift_the_second_factor_cap(client: Client) -> None:
     call_command("unlock_account", "--email", user.email.upper())
 
     assert login_attempt(Client(), user.email).status_code == 401  # second facteur demandé
+
+
+def reauthenticate_with_password(client: Client, token: str) -> None:
+    response = client.post(
+        f"{APP}/auth/reauthenticate",
+        {"password": TEST_PASSWORD},
+        content_type="application/json",
+        headers=bearer(token),
+    )
+    assert response.status_code == 200, response.content
+
+
+def reauthenticate_with_code(client: Client, token: str, code: str) -> None:
+    response = client.post(
+        f"{APP}/auth/2fa/reauthenticate",
+        {"code": code},
+        content_type="application/json",
+        headers=bearer(token),
+    )
+    assert response.status_code == 200, response.content
+
+
+def test_the_password_alone_cannot_disable_totp(client: Client) -> None:
+    # Session ouverte et mot de passe vu par-dessus l'épaule : la protection reste en place.
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+    reauthenticate_with_password(client, token)
+
+    response = client.delete(TOTP, headers=bearer(token))
+
+    assert response.status_code == 401
+    assert "mfa_reauthenticate" in {flow["id"] for flow in response.json()["data"]["flows"]}
+    assert Authenticator.objects.filter(user=user, type=Authenticator.Type.TOTP).exists()
+
+
+def test_the_password_alone_cannot_reveal_or_regenerate_recovery_codes(client: Client) -> None:
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+    reauthenticate_with_password(client, token)
+
+    assert client.get(RECOVERY, headers=bearer(token)).status_code == 401
+    regenerate = client.post(RECOVERY, {}, content_type="application/json", headers=bearer(token))
+    assert regenerate.status_code == 401
+
+
+def test_a_second_factor_confirmation_allows_disabling(client: Client) -> None:
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+    recovery = Authenticator.objects.get(user=user, type=Authenticator.Type.RECOVERY_CODES)
+    reauthenticate_with_code(client, token, recovery.wrap().get_unused_codes()[0])
+
+    assert client.get(RECOVERY, headers=bearer(token)).status_code == 200
+    assert client.delete(TOTP, headers=bearer(token)).status_code == 200
+    assert not Authenticator.objects.filter(user=user, type=Authenticator.Type.TOTP).exists()
+
+
+def test_recovery_codes_show_right_after_activation(client: Client) -> None:
+    # Le premier code de l'application, saisi après le mot de passe, a prouvé le second facteur.
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+
+    response = client.get(RECOVERY, headers=bearer(token))
+
+    assert response.status_code == 200
+    assert response.json()["data"]["unused_codes"]
