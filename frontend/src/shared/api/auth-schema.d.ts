@@ -1285,6 +1285,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/app/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List sessions */
+        get: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["Sessions"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** End one or more sessions */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description Session token. Only needed when `client` is equal to `app`. */
+                    "X-Session-Token"?: components["parameters"]["SessionToken"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["EndSessions"];
+            responses: {
+                200: components["responses"]["Sessions"];
+                401: components["responses"]["Authentication"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/app/v1/auth/signup": {
         parameters: {
             query?: never;

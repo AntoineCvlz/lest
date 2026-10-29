@@ -5,7 +5,12 @@ nouveau domaine (séances, poids, repas…) doit rejoindre l'export, ou justifie
 Dans les deux cas, ses lignes sont supprimées avec le compte (`on_delete=CASCADE`).
 """
 
-EXPORTED_MODELS = {"accounts.profile", "account.emailaddress", "mfa.authenticator"}
+EXPORTED_MODELS = {
+    "accounts.profile",
+    "account.emailaddress",
+    "mfa.authenticator",
+    "usersessions.usersession",
+}
 
 EXCLUDED_FROM_EXPORT = {
     # Auteur des actions d'administration (compte du personnel). Les entrées qui *visent* un

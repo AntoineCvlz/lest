@@ -28,6 +28,10 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.headless",
     "allauth.mfa",
+    # Sessions par appareil (liste, déconnexion à distance). IP complète et navigateur gardés
+    # (choix produit), exportés et supprimés avec le compte. Activité non suivie
+    # (`USERSESSIONS_TRACK_ACTIVITY`) : pas d'écriture en base à chaque requête.
+    "allauth.usersessions",
     "apps.accounts",
 ]
 
