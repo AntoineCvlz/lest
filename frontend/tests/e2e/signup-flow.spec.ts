@@ -244,10 +244,14 @@ test("passkeys : ajout, second facteur, connexion sans mot de passe, puis retrai
   await expect(passkeys).toContainText("Téléphone de test");
   await expectNoAxeViolations(page);
 
-  // La passkey sert de second facteur après le mot de passe…
+  // La passkey sert de second facteur après le mot de passe… même si la connexion commence avec
+  // les cookies d'une session révoquée (autre appareil, onglet resté ouvert) : le BFF ne doit
+  // pas effacer le jeton du parcours en tentant un refresh.
   await page.goto("/");
+  const revoked = await page.context().cookies();
   await page.getByRole("button", { name: "Se déconnecter" }).click();
   await expect(page.getByText("Vous n’êtes pas connecté.")).toBeVisible();
+  await page.context().addCookies(revoked);
   await page.goto("/connexion");
   await page.getByRole("textbox", { name: "Adresse e-mail" }).fill(email);
   await page.getByLabel("Mot de passe").fill(password);

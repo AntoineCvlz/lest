@@ -451,6 +451,111 @@ describe("appels authentifiés", () => {
   });
 });
 
+describe("connexion commencée avec des cookies périmés", () => {
+  // Second facteur attendu : allauth répond 401 avec le jeton du parcours.
+  const secondFactorPending = (): Response =>
+    json(
+      {
+        status: 401,
+        data: { flows: [{ id: "mfa_authenticate", is_pending: true, types: ["totp"] }] },
+        meta: { is_authenticated: false, session_token: "st-nouveau" },
+      },
+      401,
+    );
+
+  it("ne renouvelle pas le 401 d'un parcours et garde son jeton", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        urlOf(input) === REFRESH_URL ? json({ status: 400 }, 400) : secondFactorPending(),
+      ),
+    );
+
+    const response = await POST(
+      request(LOGIN_PATH, {
+        method: "POST",
+        cookies: { lest_at: "at-revoque", lest_rt: unique("rt") },
+        body: JSON.stringify({ email: "a@example.com", password: "x" }),
+      }),
+    );
+
+    expect(calls().filter((call) => call.url === REFRESH_URL)).toHaveLength(0);
+    expect(setCookies(response).lest_st).toMatch(/^lest_st=st-nouveau;/);
+    expect(await response.json()).not.toHaveProperty("meta.session_token");
+  });
+
+  it("ne renouvelle pas le 401 d'un parcours en attente lu ensuite (session)", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        urlOf(input) === REFRESH_URL
+          ? json({ status: 400 }, 400)
+          : json(
+              {
+                status: 401,
+                data: { flows: [{ id: "mfa_authenticate", is_pending: true }] },
+                meta: { is_authenticated: false },
+              },
+              401,
+            ),
+      ),
+    );
+
+    const response = await GET(
+      request(SESSION_PATH, {
+        cookies: { lest_at: "at-revoque", lest_rt: unique("rt"), lest_st: "st-1" },
+      }),
+    );
+
+    expect(calls().filter((call) => call.url === REFRESH_URL)).toHaveLength(0);
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("renouvelle un 401 dont les flows ne sont pas en attente (forme réelle d'allauth)", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        urlOf(input) === REFRESH_URL
+          ? refreshed("at-new", "rt-new")
+          : json(
+              {
+                status: 401,
+                data: {
+                  flows: [{ id: "login" }, { id: "password_reset_by_code", is_pending: false }],
+                },
+                meta: { is_authenticated: false },
+              },
+              401,
+            ),
+      ),
+    );
+
+    await GET(request(SESSION_PATH, { cookies: { lest_at: "at-old", lest_rt: unique("rt") } }));
+
+    expect(calls().map((call) => call.url === REFRESH_URL)).toEqual([false, true, false]);
+  });
+
+  it("garde le jeton du parcours ouvert même si le refresh préalable est refusé", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(
+        urlOf(input) === REFRESH_URL ? json({ status: 400 }, 400) : secondFactorPending(),
+      ),
+    );
+
+    // Accès expiré (cookie disparu), refresh révoqué : renouvellement refusé avant l'appel.
+    const response = await POST(
+      request(LOGIN_PATH, {
+        method: "POST",
+        cookies: { lest_rt: unique("rt") },
+        body: JSON.stringify({ email: "a@example.com", password: "x" }),
+      }),
+    );
+
+    const cookies = setCookies(response);
+    expect(cookies.lest_st).toMatch(/^lest_st=st-nouveau;/);
+    expect(cookies.lest_st).not.toContain("Max-Age=0");
+    expect(cookies.lest_rt).toContain("Max-Age=0");
+    expect(cookies.lest_csrf).toContain("Max-Age=0");
+  });
+});
+
 describe("déconnexion", () => {
   it("exige le jeton CSRF double-submit", async () => {
     const response = await DELETE(
@@ -548,14 +653,32 @@ describe("durcissement", () => {
     expect(response.headers.getSetCookie()).toEqual([]);
   });
 
-  it("efface aussi le jeton de parcours quand le refresh est refusé", async () => {
+  it("efface aussi le jeton de parcours quand le refresh est refusé sur une route d'auth", async () => {
     fetchMock.mockResolvedValue(json({ status: 400 }, 400));
 
     const response = await GET(
-      request("/api/v1/me/", { cookies: { lest_rt: unique("rt"), lest_st: "st-9" } }),
+      request(SESSION_PATH, { cookies: { lest_rt: unique("rt"), lest_st: "st-9" } }),
     );
 
     expect(setCookies(response).lest_st).toContain("Max-Age=0");
+  });
+
+  it("garde le jeton de parcours quand le refresh est refusé hors auth (jamais envoyé)", async () => {
+    fetchMock.mockImplementation((input) =>
+      Promise.resolve(json({ status: 401 }, urlOf(input) === REFRESH_URL ? 400 : 401)),
+    );
+
+    const response = await GET(
+      request("/api/v1/me/", {
+        cookies: { lest_at: "at-revoque", lest_rt: unique("rt"), lest_st: "st-9" },
+      }),
+    );
+
+    const cookies = setCookies(response);
+    expect(cookies.lest_at).toContain("Max-Age=0");
+    expect(cookies.lest_rt).toContain("Max-Age=0");
+    expect(cookies.lest_csrf).toContain("Max-Age=0");
+    expect(cookies).not.toHaveProperty("lest_st");
   });
 
   it("n'appelle pas Django pour un refresh qui n'a pas la forme d'un JWT", async () => {
