@@ -892,7 +892,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/WorkoutOut"
+              "$ref": "#/components/schemas/WorkoutSummaryOut"
             },
             "title": "Items",
             "type": "array"
@@ -949,6 +949,54 @@
           }
         },
         "title": "WorkoutQuery",
+        "type": "object"
+      },
+      "WorkoutSummaryOut": {
+        "properties": {
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "exercise_count": {
+            "title": "Exercise Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "volume_kg": {
+            "title": "Volume Kg",
+            "type": "number"
+          },
+          "working_set_count": {
+            "title": "Working Set Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "started_at",
+          "ended_at",
+          "exercise_count",
+          "working_set_count",
+          "volume_kg"
+        ],
+        "title": "WorkoutSummaryOut",
         "type": "object"
       }
     },

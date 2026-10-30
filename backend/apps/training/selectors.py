@@ -1,8 +1,19 @@
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from django.db.models import Prefetch, Q
+from django.db.models import (
+    Count,
+    DecimalField,
+    ExpressionWrapper,
+    F,
+    Prefetch,
+    Q,
+    Sum,
+    Value,
+)
+from django.db.models.functions import Coalesce
 
 from apps.accounts.models import User
 from common.pagination import Page, paginate
@@ -63,17 +74,57 @@ def exercise_filters() -> tuple[list[Muscle], list[Equipment]]:
     return list(muscles), list(equipment)
 
 
+@dataclass(frozen=True)
+class WorkoutSummary:
+    """Séance et son résumé pour l'historique (séries de travail : hors échauffement)."""
+
+    workout: Workout
+    exercise_count: int
+    working_set_count: int
+    volume_kg: Decimal
+
+
+_WORKING = Q(exercises__sets__is_warmup=False)
+_VOLUME = ExpressionWrapper(
+    F("exercises__sets__weight_kg") * F("exercises__sets__reps"),
+    output_field=DecimalField(max_digits=12, decimal_places=2),
+)
+
+
 def list_workouts(
     *, owner: User, ongoing: bool | None = None, cursor: str | None = None, limit: int
-) -> Page[Workout]:
-    """Séances de `owner`, les plus récentes d'abord ; `ongoing` : sans fin (en cours) ou
-    terminées seulement. Lève `InvalidCursorError`."""
+) -> tuple[list[WorkoutSummary], str | None]:
+    """Séances de `owner` résumées, les plus récentes d'abord, et le curseur suivant ;
+    `ongoing` : sans fin (en cours) ou terminées seulement. Lève `InvalidCursorError`.
+
+    Résumé calculé en base, en une requête : volume = somme de poids * reps des séries de
+    travail, comme `workout_volume_kg` (CLAUDE.md)."""
     workouts = Workout.objects.filter(owner=owner)
     if ongoing is not None:
         workouts = workouts.filter(ended_at__isnull=ongoing)
-    return paginate(
-        workouts, keys=("started_at", "id"), cursor=cursor, limit=limit, descending=True
+    annotated = workouts.annotate(
+        exercise_count=Count("exercises", distinct=True),
+        working_set_count=Count("exercises__sets", filter=_WORKING),
+        volume_kg=Coalesce(
+            Sum(_VOLUME, filter=_WORKING),
+            Value(Decimal(0)),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        ),
     )
+    page = paginate(
+        annotated, keys=("started_at", "id"), cursor=cursor, limit=limit, descending=True
+    )
+    summaries = [
+        # Les annotations sont des attributs d'instance que les stubs ne connaissent pas.
+        WorkoutSummary(
+            workout=workout,
+            exercise_count=workout.__dict__["exercise_count"],
+            working_set_count=workout.__dict__["working_set_count"],
+            volume_kg=workout.__dict__["volume_kg"],
+        )
+        for workout in page.items
+    ]
+    return summaries, page.next_cursor
 
 
 def last_sets(

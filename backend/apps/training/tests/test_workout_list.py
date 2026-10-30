@@ -125,3 +125,29 @@ def test_last_sets_are_empty_for_a_new_exercise_or_another_account() -> None:
 
     assert weights(bob.get(f"/exercises/{bench.pk}/last-sets/")) == []
     assert weights(alice.get(f"/exercises/{make_exercise(name='Rowing').pk}/last-sets/")) == []
+
+
+def test_each_listed_workout_is_summarised_without_warmups() -> None:
+    alice = Athlete()
+    bench, squat = make_exercise(), make_exercise(name="Squat")
+    workout = put_workout(alice, 0)
+    empty = put_workout(alice, 1)
+    put_sets(alice, workout, str(bench.pk), ["80", "80"])  # 2 x (80 x 8)
+    put_sets(alice, workout, str(squat.pk), ["100"])  # 100 x 8
+    item_id = str(uuid4())
+    body = {"workout_id": workout, "exercise_id": str(squat.pk), "position": 2}
+    assert alice.put(f"/workout-exercises/{item_id}/", body).status_code == 201
+    warmup = set_body(UUID(item_id), weight_kg="40", is_warmup=True)
+    assert alice.put(f"/sets/{uuid4()}/", warmup).status_code == 201
+
+    items = {item["id"]: item for item in alice.get("/workouts/").json()["items"]}
+
+    assert items[workout] | {"started_at": None, "ended_at": None} == {
+        "id": workout,
+        "started_at": None,
+        "ended_at": None,
+        "exercise_count": 3,
+        "working_set_count": 3,
+        "volume_kg": 2080.0,
+    }
+    assert (items[empty]["exercise_count"], items[empty]["volume_kg"]) == (0, 0.0)
