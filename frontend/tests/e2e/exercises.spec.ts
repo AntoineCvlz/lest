@@ -31,6 +31,18 @@ test("cherche un exercice sans accents et filtre le catalogue", async ({
   await page.getByRole("combobox", { name: "Catégorie" }).selectOption({ label: "Mollets" });
   await expect(page.getByText("Aucun exercice ne correspond", { exact: false })).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  // Fiche d'exercice : attribution wger, records (aucun pour un compte neuf).
+  await page.getByRole("button", { name: "Effacer la recherche et les filtres" }).click();
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("developpe couche");
+  await list
+    .getByRole("link", { name: /^Développé couché/ })
+    .first()
+    .click();
+  await expect(page.getByRole("heading", { level: 1, name: "Développé couché" })).toBeVisible();
+  await expect(page.getByText(/^Source : wger, licence /)).toBeVisible();
+  await expect(page.getByText(/^Aucun record pour l’instant/)).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   expect(cspViolations).toEqual([]);
 });
 

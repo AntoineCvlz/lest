@@ -13,9 +13,10 @@ export type PrivateRoute = (typeof PRIVATE_ROUTES)[number];
 /** Paramètre de `/connexion` : page où revenir après la connexion. */
 export const NEXT_PARAM = "suivant";
 
+/** Page privée qui couvre `pathname` : elle-même ou l'une de ses sous-pages (`/exercices/…`). */
 function privateRoute(pathname: string): PrivateRoute | null {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  return PRIVATE_ROUTES.find((route) => route === path) ?? null;
+  return PRIVATE_ROUTES.find((route) => route === path || path.startsWith(`${route}/`)) ?? null;
 }
 
 /**
@@ -32,7 +33,10 @@ export function signInRedirect(request: NextRequest): URL | null {
   return target;
 }
 
-/** Destination après connexion : une page privée connue, sinon l'accueil (jamais une URL libre). */
+/**
+ * Destination après connexion : une page privée connue, sinon l'accueil (jamais une URL libre).
+ * Une sous-page ramène à sa page (`/exercices/…` → `/exercices`) : seules des constantes sortent.
+ */
 export function safeNext(value: unknown): PrivateRoute | "/" {
   return typeof value === "string" ? (privateRoute(value) ?? "/") : "/";
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import type { Schemas } from "@/shared/api/client";
@@ -62,7 +63,12 @@ function ExerciseItem({
           {content}
         </button>
       ) : (
-        <div className="flex flex-col gap-1 py-3">{content}</div>
+        <Link
+          href={`/exercices/${exercise.id}`}
+          className="hover:bg-surface flex min-h-14 flex-col gap-1 px-1 py-3"
+        >
+          {content}
+        </Link>
       )}
     </li>
   );
