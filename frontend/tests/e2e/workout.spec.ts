@@ -65,6 +65,15 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   await page.getByRole("button", { name: "Terminer", exact: true }).click();
   await expect(page.getByText("Séance terminée et enregistrée.")).toBeVisible();
   await expect(page.getByRole("button", { name: "Démarrer une séance" })).toBeVisible();
+
+  // La séance terminée rejoint l'historique, et son détail se lit.
+  const history = page.getByRole("list", { name: "Séances passées" });
+  await expect(history.getByRole("link")).toHaveCount(1);
+  await expect(history).toContainText("1 exercice, 1 série, 202,5 kg");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await history.getByRole("link").click();
+  await expect(page.getByRole("region", { name: "Développé couché" })).toContainText(
+    "Série 1 : 22,5 kg × 9",
+  );
   expect(cspViolations).toEqual([]);
 });

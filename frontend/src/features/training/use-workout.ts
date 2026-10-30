@@ -1,10 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
 import { WORKOUTS_KEY } from "./query-keys";
 
 const ONGOING_KEY = [...WORKOUTS_KEY, "ongoing"] as const;
+const HISTORY_KEY = [...WORKOUTS_KEY, "history"] as const;
+const HISTORY_PAGE_SIZE = 20;
 
 export function workoutKey(id: string) {
   return [...WORKOUTS_KEY, id] as const;
@@ -28,6 +30,23 @@ export function useOngoingWorkout() {
       if (!data) throw new WorkoutRequestFailed(response.status);
       return data.items[0] ?? null;
     },
+    retry: false,
+  });
+}
+
+/** Séances terminées, les plus récentes d'abord, résumées, page par page. */
+export function useWorkoutHistory() {
+  return useInfiniteQuery({
+    queryKey: HISTORY_KEY,
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }): Promise<Schemas["WorkoutPageOut"]> => {
+      const { data, response } = await fetchClient.GET("/api/v1/workouts/", {
+        params: { query: { ongoing: false, cursor: pageParam, limit: HISTORY_PAGE_SIZE } },
+      });
+      if (!data) throw new WorkoutRequestFailed(response.status);
+      return data;
+    },
+    getNextPageParam: (page) => page.next_cursor,
     retry: false,
   });
 }
@@ -103,8 +122,10 @@ export function useFinishWorkout() {
       if (!data) throw new WorkoutRequestFailed(response.status);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       queryClient.setQueryData(ONGOING_KEY, null);
+      // La séance terminée rejoint l'historique.
+      await queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
     },
   });
 }
