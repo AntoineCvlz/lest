@@ -20,6 +20,12 @@ describe("signInRedirect", () => {
     },
   );
 
+  it("protège aussi les sous-pages, en ramenant à la page après connexion", () => {
+    const target = signInRedirect(pageRequest("/exercices/8c5b0f4e-9b1a-4d43-9d55-0d6d6b1f1a01"));
+
+    expect(target?.searchParams.get("suivant")).toBe("/exercices");
+  });
+
   it("laisse passer une page privée quand une session est ouverte", () => {
     expect(signInRedirect(pageRequest("/profil", "lest_csrf=jeton"))).toBeNull();
   });
@@ -48,5 +54,10 @@ describe("safeNext", () => {
     ["/profil", "/bienvenue"],
   ])("refuse %j et revient à l'accueil", (value) => {
     expect(safeNext(value)).toBe("/");
+  });
+
+  it("ramène une sous-page à sa page, jamais à l'URL reçue", () => {
+    expect(safeNext("/exercices/abc")).toBe("/exercices");
+    expect(safeNext("/exercices/../../evil")).toBe("/exercices");
   });
 });
