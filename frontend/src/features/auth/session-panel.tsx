@@ -6,6 +6,7 @@ import { useEffect } from "react";
 
 import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
 import { DEVICE_SESSIONS_KEY, MFA_QUERY_KEY } from "@/features/security/query-keys";
+import { WORKOUTS_KEY } from "@/features/training/query-keys";
 import { $api } from "@/shared/api/client";
 import { authClient } from "@/shared/api/auth-client";
 import { Button } from "@/shared/ui/button";
@@ -15,7 +16,7 @@ const LINK_BUTTON =
   "rounded-control inline-flex min-h-11 items-center justify-center px-4 font-extrabold";
 // Données propres au compte, à oublier quand la session prend fin. Toute nouvelle requête privée
 // gardée en cache rejoint cette liste.
-const PRIVATE_QUERY_KEYS = [PROFILE_QUERY_KEY, DEVICE_SESSIONS_KEY, MFA_QUERY_KEY];
+const PRIVATE_QUERY_KEYS = [PROFILE_QUERY_KEY, DEVICE_SESSIONS_KEY, MFA_QUERY_KEY, WORKOUTS_KEY];
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
 
 async function signOut(): Promise<void> {
@@ -65,11 +66,8 @@ export function SessionPanel() {
               Compléter mon profil
             </Link>
           )}
-          <Link
-            href="/exercices"
-            className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
-          >
-            Exercices
+          <Link href="/seance" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
+            Séance
           </Link>
           {profile.data && (
             <Link

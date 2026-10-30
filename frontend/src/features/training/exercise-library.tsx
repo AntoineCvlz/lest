@@ -25,25 +25,61 @@ function summary(count: number, more: boolean): string {
   return more ? `${shown}, d’autres suivent.` : `${shown}.`;
 }
 
-function ExerciseItem({ exercise }: { exercise: Schemas["ExerciseOut"] }) {
+function ExerciseItem({
+  exercise,
+  onSelect,
+  disabled,
+}: {
+  exercise: Schemas["ExerciseOut"];
+  onSelect?: (exercise: Schemas["ExerciseOut"]) => void;
+  disabled: boolean;
+}) {
   const details = [
     CATEGORY_LABELS[exercise.category],
     ...exercise.muscles.map((muscle) => muscle.name),
     ...exercise.equipment.map((item) => item.name),
   ].join(", ");
-  return (
-    <li className="border-line-subtle flex flex-col gap-1 border-b py-3">
+  const content = (
+    <>
       {/* Nom anglais quand wger n'en a pas de français (ADR 0004) : prononcé en anglais. */}
-      <p className="text-[17px] font-bold" lang={exercise.name_language}>
+      <span className="block text-[17px] font-bold" lang={exercise.name_language}>
         {exercise.name}
-      </p>
-      <p className="text-ink-muted text-sm">{details}</p>
+      </span>
+      <span className="text-ink-muted block text-sm">{details}</span>
+    </>
+  );
+  return (
+    <li className="border-line-subtle border-b">
+      {onSelect ? (
+        <button
+          type="button"
+          disabled={disabled}
+          className="hover:bg-surface flex min-h-14 w-full flex-col gap-1 px-1 py-3 text-left disabled:opacity-50"
+          onClick={() => {
+            onSelect(exercise);
+          }}
+        >
+          {content}
+        </button>
+      ) : (
+        <div className="flex flex-col gap-1 py-3">{content}</div>
+      )}
     </li>
   );
 }
 
-/** Bibliothèque d'exercices : recherche sans accents, filtres, pages de 30 à la demande. */
-export function ExerciseLibrary() {
+/**
+ * Bibliothèque d'exercices : recherche sans accents, filtres, pages de 30 à la demande.
+ * Avec `onSelect`, chaque exercice devient un bouton (choix d'un exercice pour la séance).
+ */
+export function ExerciseLibrary({
+  onSelect,
+  selecting = false,
+}: {
+  onSelect?: (exercise: Schemas["ExerciseOut"]) => void;
+  /** Choix en cours d'enregistrement : boutons désactivés (pas de double ajout). */
+  selecting?: boolean;
+} = {}) {
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
   const [muscle, setMuscle] = useState<number | null>(null);
@@ -150,7 +186,7 @@ export function ExerciseLibrary() {
       </search>
 
       <p role="status" className="text-ink-muted empty:hidden">
-        {exercises.isPending
+        {exercises.isPending || exercises.isPlaceholderData
           ? "Recherche des exercices…"
           : exercises.isError
             ? ""
@@ -177,9 +213,23 @@ export function ExerciseLibrary() {
       {empty && filtered && <Button onClick={reset}>Effacer la recherche et les filtres</Button>}
 
       {items.length > 0 && (
-        <ul aria-label="Exercices" className="border-line-subtle border-t">
+        <ul
+          aria-label="Exercices"
+          aria-busy={exercises.isPlaceholderData}
+          className={[
+            "border-line-subtle border-t",
+            // Résultats de la recherche précédente : atténués jusqu'aux nouveaux.
+            exercises.isPlaceholderData ? "opacity-60" : "",
+          ].join(" ")}
+        >
           {items.map((exercise) => (
-            <ExerciseItem key={exercise.id} exercise={exercise} />
+            <ExerciseItem
+              key={exercise.id}
+              exercise={exercise}
+              onSelect={onSelect}
+              // Liste provisoire (recherche en cours) : pas de choix sur un résultat périmé.
+              disabled={selecting || exercises.isPlaceholderData}
+            />
           ))}
         </ul>
       )}
