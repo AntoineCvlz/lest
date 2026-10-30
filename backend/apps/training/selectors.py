@@ -2,11 +2,65 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from apps.accounts.models import User
+from common.pagination import Page, paginate
 
-from .models import PersonalRecord, Set, Workout, WorkoutExercise
+from .models import Equipment, Exercise, Muscle, PersonalRecord, Set, Workout, WorkoutExercise
+
+# Recherche : quelques mots, chacun présent dans le nom (sans accents ni casse).
+MAX_SEARCH_TERMS = 5
+
+
+def search_exercises(
+    *,
+    query: str = "",
+    category: str | None = None,
+    muscle_id: int | None = None,
+    equipment_id: int | None = None,
+    cursor: str | None = None,
+    limit: int,
+) -> Page[Exercise]:
+    """Exercices actifs du catalogue (commun à tous les comptes), par ordre alphabétique.
+
+    Un muscle filtre sur les muscles principaux et secondaires. Lève `InvalidCursorError`.
+    """
+    exercises = Exercise.objects.filter(is_active=True)
+    for term in query.split()[:MAX_SEARCH_TERMS]:
+        exercises = exercises.filter(name__unaccent__icontains=term)
+    if category is not None:
+        exercises = exercises.filter(category=category)
+    if muscle_id is not None:
+        exercises = exercises.filter(
+            Q(muscles__id=muscle_id) | Q(secondary_muscles__id=muscle_id)
+        ).distinct()
+    if equipment_id is not None:
+        exercises = exercises.filter(equipment__id=equipment_id)
+    return paginate(
+        exercises.prefetch_related("muscles", "equipment"),
+        keys=("name", "id"),
+        cursor=cursor,
+        limit=limit,
+    )
+
+
+def get_exercise(*, exercise_id: UUID) -> Exercise | None:
+    """Exercice du catalogue, même retiré de wger (il reste lisible depuis l'historique)."""
+    return (
+        Exercise.objects.filter(pk=exercise_id)
+        .prefetch_related("muscles", "secondary_muscles", "equipment")
+        .first()
+    )
+
+
+def exercise_filters() -> tuple[list[Muscle], list[Equipment]]:
+    """Muscles et équipements utilisés par au moins un exercice actif (valeurs des filtres)."""
+    muscles = Muscle.objects.filter(
+        Q(primary_exercises__is_active=True) | Q(secondary_exercises__is_active=True)
+    ).distinct()
+    equipment = Equipment.objects.filter(exercises__is_active=True).distinct()
+    return list(muscles), list(equipment)
 
 
 def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:

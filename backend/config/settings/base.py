@@ -23,6 +23,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Lookup `unaccent` pour la recherche du catalogue (extension créée par une migration).
+    "django.contrib.postgres",
     "ninja",
     "allauth",
     "allauth.account",

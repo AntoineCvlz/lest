@@ -4,6 +4,7 @@ Routers minces : schémas Pydantic, appel du service, traduction des erreurs. Un
 d'un autre compte répond 404 comme un identifiant inconnu ; un parent inconnu, 422.
 """
 
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Literal
@@ -12,7 +13,7 @@ from uuid import UUID
 from allauth.core import ratelimit
 from django.http import Http404, HttpRequest
 from django.utils import timezone
-from ninja import Field, Router, Schema, Status
+from ninja import Field, Query, Router, Schema, Status
 from pydantic import UUID4, AfterValidator, AwareDatetime
 
 from apps.accounts.models import User
@@ -20,12 +21,17 @@ from apps.training import selectors, services
 from apps.training.models import (
     MAX_REPS,
     MAX_WEIGHT_KG,
+    Category,
+    Equipment,
+    Exercise,
+    Muscle,
     PersonalRecord,
     Set,
     Workout,
     WorkoutExercise,
 )
 from common.auth import request_user
+from common.pagination import DEFAULT_LIMIT, MAX_LIMIT, InvalidCursorError
 from common.problems import ProblemError
 
 router = Router(tags=["training"])
@@ -34,6 +40,7 @@ MAX_POSITION = 1000
 EARLIEST = datetime(2000, 1, 1, tzinfo=UTC)
 WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
 RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
+INVALID_CURSOR_TYPE = "urn:lest:problem:invalid-cursor"
 # Écritures de séance par compte (`ACCOUNT_RATE_LIMITS`) : une file hors ligne rejoue vite,
 # un script pas indéfiniment (chaque écriture recalcule des records).
 WRITE_ACTION = "training_write"
@@ -72,6 +79,56 @@ class SetIn(Schema):
     rpe: Decimal | None = Field(default=None, ge=1, le=10, multiple_of=0.5)
     is_warmup: bool = False
     performed_at: Moment
+
+
+# --- Catalogue (commun à tous les comptes, lecture seule) -----------------------------------
+
+# Valeurs de `Category` (un test vérifie qu'elles restent alignées) : énumération dans l'OpenAPI.
+CategoryName = Literal["abs", "arms", "back", "calves", "cardio", "chest", "legs", "shoulders"]
+MAX_QUERY_LENGTH = 100
+
+
+class ExerciseQuery(Schema):
+    q: str = Field("", max_length=MAX_QUERY_LENGTH)
+    category: CategoryName | None = None
+    muscle: int | None = Field(None, ge=1)
+    equipment: int | None = Field(None, ge=1)
+    cursor: str | None = None
+    limit: int = Field(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
+
+
+class NamedOut(Schema):
+    id: int
+    name: str
+
+
+class ExerciseOut(Schema):
+    id: UUID
+    name: str
+    # « en » : pas de nom français dans wger, le nom anglais est affiché (ADR 0004).
+    name_language: Literal["fr", "en"]
+    category: CategoryName
+    muscles: list[NamedOut]
+    equipment: list[NamedOut]
+
+
+class ExerciseDetailOut(ExerciseOut):
+    secondary_muscles: list[NamedOut]
+    # Attribution exigée par la licence de wger (CC-BY-SA), affichée avec l'exercice.
+    license: str
+    license_author: str
+    is_active: bool
+
+
+class ExercisePageOut(Schema):
+    items: list[ExerciseOut]
+    next_cursor: str | None
+
+
+class ExerciseFiltersOut(Schema):
+    categories: list[CategoryName]
+    muscles: list[NamedOut]
+    equipment: list[NamedOut]
 
 
 class RecordOut(Schema):
@@ -119,6 +176,21 @@ class WorkoutOut(Schema):
 class WorkoutDetailOut(WorkoutOut):
     volume_kg: float
     exercises: list[WorkoutExerciseDetailOut]
+
+
+def _named(rows: Iterable[Muscle | Equipment]) -> list[NamedOut]:
+    return [NamedOut(id=row.pk, name=row.name) for row in rows]
+
+
+def _exercise_out(exercise: Exercise) -> ExerciseOut:
+    return ExerciseOut(
+        id=exercise.pk,
+        name=exercise.name,
+        name_language=exercise.name_language,  # type: ignore[arg-type]  # contrainte en base
+        category=exercise.category,  # type: ignore[arg-type]  # contrainte en base
+        muscles=_named(exercise.muscles.all()),
+        equipment=_named(exercise.equipment.all()),
+    )
 
 
 def _set_out(one: Set) -> SetOut:
@@ -169,6 +241,51 @@ def _writer(request: HttpRequest) -> User:
             429, "Trop d'écritures. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
         )
     return user
+
+
+@router.get("/exercises/", response=ExercisePageOut, summary="Rechercher dans le catalogue")
+def list_exercises(request: HttpRequest, filters: Query[ExerciseQuery]) -> ExercisePageOut:
+    try:
+        page = selectors.search_exercises(
+            query=filters.q,
+            category=filters.category,
+            muscle_id=filters.muscle,
+            equipment_id=filters.equipment,
+            cursor=filters.cursor,
+            limit=filters.limit,
+        )
+    except InvalidCursorError as error:
+        raise ProblemError(
+            422, "Curseur de pagination invalide.", type_=INVALID_CURSOR_TYPE
+        ) from error
+    return ExercisePageOut(
+        items=[_exercise_out(one) for one in page.items],
+        next_cursor=page.next_cursor,
+    )
+
+
+@router.get("/exercises/{exercise_id}/", response=ExerciseDetailOut, summary="Fiche d'exercice")
+def read_exercise(request: HttpRequest, exercise_id: UUID) -> ExerciseDetailOut:
+    exercise = selectors.get_exercise(exercise_id=exercise_id)
+    if exercise is None:
+        raise Http404
+    return ExerciseDetailOut(
+        **_exercise_out(exercise).model_dump(),
+        secondary_muscles=_named(exercise.secondary_muscles.all()),
+        license=exercise.license,
+        license_author=exercise.license_author,
+        is_active=exercise.is_active,
+    )
+
+
+@router.get("/exercise-filters/", response=ExerciseFiltersOut, summary="Valeurs des filtres")
+def read_exercise_filters(request: HttpRequest) -> ExerciseFiltersOut:
+    muscles, equipment = selectors.exercise_filters()
+    return ExerciseFiltersOut(
+        categories=list(Category.values),  # type: ignore[arg-type]  # aligné, voir les tests
+        muscles=_named(muscles),
+        equipment=_named(equipment),
+    )
 
 
 @router.get("/workouts/{workout_id}/", response=WorkoutDetailOut, summary="Séance et séries")
