@@ -14,6 +14,7 @@ import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { Stepper } from "@/shared/ui/stepper";
 
+import { recordsLine, RECORD_LABELS, setLine, setText, weightText } from "./format";
 import { RestTimer } from "./rest-timer";
 import type { RestTimer as Timer } from "./use-rest-timer";
 import { nextSet, useDeleteSet, useLastSets, useSaveSet } from "./use-sets";
@@ -27,20 +28,11 @@ const RPE_OPTIONS = [7, 7.5, 8, 8.5, 9, 9.5].map((value) => ({
   value,
   label: formatNumber(value),
 }));
-const RECORD_LABELS = { weight: "charge max", e1rm: "1RM estimé" } as const;
 // Sans historique : barre olympique à vide et une série de 8.
 const EMPTY_BAR = { metric: 20, imperial: 45 } as const;
 const DEFAULT_REPS = 8;
 const MAX_REPS = 100;
 const MAX_WEIGHT_KG = 1000;
-
-function weightText(kilograms: number, system: UnitSystem): string {
-  return `${formatNumber(kilogramsToDisplay(kilograms, system))} ${WEIGHT_UNITS[system].symbol}`;
-}
-
-function setText(one: SetOut, system: UnitSystem): string {
-  return `${weightText(one.weight_kg, system)} × ${String(one.reps)}`;
-}
 
 function editButtonId(one: SetOut): string {
   return `modifier-${one.id}`;
@@ -343,14 +335,10 @@ export function SetEntry({
             >
               <div className="flex min-w-0 flex-col gap-1">
                 <span className="font-bold [font-variant-numeric:tabular-nums]">
-                  {`Série ${String(index + 1)} : ${setText(one, system)}`}
-                  {one.rpe !== null && `, RPE ${formatNumber(one.rpe)}`}
-                  {one.is_warmup && ", échauffement"}
+                  {setLine(one, index + 1, system)}
                 </span>
                 {one.records.length > 0 && (
-                  <span className="text-accent-ink text-sm font-bold">
-                    {`Record : ${one.records.map((record) => RECORD_LABELS[record.kind]).join(", ")}`}
-                  </span>
+                  <span className="text-accent-ink text-sm font-bold">{recordsLine(one)}</span>
                 )}
               </div>
               <Button

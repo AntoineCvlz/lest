@@ -11,6 +11,7 @@ import { ExerciseLibrary } from "./exercise-library";
 import { RestTimer } from "./rest-timer";
 import { SetEntry } from "./set-entry";
 import { useRestTimer } from "./use-rest-timer";
+import { WorkoutHistory } from "./workout-history";
 import {
   useAddExercise,
   useFinishWorkout,
@@ -193,6 +194,7 @@ function OngoingWorkout({
 /** Séance du jour : la démarrer, y ajouter des exercices, la terminer. */
 export function WorkoutSession() {
   const ongoing = useOngoingWorkout();
+  const profile = useProfile();
   const start = useStartWorkout();
   const [finished, setFinished] = useState(false);
 
@@ -250,6 +252,7 @@ export function WorkoutSession() {
       >
         Démarrer une séance
       </Button>
+      <WorkoutHistory system={profile.data?.unit_system ?? "metric"} />
     </div>
   );
 }
