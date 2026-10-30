@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/exercises/{exercise_id}/last-sets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Séries de la dernière séance avec cet exercice */
+        get: operations["apps_training_api_router_read_last_sets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exercises/{exercise_id}/records/": {
         parameters: {
             query?: never;
@@ -173,6 +190,23 @@ export interface paths {
         post?: never;
         /** Retirer un exercice de séance et ses séries */
         delete: operations["apps_training_api_router_remove_workout_exercise"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workouts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Séances, les plus récentes d'abord */
+        get: operations["apps_training_api_router_list_workouts"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -325,6 +359,11 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "degraded";
+        };
+        /** LastSetsOut */
+        LastSetsOut: {
+            /** Sets */
+            sets: components["schemas"]["SetOut"][];
         };
         /** MeOut */
         MeOut: {
@@ -561,6 +600,25 @@ export interface components {
              */
             started_at: string;
         };
+        /** WorkoutPageOut */
+        WorkoutPageOut: {
+            /** Items */
+            items: components["schemas"]["WorkoutOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** WorkoutQuery */
+        WorkoutQuery: {
+            /** Cursor */
+            cursor?: string | null;
+            /**
+             * Limit
+             * @default 30
+             */
+            limit: number;
+            /** Ongoing */
+            ongoing?: boolean | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -635,6 +693,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExerciseDetailOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_read_last_sets: {
+        parameters: {
+            query?: {
+                exclude_workout?: string | null;
+            };
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LastSetsOut"];
                 };
             };
         };
@@ -901,6 +983,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_training_api_router_list_workouts: {
+        parameters: {
+            query?: {
+                ongoing?: boolean | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkoutPageOut"];
+                };
             };
         };
     };

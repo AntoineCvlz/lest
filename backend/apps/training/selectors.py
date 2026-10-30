@@ -63,6 +63,42 @@ def exercise_filters() -> tuple[list[Muscle], list[Equipment]]:
     return list(muscles), list(equipment)
 
 
+def list_workouts(
+    *, owner: User, ongoing: bool | None = None, cursor: str | None = None, limit: int
+) -> Page[Workout]:
+    """Séances de `owner`, les plus récentes d'abord ; `ongoing` : sans fin (en cours) ou
+    terminées seulement. Lève `InvalidCursorError`."""
+    workouts = Workout.objects.filter(owner=owner)
+    if ongoing is not None:
+        workouts = workouts.filter(ended_at__isnull=ongoing)
+    return paginate(
+        workouts, keys=("started_at", "id"), cursor=cursor, limit=limit, descending=True
+    )
+
+
+def last_sets(
+    *, owner: User, exercise_id: UUID, exclude_workout_id: UUID | None = None
+) -> list[Set]:
+    """Séries de la dernière séance de `owner` où figure cet exercice (hors `exclude_workout_id`,
+    la séance en cours), dans l'ordre : base du pré-remplissage de la charge."""
+    items = WorkoutExercise.objects.filter(workout__owner=owner, exercise_id=exercise_id)
+    if exclude_workout_id is not None:
+        items = items.exclude(workout_id=exclude_workout_id)
+    latest = (
+        items.filter(sets__isnull=False)
+        .order_by("-workout__started_at", "-position", "-id")
+        .values_list("pk", flat=True)
+        .first()
+    )
+    if latest is None:
+        return []
+    return list(
+        Set.objects.filter(workout_exercise_id=latest)
+        .prefetch_related("records")
+        .order_by("position", "performed_at")
+    )
+
+
 def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:
     """Séance de `owner` avec ses exercices et séries, ou `None` (absente ou d'un autre compte)."""
     return (

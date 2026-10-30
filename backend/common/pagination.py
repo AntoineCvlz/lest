@@ -54,21 +54,28 @@ def decode_cursor(cursor: str, *, size: int) -> list[str]:
 
 
 def paginate[M: Model](
-    queryset: QuerySet[M], *, keys: tuple[str, str], cursor: str | None, limit: int
+    queryset: QuerySet[M],
+    *,
+    keys: tuple[str, str],
+    cursor: str | None,
+    limit: int,
+    descending: bool = False,
 ) -> Page[M]:
     """
-    Page de `queryset` triée par `keys` (un champ texte puis un champ unique, croissants).
+    Page de `queryset` triée par `keys` (un champ puis un champ unique), croissants ou, avec
+    `descending`, décroissants (les plus récents d'abord).
 
     Lit `limit + 1` lignes pour savoir s'il en reste, sans compter la liste entière.
     """
     first, second = keys
-    queryset = queryset.order_by(first, second)
+    sign, after = ("-", "lt") if descending else ("", "gt")
+    queryset = queryset.order_by(f"{sign}{first}", f"{sign}{second}")
     if cursor is not None:
         after_first, after_second = decode_cursor(cursor, size=2)
         try:
             queryset = queryset.filter(
-                Q(**{f"{first}__gt": after_first})
-                | Q(**{first: after_first, f"{second}__gt": after_second})
+                Q(**{f"{first}__{after}": after_first})
+                | Q(**{first: after_first, f"{second}__{after}": after_second})
             )
         except (ValidationError, ValueError):  # ex. UUID mal formé dans le curseur
             raise InvalidCursorError from None
