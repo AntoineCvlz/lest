@@ -363,6 +363,22 @@
         "title": "HealthOut",
         "type": "object"
       },
+      "LastSetsOut": {
+        "properties": {
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/SetOut"
+            },
+            "title": "Sets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sets"
+        ],
+        "title": "LastSetsOut",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "email": {
@@ -871,6 +887,69 @@
         ],
         "title": "WorkoutOut",
         "type": "object"
+      },
+      "WorkoutPageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "WorkoutPageOut",
+        "type": "object"
+      },
+      "WorkoutQuery": {
+        "properties": {
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "limit": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "ongoing": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ongoing"
+          }
+        },
+        "title": "WorkoutQuery",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1074,6 +1153,61 @@
           }
         ],
         "summary": "Fiche d'exercice",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/exercises/{exercise_id}/last-sets/": {
+      "get": {
+        "operationId": "apps_training_api_router_read_last_sets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exercise Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "exclude_workout",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid4",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Workout"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LastSetsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Séries de la dernière séance avec cet exercice",
         "tags": [
           "training"
         ]
@@ -1455,6 +1589,78 @@
           }
         ],
         "summary": "Ajouter ou remplacer un exercice de séance",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/workouts/": {
+      "get": {
+        "operationId": "apps_training_api_router_list_workouts",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "ongoing",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ongoing"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutPageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Séances, les plus récentes d'abord",
         "tags": [
           "training"
         ]

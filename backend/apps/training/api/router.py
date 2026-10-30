@@ -150,6 +150,11 @@ class SetOut(Schema):
     records: list[RecordOut]
 
 
+class LastSetsOut(Schema):
+    # Vide si l'exercice n'a jamais été fait (hors séance exclue).
+    sets: list[SetOut]
+
+
 class ExerciseRecordsOut(Schema):
     history: list[RecordOut]
 
@@ -171,6 +176,18 @@ class WorkoutOut(Schema):
     id: UUID
     started_at: datetime
     ended_at: datetime | None
+
+
+class WorkoutQuery(Schema):
+    # `true` : séances en cours (sans fin), pour reprendre après un rechargement.
+    ongoing: bool | None = None
+    cursor: str | None = None
+    limit: int = Field(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
+
+
+class WorkoutPageOut(Schema):
+    items: list[WorkoutOut]
+    next_cursor: str | None
 
 
 class WorkoutDetailOut(WorkoutOut):
@@ -229,6 +246,10 @@ def _status[T](created: bool, body: T) -> Status[T]:
     return Status(201 if created else 200, body)
 
 
+def _invalid_cursor() -> ProblemError:
+    return ProblemError(422, "Curseur de pagination invalide.", type_=INVALID_CURSOR_TYPE)
+
+
 def _conflict() -> ProblemError:
     return ProblemError(409, "Écriture refusée, réessayez.", type_=WRITE_CONFLICT_TYPE)
 
@@ -255,9 +276,7 @@ def list_exercises(request: HttpRequest, filters: Query[ExerciseQuery]) -> Exerc
             limit=filters.limit,
         )
     except InvalidCursorError as error:
-        raise ProblemError(
-            422, "Curseur de pagination invalide.", type_=INVALID_CURSOR_TYPE
-        ) from error
+        raise _invalid_cursor() from error
     return ExercisePageOut(
         items=[_exercise_out(one) for one in page.items],
         next_cursor=page.next_cursor,
@@ -285,6 +304,22 @@ def read_exercise_filters(request: HttpRequest) -> ExerciseFiltersOut:
         categories=list(Category.values),  # type: ignore[arg-type]  # aligné, voir les tests
         muscles=_named(muscles),
         equipment=_named(equipment),
+    )
+
+
+@router.get("/workouts/", response=WorkoutPageOut, summary="Séances, les plus récentes d'abord")
+def list_workouts(request: HttpRequest, filters: Query[WorkoutQuery]) -> WorkoutPageOut:
+    try:
+        page = selectors.list_workouts(
+            owner=request_user(request),
+            ongoing=filters.ongoing,
+            cursor=filters.cursor,
+            limit=filters.limit,
+        )
+    except InvalidCursorError as error:
+        raise _invalid_cursor() from error
+    return WorkoutPageOut(
+        items=[_workout_out(workout) for workout in page.items], next_cursor=page.next_cursor
     )
 
 
@@ -395,6 +430,20 @@ def write_set(request: HttpRequest, set_id: ClientId, payload: SetIn) -> Status[
     except services.WriteConflictError as error:
         raise _conflict() from error
     return _status(created, _set_out(one))
+
+
+@router.get(
+    "/exercises/{exercise_id}/last-sets/",
+    response=LastSetsOut,
+    summary="Séries de la dernière séance avec cet exercice",
+)
+def read_last_sets(
+    request: HttpRequest, exercise_id: UUID, exclude_workout: ClientId | None = None
+) -> LastSetsOut:
+    sets = selectors.last_sets(
+        owner=request_user(request), exercise_id=exercise_id, exclude_workout_id=exclude_workout
+    )
+    return LastSetsOut(sets=[_set_out(one) for one in sets])
 
 
 @router.get(
