@@ -49,6 +49,8 @@ describe("ProfileForm", () => {
       expect(push).toHaveBeenCalledWith("/");
     });
     expect(body()).toEqual({ goal: "gain", unit_system: "metric", height_m: 1.8 });
+    // Pas de formule du 1RM à l'onboarding : l'API garde Epley par défaut.
+    expect(screen.queryByRole("group", { name: "Formule du 1RM estimé" })).toBeNull();
   });
 
   it("convertit la taille saisie quand on change d'unités", async () => {
@@ -102,6 +104,36 @@ describe("ProfileForm", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent(SAVED);
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("change la formule du 1RM depuis le profil", async () => {
+    const body = capturePut();
+    renderWithQuery(
+      <ProfileForm
+        initial={{
+          height_m: 1.8,
+          goal: "gain",
+          unit_system: "metric",
+          one_rm_formula: "epley",
+          onboarded_at: "2026-10-28T09:00:00Z",
+        }}
+        submitLabel="Enregistrer"
+      />,
+    );
+    const user = userEvent.setup();
+
+    expect(screen.getByRole("radio", { name: "Epley (par défaut)" })).toBeChecked();
+    await user.click(screen.getByRole("radio", { name: "Brzycki" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(body()).toEqual({
+        goal: "gain",
+        unit_system: "metric",
+        height_m: 1.8,
+        one_rm_formula: "brzycki",
+      });
+    });
   });
 
   it("demande de se reconnecter si la session a expiré", async () => {

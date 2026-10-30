@@ -19,11 +19,16 @@ const WHOLE_NUMBER = /^\d+$/;
 
 const GOALS = ["gain", "maintain", "cut"] as const satisfies readonly ProfileIn["goal"][];
 const UNIT_SYSTEMS = ["metric", "imperial"] as const satisfies readonly ProfileIn["unit_system"][];
+const FORMULAS = ["epley", "brzycki"] as const satisfies readonly NonNullable<
+  ProfileIn["one_rm_formula"]
+>[];
 
 /** Valeurs du formulaire : la taille est saisie en texte, dans le système d'unités choisi. */
 export interface ProfileFormValues {
   goal: ProfileIn["goal"];
   unit_system: ProfileIn["unit_system"];
+  /** Formule du 1RM estimé : réglée depuis l'écran de profil, pas à l'onboarding. */
+  one_rm_formula?: NonNullable<ProfileIn["one_rm_formula"]>;
   height_cm: string;
   feet: string;
   inches: string;
@@ -57,6 +62,7 @@ export const profileFormSchema = z
   .object({
     goal: z.enum(GOALS, { error: "Choisissez un objectif." }),
     unit_system: z.enum(UNIT_SYSTEMS),
+    one_rm_formula: z.enum(FORMULAS).optional(),
     height_cm: z.string(),
     feet: z.string(),
     inches: z.string(),
@@ -76,7 +82,13 @@ export const profileFormSchema = z
 export function toPayload(values: ProfileFormValues): ProfileIn {
   const height_m = heightInMetres(values);
   if (height_m === null) throw new Error("toPayload() appelé sur une taille invalide.");
-  return { goal: values.goal, unit_system: values.unit_system, height_m };
+  // Formule absente : l'API garde celle du profil (Epley par défaut).
+  return {
+    goal: values.goal,
+    unit_system: values.unit_system,
+    height_m,
+    ...(values.one_rm_formula && { one_rm_formula: values.one_rm_formula }),
+  };
 }
 
 /** Valeurs initiales : la taille est pré-remplie dans les deux systèmes d'unités. */
@@ -86,6 +98,7 @@ export function defaultsFrom(profile: ProfileIn | undefined): Partial<ProfileFor
   return {
     goal: profile.goal,
     unit_system: profile.unit_system,
+    one_rm_formula: profile.one_rm_formula ?? undefined,
     height_cm: String(metresToCentimetres(profile.height_m)),
     feet: String(feet),
     inches: String(inches),
