@@ -55,6 +55,8 @@ function api({
     http.get("*/api/v1/exercise-filters/", () =>
       HttpResponse.json({ categories: [], muscles: [], equipment: [] }),
     ),
+    http.get("*/api/v1/me/profile/", () => new HttpResponse(null, { status: 404 })),
+    http.get("*/api/v1/exercises/:id/last-sets/", () => HttpResponse.json({ sets: [] })),
   );
 }
 
@@ -80,7 +82,7 @@ describe("WorkoutSession", () => {
     expect(body).toEqual({ started_at: expect.any(String) as string });
   });
 
-  it("reprend la séance en cours et ajoute un exercice à la suite", async () => {
+  it("reprend la séance en cours et ajoute un exercice à la suite, puis ouvre sa saisie", async () => {
     api({ current: ongoing, exercises: [benchItem] });
     let body: unknown;
     server.use(
@@ -100,7 +102,9 @@ describe("WorkoutSession", () => {
     await waitFor(() => {
       expect(body).toEqual({ workout_id: WORKOUT_ID, exercise_id: BENCH, position: 1 });
     });
-    expect(await screen.findByRole("button", { name: "Terminer la séance" })).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Développé couché" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Retour à la séance" }));
+    expect(screen.getByRole("button", { name: "Terminer la séance" })).toBeVisible();
   });
 
   it("garde le choix ouvert et l'annonce si l'ajout échoue", async () => {

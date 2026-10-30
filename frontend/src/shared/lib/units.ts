@@ -29,3 +29,24 @@ export function metresToFeetInches(metres: number): { feet: number; inches: numb
   const totalInches = Math.round(metres / METRES_PER_INCH);
   return { feet: Math.floor(totalInches / INCHES_PER_FOOT), inches: totalInches % INCHES_PER_FOOT };
 }
+
+/** Système d'unités du profil : charges en kilos (métrique) ou en livres (impérial). */
+export type UnitSystem = "metric" | "imperial";
+
+const KILOGRAMS_PER_POUND = 0.45359237;
+
+/** Unité de charge affichée, et pas des boutons ±. */
+export const WEIGHT_UNITS = {
+  metric: { symbol: "kg", name: "kilos", step: 2.5 },
+  imperial: { symbol: "lb", name: "livres", step: 5 },
+} as const;
+
+/** Charge stockée (kg) dans l'unité du profil : au centième de kilo, au dixième de livre. */
+export function kilogramsToDisplay(kilograms: number, system: UnitSystem): number {
+  return system === "metric" ? round(kilograms, 2) : round(kilograms / KILOGRAMS_PER_POUND, 1);
+}
+
+/** Charge saisie dans l'unité du profil, en kilos au centième (précision du stockage). */
+export function displayToKilograms(value: number, system: UnitSystem): number {
+  return system === "metric" ? round(value, 2) : round(value * KILOGRAMS_PER_POUND, 2);
+}

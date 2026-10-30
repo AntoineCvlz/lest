@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
 import { Button } from "@/shared/ui/button";
 
 import { ExerciseLibrary } from "./exercise-library";
+import { SetEntry } from "./set-entry";
 import {
   useAddExercise,
   useFinishWorkout,
@@ -43,8 +45,26 @@ function OngoingWorkout({
   const finish = useFinishWorkout();
   const [picking, setPicking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Exercice dont on saisit les séries (identifiant de l'exercice de séance).
+  const [active, setActive] = useState<string | null>(null);
+  const profile = useProfile();
+  const system = profile.data?.unit_system ?? "metric";
   const exercises = workout.data?.exercises ?? [];
   const failed = add.isError || finish.isError;
+  const activeItem = exercises.find((item) => item.id === active);
+
+  if (activeItem) {
+    return (
+      <SetEntry
+        workoutId={ongoing.id}
+        item={activeItem}
+        system={system}
+        onClose={() => {
+          setActive(null);
+        }}
+      />
+    );
+  }
 
   if (picking) {
     return (
@@ -69,8 +89,10 @@ function OngoingWorkout({
           selecting={add.isPending}
           onSelect={(exercise) => {
             add.mutate(exercise.id, {
-              onSuccess: () => {
+              // Directement à la saisie de la première série de l'exercice ajouté.
+              onSuccess: (added) => {
                 setPicking(false);
+                setActive(added.id);
               },
             });
           }}
@@ -95,11 +117,19 @@ function OngoingWorkout({
         ) : (
           <ol aria-label="Exercices de la séance" className="border-line-subtle border-t">
             {exercises.map((item) => (
-              <li key={item.id} className="border-line-subtle flex flex-col gap-1 border-b py-3">
-                <span className="text-[17px] font-bold" lang={item.exercise_name_language}>
-                  {item.exercise_name}
-                </span>
-                <span className="text-ink-muted text-sm">{setCount(item.sets.length)}</span>
+              <li key={item.id} className="border-line-subtle border-b">
+                <button
+                  type="button"
+                  className="hover:bg-surface flex min-h-14 w-full flex-col gap-1 px-1 py-3 text-left"
+                  onClick={() => {
+                    setActive(item.id);
+                  }}
+                >
+                  <span className="block text-[17px] font-bold" lang={item.exercise_name_language}>
+                    {item.exercise_name}
+                  </span>
+                  <span className="text-ink-muted block text-sm">{setCount(item.sets.length)}</span>
+                </button>
               </li>
             ))}
           </ol>
