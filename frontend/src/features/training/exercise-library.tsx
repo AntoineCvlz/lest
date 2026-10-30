@@ -216,11 +216,9 @@ export function ExerciseLibrary({
         <ul
           aria-label="Exercices"
           aria-busy={exercises.isPlaceholderData}
-          className={[
-            "border-line-subtle border-t",
-            // Résultats de la recherche précédente : atténués jusqu'aux nouveaux.
-            exercises.isPlaceholderData ? "opacity-60" : "",
-          ].join(" ")}
+          // Résultats de la recherche précédente : signalés par le statut et `aria-busy`, pas
+          // par une opacité réduite (le texte secondaire passerait sous 4,5:1 de contraste).
+          className="border-line-subtle border-t"
         >
           {items.map((exercise) => (
             <ExerciseItem
