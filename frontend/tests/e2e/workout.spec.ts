@@ -36,7 +36,11 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   await expect(page.getByRole("list", { name: "Séries de la séance" })).toContainText(
     "Série 1 : 22,5 kg × 8",
   );
+  // Repos lancé à la validation, à côté de l'action principale.
+  await expect(page.getByRole("timer", { name: "Repos" })).toHaveText(/^[12]:\d\d$/);
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await page.getByRole("button", { name: "Passer" }).click();
+  await expect(page.getByRole("timer")).toBeHidden();
   await page.getByRole("button", { name: "Retour à la séance" }).click();
 
   const plan = page.getByRole("list", { name: "Exercices de la séance" });

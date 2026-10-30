@@ -4,10 +4,13 @@ import { useState } from "react";
 
 import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
+import { useWakeLock } from "@/shared/lib/use-wake-lock";
 import { Button } from "@/shared/ui/button";
 
 import { ExerciseLibrary } from "./exercise-library";
+import { RestTimer } from "./rest-timer";
 import { SetEntry } from "./set-entry";
+import { useRestTimer } from "./use-rest-timer";
 import {
   useAddExercise,
   useFinishWorkout,
@@ -48,6 +51,10 @@ function OngoingWorkout({
   // Exercice dont on saisit les séries (identifiant de l'exercice de séance).
   const [active, setActive] = useState<string | null>(null);
   const profile = useProfile();
+  // Partagé par la liste et la saisie : le repos continue quand on change d'exercice.
+  const timer = useRestTimer();
+  // Écran allumé pendant toute la séance (CLAUDE.md, usage en salle).
+  useWakeLock(true);
   const system = profile.data?.unit_system ?? "metric";
   const exercises = workout.data?.exercises ?? [];
   const failed = add.isError || finish.isError;
@@ -59,6 +66,7 @@ function OngoingWorkout({
         workoutId={ongoing.id}
         item={activeItem}
         system={system}
+        timer={timer}
         onClose={() => {
           setActive(null);
         }}
@@ -104,6 +112,7 @@ function OngoingWorkout({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-ink-muted">Commencée à {TIME.format(new Date(ongoing.started_at))}</p>
+      <RestTimer timer={timer} />
       <p role="status" className="text-ink-muted empty:hidden">
         {workout.isPending ? "Chargement de la séance…" : ""}
       </p>

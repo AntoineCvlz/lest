@@ -7,6 +7,7 @@ import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
 import { prefill, SET_NOT_SAVED, SetEntry } from "./set-entry";
+import type { RestTimer } from "./use-rest-timer";
 import { workoutKey } from "./use-workout";
 
 const WORKOUT_ID = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
@@ -45,6 +46,15 @@ function lastTime(sets: object[]) {
   server.use(http.get(`*/api/v1/exercises/${BENCH}/last-sets/`, () => HttpResponse.json({ sets })));
 }
 
+const timer: RestTimer = {
+  remaining: null,
+  duration: 120,
+  finished: false,
+  start: vi.fn(),
+  adjust: vi.fn(),
+  stop: vi.fn(),
+};
+
 /** Saisie rendue avec la séance en cache, comme depuis l'écran de séance. */
 function renderEntry(current = item(), system: "metric" | "imperial" = "metric") {
   const workout = {
@@ -56,7 +66,13 @@ function renderEntry(current = item(), system: "metric" | "imperial" = "metric")
   };
   server.use(http.get(`*/api/v1/workouts/${WORKOUT_ID}/`, () => HttpResponse.json(workout)));
   const result = renderWithQuery(
-    <SetEntry workoutId={WORKOUT_ID} item={current} system={system} onClose={vi.fn()} />,
+    <SetEntry
+      workoutId={WORKOUT_ID}
+      item={current}
+      system={system}
+      timer={timer}
+      onClose={vi.fn()}
+    />,
   );
   result.queryClient.setQueryData(workoutKey(WORKOUT_ID), workout);
   return result;
@@ -109,6 +125,8 @@ describe("SetEntry", () => {
     });
     expect(path).toMatch(UUID_V4);
     expect(await screen.findByText("Série 1 enregistrée.")).toBeVisible();
+    // Le repos démarre à la validation.
+    expect(timer.start).toHaveBeenCalledOnce();
     // Le RPE est propre à chaque série : remis à zéro, la charge reste.
     expect(screen.getByRole("radio", { name: "8,5" })).not.toBeChecked();
     expect(valueOf("Charge")).toContain("82,5");
