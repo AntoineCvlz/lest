@@ -45,6 +45,11 @@ jobs:
           echo "E2E_USER_PASSWORD=$E2E_USER_PASSWORD" >> "$GITHUB_ENV"
           LEST_USER_PASSWORD="$E2E_USER_PASSWORD" docker compose -f compose.yaml -f compose.e2e.yaml \
             exec -T -e LEST_USER_PASSWORD api python manage.py create_verified_user --email e2e@example.com
+      # Catalogue d'exercices de test (fixture wger du back, aucun appel réseau à wger).
+      - name: Catalogue E2E
+        run: |
+          docker compose -f compose.yaml -f compose.e2e.yaml exec -T api \
+            python manage.py import_exercises --file apps/training/tests/fixtures/wger_exerciseinfo.json
       - uses: ./.github/actions/setup-frontend
       # Image officielle (navigateurs et dépendances système préinstallés) : évite
       # `playwright install --with-deps`, dont l'apt-get a pris plus de 10 min sur le runner.

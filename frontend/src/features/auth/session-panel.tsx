@@ -65,6 +65,12 @@ export function SessionPanel() {
               Compléter mon profil
             </Link>
           )}
+          <Link
+            href="/exercices"
+            className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
+          >
+            Exercices
+          </Link>
           {profile.data && (
             <Link
               href="/profil"
