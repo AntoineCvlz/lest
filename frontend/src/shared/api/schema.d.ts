@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/exercise-filters/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Valeurs des filtres */
+        get: operations["apps_training_api_router_read_exercise_filters"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exercises/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rechercher dans le catalogue */
+        get: operations["apps_training_api_router_list_exercises"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exercises/{exercise_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fiche d'exercice */
+        get: operations["apps_training_api_router_read_exercise"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exercises/{exercise_id}/records/": {
         parameters: {
             query?: never;
@@ -155,6 +206,99 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** ExerciseDetailOut */
+        ExerciseDetailOut: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            /** Equipment */
+            equipment: components["schemas"]["NamedOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** License */
+            license: string;
+            /** License Author */
+            license_author: string;
+            /** Muscles */
+            muscles: components["schemas"]["NamedOut"][];
+            /** Name */
+            name: string;
+            /**
+             * Name Language
+             * @enum {string}
+             */
+            name_language: "fr" | "en";
+            /** Secondary Muscles */
+            secondary_muscles: components["schemas"]["NamedOut"][];
+        };
+        /** ExerciseFiltersOut */
+        ExerciseFiltersOut: {
+            /** Categories */
+            categories: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders")[];
+            /** Equipment */
+            equipment: components["schemas"]["NamedOut"][];
+            /** Muscles */
+            muscles: components["schemas"]["NamedOut"][];
+        };
+        /** ExerciseOut */
+        ExerciseOut: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            /** Equipment */
+            equipment: components["schemas"]["NamedOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Muscles */
+            muscles: components["schemas"]["NamedOut"][];
+            /** Name */
+            name: string;
+            /**
+             * Name Language
+             * @enum {string}
+             */
+            name_language: "fr" | "en";
+        };
+        /** ExercisePageOut */
+        ExercisePageOut: {
+            /** Items */
+            items: components["schemas"]["ExerciseOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /** ExerciseQuery */
+        ExerciseQuery: {
+            /** Category */
+            category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders") | null;
+            /** Cursor */
+            cursor?: string | null;
+            /** Equipment */
+            equipment?: number | null;
+            /**
+             * Limit
+             * @default 30
+             */
+            limit: number;
+            /** Muscle */
+            muscle?: number | null;
+            /**
+             * Q
+             * @default
+             */
+            q: string;
+        };
         /** ExerciseRecordsOut */
         ExerciseRecordsOut: {
             /** History */
@@ -191,6 +335,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+        };
+        /** NamedOut */
+        NamedOut: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
         };
         /** ProfileIn */
         ProfileIn: {
@@ -419,6 +570,75 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    apps_training_api_router_read_exercise_filters: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseFiltersOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_list_exercises: {
+        parameters: {
+            query?: {
+                q?: string;
+                category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders") | null;
+                muscle?: number | null;
+                equipment?: number | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExercisePageOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_router_read_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseDetailOut"];
+                };
+            };
+        };
+    };
     apps_training_api_router_read_exercise_records: {
         parameters: {
             query?: never;

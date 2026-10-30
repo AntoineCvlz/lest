@@ -14,6 +14,292 @@
         "title": "AccountDeletionIn",
         "type": "object"
       },
+      "ExerciseDetailOut": {
+        "properties": {
+          "category": {
+            "enum": [
+              "abs",
+              "arms",
+              "back",
+              "calves",
+              "cardio",
+              "chest",
+              "legs",
+              "shoulders"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Equipment",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "license_author": {
+            "title": "License Author",
+            "type": "string"
+          },
+          "muscles": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Muscles",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_language": {
+            "enum": [
+              "fr",
+              "en"
+            ],
+            "title": "Name Language",
+            "type": "string"
+          },
+          "secondary_muscles": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Secondary Muscles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "name_language",
+          "category",
+          "muscles",
+          "equipment",
+          "secondary_muscles",
+          "license",
+          "license_author",
+          "is_active"
+        ],
+        "title": "ExerciseDetailOut",
+        "type": "object"
+      },
+      "ExerciseFiltersOut": {
+        "properties": {
+          "categories": {
+            "items": {
+              "enum": [
+                "abs",
+                "arms",
+                "back",
+                "calves",
+                "cardio",
+                "chest",
+                "legs",
+                "shoulders"
+              ],
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Equipment",
+            "type": "array"
+          },
+          "muscles": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Muscles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories",
+          "muscles",
+          "equipment"
+        ],
+        "title": "ExerciseFiltersOut",
+        "type": "object"
+      },
+      "ExerciseOut": {
+        "properties": {
+          "category": {
+            "enum": [
+              "abs",
+              "arms",
+              "back",
+              "calves",
+              "cardio",
+              "chest",
+              "legs",
+              "shoulders"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "equipment": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Equipment",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "muscles": {
+            "items": {
+              "$ref": "#/components/schemas/NamedOut"
+            },
+            "title": "Muscles",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "name_language": {
+            "enum": [
+              "fr",
+              "en"
+            ],
+            "title": "Name Language",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "name_language",
+          "category",
+          "muscles",
+          "equipment"
+        ],
+        "title": "ExerciseOut",
+        "type": "object"
+      },
+      "ExercisePageOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ExercisePageOut",
+        "type": "object"
+      },
+      "ExerciseQuery": {
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "abs",
+                  "arms",
+                  "back",
+                  "calves",
+                  "cardio",
+                  "chest",
+                  "legs",
+                  "shoulders"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor"
+          },
+          "equipment": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Equipment"
+          },
+          "limit": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "muscle": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Muscle"
+          },
+          "q": {
+            "default": "",
+            "maxLength": 100,
+            "title": "Q",
+            "type": "string"
+          }
+        },
+        "title": "ExerciseQuery",
+        "type": "object"
+      },
       "ExerciseRecordsOut": {
         "properties": {
           "history": {
@@ -94,6 +380,24 @@
           "email"
         ],
         "title": "MeOut",
+        "type": "object"
+      },
+      "NamedOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "NamedOut",
         "type": "object"
       },
       "ProfileIn": {
@@ -583,6 +887,198 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/exercise-filters/": {
+      "get": {
+        "operationId": "apps_training_api_router_read_exercise_filters",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseFiltersOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Valeurs des filtres",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/exercises/": {
+      "get": {
+        "operationId": "apps_training_api_router_list_exercises",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 100,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "abs",
+                    "arms",
+                    "back",
+                    "calves",
+                    "cardio",
+                    "chest",
+                    "legs",
+                    "shoulders"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "muscle",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Muscle"
+            }
+          },
+          {
+            "in": "query",
+            "name": "equipment",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Equipment"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExercisePageOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Rechercher dans le catalogue",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/exercises/{exercise_id}/": {
+      "get": {
+        "operationId": "apps_training_api_router_read_exercise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Fiche d'exercice",
+        "tags": [
+          "training"
+        ]
+      }
+    },
     "/api/v1/exercises/{exercise_id}/records/": {
       "get": {
         "operationId": "apps_training_api_router_read_exercise_records",
