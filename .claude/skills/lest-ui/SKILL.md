@@ -16,6 +16,8 @@ Composants existants dans `frontend/src/shared/ui/` (chacun avec test et story) 
 | `Button` | Actions. `variant="primary"` : **une seule** action principale par écran (jaune). `size="lg"` (64 px) pour l'action en séance, `block` en bas d'écran. `type="button"` par défaut. |
 | `Stepper` | Valeur par pas (±2,5 kg, ±1 rep). `stepUnit` construit le nom accessible des boutons à partir du texte visible. |
 | `ChoiceGroup` | Choix unique court (RPE). Boutons radio natifs mis en forme. |
+| `TextField` | Champ de saisie de 56 px, libellé visible, aide et erreur reliées. |
+| `SelectField` | Liste déroulante native de 56 px (filtres) : sélecteur du système sur mobile. |
 
 Utilitaires : `formatNumber` (format français) et `stepValue` (pas sans erreur d'arrondi), dans
 `frontend/src/shared/lib/number.ts`. Composant propre à un domaine → `src/features/<domaine>/`.
