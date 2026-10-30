@@ -11,6 +11,7 @@ EXPORTED_MODELS = {
     "mfa.authenticator",
     "usersessions.usersession",
     "training.workout",  # avec ses exercices de séance et ses séries
+    "training.personalrecord",
 }
 
 EXCLUDED_FROM_EXPORT = {

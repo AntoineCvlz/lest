@@ -83,6 +83,13 @@ class UnitSystem(models.TextChoices):
     IMPERIAL = "imperial", "Impérial (lb, ft, in)"
 
 
+class OneRepMaxFormula(models.TextChoices):
+    """Estimation du 1RM (charge maximale sur une répétition), au choix dans le profil."""
+
+    EPLEY = "epley", "Epley"
+    BRZYCKI = "brzycki", "Brzycki"
+
+
 class Profile(models.Model):
     """
     Profil d'entraînement, créé à la fin de l'onboarding (un compte sans profil ne l'a pas fini).
@@ -98,6 +105,12 @@ class Profile(models.Model):
     goal = models.CharField("objectif", max_length=16, choices=Goal.choices)
     unit_system = models.CharField(
         "unités d'affichage", max_length=16, choices=UnitSystem.choices, default=UnitSystem.METRIC
+    )
+    one_rm_formula = models.CharField(
+        "formule du 1RM estimé",
+        max_length=16,
+        choices=OneRepMaxFormula.choices,
+        default=OneRepMaxFormula.EPLEY,
     )
     onboarded_at = models.DateTimeField("fin de l'onboarding", default=timezone.now)
     updated_at = models.DateTimeField("mise à jour", auto_now=True)
@@ -116,6 +129,10 @@ class Profile(models.Model):
             models.CheckConstraint(
                 condition=models.Q(unit_system__in=UnitSystem.values),
                 name="accounts_profile_unit_system_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(one_rm_formula__in=OneRepMaxFormula.values),
+                name="accounts_profile_one_rm_formula_valid",
             ),
         ]
 

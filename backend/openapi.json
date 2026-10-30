@@ -14,6 +14,22 @@
         "title": "AccountDeletionIn",
         "type": "object"
       },
+      "ExerciseRecordsOut": {
+        "properties": {
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/RecordOut"
+            },
+            "title": "History",
+            "type": "array"
+          }
+        },
+        "required": [
+          "history"
+        ],
+        "title": "ExerciseRecordsOut",
+        "type": "object"
+      },
       "HealthChecks": {
         "properties": {
           "cache": {
@@ -97,6 +113,21 @@
             "title": "Height M",
             "type": "number"
           },
+          "one_rm_formula": {
+            "anyOf": [
+              {
+                "enum": [
+                  "epley",
+                  "brzycki"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "One Rm Formula"
+          },
           "unit_system": {
             "enum": [
               "metric",
@@ -134,6 +165,14 @@
             "title": "Onboarded At",
             "type": "string"
           },
+          "one_rm_formula": {
+            "enum": [
+              "epley",
+              "brzycki"
+            ],
+            "title": "One Rm Formula",
+            "type": "string"
+          },
           "unit_system": {
             "enum": [
               "metric",
@@ -147,9 +186,38 @@
           "height_m",
           "goal",
           "unit_system",
+          "one_rm_formula",
           "onboarded_at"
         ],
         "title": "ProfileOut",
+        "type": "object"
+      },
+      "RecordOut": {
+        "properties": {
+          "achieved_at": {
+            "format": "date-time",
+            "title": "Achieved At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "weight",
+              "e1rm"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "value_kg": {
+            "title": "Value Kg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "value_kg",
+          "achieved_at"
+        ],
+        "title": "RecordOut",
         "type": "object"
       },
       "SetIn": {
@@ -242,6 +310,13 @@
             "title": "Position",
             "type": "integer"
           },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/RecordOut"
+            },
+            "title": "Records",
+            "type": "array"
+          },
           "reps": {
             "title": "Reps",
             "type": "integer"
@@ -275,7 +350,8 @@
           "reps",
           "rpe",
           "is_warmup",
-          "performed_at"
+          "performed_at",
+          "records"
         ],
         "title": "SetOut",
         "type": "object"
@@ -507,6 +583,44 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/exercises/{exercise_id}/records/": {
+      "get": {
+        "operationId": "apps_training_api_router_read_exercise_records",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseRecordsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Historique des records d'un exercice",
+        "tags": [
+          "training"
+        ]
+      }
+    },
     "/api/v1/health/": {
       "get": {
         "operationId": "common_health_api_health",

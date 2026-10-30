@@ -180,3 +180,41 @@ class Set(models.Model):
 
     def __str__(self) -> str:
         return f"Série {self.pk}"
+
+
+# --- Records (dérivés des séries, recalculés à chaque écriture, ADR 0003) -----------------
+
+
+class RecordKind(models.TextChoices):
+    HEAVIEST = "weight", "Charge maximale"
+    ESTIMATED_ONE_REP_MAX = "e1rm", "1RM estimé"
+
+
+class PersonalRecord(models.Model):
+    """Un record battu : chaque nouveau meilleur résultat d'un exercice y est historisé."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="personal_records"
+    )
+    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    kind = models.CharField(max_length=8, choices=RecordKind)
+    value_kg = models.DecimalField(max_digits=7, decimal_places=2)
+    # Série qui l'a établi ; supprimée, les records de l'exercice sont recalculés.
+    set = models.ForeignKey(Set, on_delete=models.CASCADE, related_name="records")
+    achieved_at = models.DateTimeField()
+
+    class Meta:
+        ordering = ("achieved_at", "kind")
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=("owner", "exercise", "kind"), name="training_record_lookup"),
+        ]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(kind__in=RecordKind.values), name="training_record_kind_valid"
+            ),
+            models.UniqueConstraint(fields=("set", "kind"), name="training_record_one_per_set"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Record {self.pk}"

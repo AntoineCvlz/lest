@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/exercises/{exercise_id}/records/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Historique des records d'un exercice */
+        get: operations["apps_training_api_router_read_exercise_records"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/": {
         parameters: {
             query?: never;
@@ -138,6 +155,11 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** ExerciseRecordsOut */
+        ExerciseRecordsOut: {
+            /** History */
+            history: components["schemas"]["RecordOut"][];
+        };
         /** HealthChecks */
         HealthChecks: {
             /**
@@ -179,6 +201,8 @@ export interface components {
             goal: "gain" | "maintain" | "cut";
             /** Height M */
             height_m: number;
+            /** One Rm Formula */
+            one_rm_formula?: ("epley" | "brzycki") | null;
             /**
              * Unit System
              * @enum {string}
@@ -200,10 +224,30 @@ export interface components {
              */
             onboarded_at: string;
             /**
+             * One Rm Formula
+             * @enum {string}
+             */
+            one_rm_formula: "epley" | "brzycki";
+            /**
              * Unit System
              * @enum {string}
              */
             unit_system: "metric" | "imperial";
+        };
+        /** RecordOut */
+        RecordOut: {
+            /**
+             * Achieved At
+             * Format: date-time
+             */
+            achieved_at: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "weight" | "e1rm";
+            /** Value Kg */
+            value_kg: number;
         };
         /** SetIn */
         SetIn: {
@@ -247,6 +291,8 @@ export interface components {
             performed_at: string;
             /** Position */
             position: number;
+            /** Records */
+            records: components["schemas"]["RecordOut"][];
             /** Reps */
             reps: number;
             /** Rpe */
@@ -373,6 +419,28 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    apps_training_api_router_read_exercise_records: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseRecordsOut"];
+                };
+            };
+        };
+    };
     common_health_api_health: {
         parameters: {
             query?: never;

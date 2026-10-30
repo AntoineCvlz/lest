@@ -64,8 +64,9 @@ et l'API n'aura pas à changer.
 - ⚠️ Risque accepté : un `PUT` révèle si un identifiant est déjà pris (404 au lieu de 201).
   Énumérer est irréaliste (122 bits aléatoires, v4 imposée) ; un identifiant de la file hors
   ligne ne doit jamais s'afficher dans l'interface ni dans les journaux du client.
-- ⚠️ Pas encore de limite de débit ni de quota sur ces écritures : à ajouter avant l'ouverture
-  au public (même mécanisme que les limites d'allauth, par compte).
+- ⚠️ Coût des écritures borné : 300 écritures par minute et par compte (`training_write`,
+  429 au-delà), 100 séries par exercice de séance et 50 exercices par séance (422). Le recalcul
+  des records se fait sous le verrou du compte : deux appareils se succèdent.
 - ⚠️ « Dernière écriture gagne » peut écraser une modification faite sur un autre appareil
   pendant une coupure. Accepté : une séance se saisit sur un seul téléphone. À revoir si la
   saisie à plusieurs appareils devient un besoin.

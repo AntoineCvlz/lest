@@ -9,9 +9,22 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models, transaction
 
 from apps.accounts.models import User
+from apps.accounts.selectors import get_one_rm_formula
+from apps.accounts.services import lock_account
 
 from . import wger
-from .models import Equipment, Exercise, Muscle, NameLanguage, Set, Workout, WorkoutExercise
+from .models import (
+    Equipment,
+    Exercise,
+    Muscle,
+    NameLanguage,
+    PersonalRecord,
+    RecordKind,
+    Set,
+    Workout,
+    WorkoutExercise,
+)
+from .one_rep_max import estimate_one_rep_max
 
 
 class EmptyCatalogError(Exception):
@@ -101,6 +114,12 @@ def _usable_name(item: wger.WgerExercise) -> tuple[str, NameLanguage] | None:
 # --- Séances : écritures idempotentes (ADR 0003) -------------------------------------------
 
 
+# Plafonds d'une séance (422 au-delà) : bornent aussi le coût du recalcul des records.
+MAX_SETS_PER_EXERCISE = 100
+MAX_EXERCISES_PER_WORKOUT = 50
+ALL_KINDS = frozenset(RecordKind.values)
+
+
 class NotFoundError(Exception):
     """Identifiant inconnu, ou d'un autre compte : l'API répond 404 dans les deux cas, sans
     rien écrire ni confirmer que l'identifiant existe."""
@@ -109,6 +128,10 @@ class NotFoundError(Exception):
 def _unknown(field: str) -> ValidationError:
     # Parent absent ou d'un autre compte : 422, la file hors ligne rejoue dans l'ordre (ADR 0003).
     return ValidationError({field: ValidationError("Inconnu.", code="unknown")})
+
+
+def _too_many(field: str) -> ValidationError:
+    return ValidationError({field: ValidationError("Plafond atteint.", code="too_many")})
 
 
 class WriteConflictError(Exception):
@@ -186,18 +209,26 @@ def put_workout_exercise(
         workout = Workout.objects.select_for_update().filter(pk=workout_id, owner=owner).first()
         if workout is None:
             raise _unknown("workout_id")
+        others = workout.exercises.exclude(pk=workout_exercise_id).count()
+        if others >= MAX_EXERCISES_PER_WORKOUT:
+            raise _too_many("workout_id")
         exercise = Exercise.objects.filter(pk=exercise_id).first()
         if exercise is None:
             raise _unknown("exercise_id")
         return {"workout": workout, "exercise": exercise}
 
-    return _put(
-        WorkoutExercise,
-        pk=workout_exercise_id,
-        owned=models.Q(workout__owner=owner),
-        values={"position": position},
-        parents=parents,
-    )
+    with transaction.atomic():
+        before = _exercise_ids(WorkoutExercise.objects.filter(pk=workout_exercise_id), owner)
+        item, created = _put(
+            WorkoutExercise,
+            pk=workout_exercise_id,
+            owned=models.Q(workout__owner=owner),
+            values={"position": position},
+            parents=parents,
+        )
+        # Exercice changé : ses séries comptent désormais pour l'autre exercice.
+        _recompute(owner, before | {item.exercise_id})
+    return item, created
 
 
 def put_set(
@@ -222,35 +253,131 @@ def put_set(
         )
         if workout_exercise is None:
             raise _unknown("workout_exercise_id")
+        if workout_exercise.sets.exclude(pk=set_id).count() >= MAX_SETS_PER_EXERCISE:
+            raise _too_many("workout_exercise_id")
         return {"workout_exercise": workout_exercise}
 
-    return _put(
-        Set,
-        pk=set_id,
-        owned=models.Q(workout_exercise__workout__owner=owner),
-        values={
-            "position": position,
-            "weight_kg": weight_kg,
-            "reps": reps,
-            "rpe": rpe,
-            "is_warmup": is_warmup,
-            "performed_at": performed_at,
-        },
-        parents=parents,
-    )
+    with transaction.atomic():
+        before = _exercise_ids(Set.objects.filter(pk=set_id), owner, via="workout_exercise__")
+        one, created = _put(
+            Set,
+            pk=set_id,
+            owned=models.Q(workout_exercise__workout__owner=owner),
+            values={
+                "position": position,
+                "weight_kg": weight_kg,
+                "reps": reps,
+                "rpe": rpe,
+                "is_warmup": is_warmup,
+                "performed_at": performed_at,
+            },
+            parents=parents,
+        )
+        _recompute(owner, before | {one.workout_exercise.exercise_id})
+    return one, created
 
 
 def delete_workout(*, owner: User, workout_id: UUID) -> None:
     """Supprime une séance de `owner` (et ses séries). Idempotent : sans effet si elle n'existe
-    plus ou appartient à un autre compte."""
-    Workout.objects.filter(pk=workout_id, owner=owner).delete()
+    plus ou appartient à un autre compte. Records des exercices concernés recalculés."""
+    with transaction.atomic():
+        touched = _exercise_ids(WorkoutExercise.objects.filter(workout_id=workout_id), owner)
+        Workout.objects.filter(pk=workout_id, owner=owner).delete()
+        _recompute(owner, touched)
 
 
 def delete_workout_exercise(*, owner: User, workout_exercise_id: UUID) -> None:
     """Supprime un exercice de séance de `owner` et ses séries. Idempotent."""
-    WorkoutExercise.objects.filter(pk=workout_exercise_id, workout__owner=owner).delete()
+    with transaction.atomic():
+        touched = _exercise_ids(WorkoutExercise.objects.filter(pk=workout_exercise_id), owner)
+        WorkoutExercise.objects.filter(pk=workout_exercise_id, workout__owner=owner).delete()
+        _recompute(owner, touched)
 
 
 def delete_set(*, owner: User, set_id: UUID) -> None:
     """Supprime une série de `owner`. Idempotent."""
-    Set.objects.filter(pk=set_id, workout_exercise__workout__owner=owner).delete()
+    with transaction.atomic():
+        touched = _exercise_ids(Set.objects.filter(pk=set_id), owner, via="workout_exercise__")
+        Set.objects.filter(pk=set_id, workout_exercise__workout__owner=owner).delete()
+        _recompute(owner, touched)
+
+
+# --- Records (CLAUDE.md : détectés à l'enregistrement d'une série, historisés) ---------------
+
+
+def _exercise_ids(queryset: models.QuerySet[Any], owner: User, via: str = "") -> set[UUID]:
+    """Exercices du catalogue touchés par `queryset` (exercices de séance, ou séries avec
+    `via="workout_exercise__"`), limités aux données de `owner`."""
+    return set(
+        queryset.filter(**{f"{via}workout__owner": owner}).values_list(
+            f"{via}exercise_id", flat=True
+        )
+    )
+
+
+def _recompute(owner: User, exercise_ids: set[UUID], kinds: frozenset[str] = ALL_KINDS) -> None:
+    """Records de ces exercices reconstruits, sous le verrou du compte : deux écritures
+    simultanées (téléphone et ordinateur) ou un changement de formule se succèdent au lieu de
+    mêler leurs records. Tous effacés d'abord : une série qui change d'exercice porte encore
+    les records de l'ancien (un record par série et par type)."""
+    lock_account(owner)
+    PersonalRecord.objects.filter(
+        owner=owner, exercise_id__in=exercise_ids, kind__in=kinds
+    ).delete()
+    formula = get_one_rm_formula(owner)
+    for exercise_id in exercise_ids:
+        PersonalRecord.objects.bulk_create(_build_records(owner, exercise_id, formula, kinds))
+
+
+def _build_records(
+    owner: User, exercise_id: UUID, formula: str, kinds: frozenset[str]
+) -> list[PersonalRecord]:
+    """
+    Historique des records de `owner` pour un exercice, depuis ses séries.
+
+    Recalculé, jamais incrémenté (ADR 0003) : une série modifiée, supprimée ou rejouée donne
+    toujours le même historique. Séries de travail seulement, d'au moins une répétition et
+    avec charge, dans l'ordre où elles ont été faites ; un record n'est battu que strictement.
+    """
+    sets = (
+        Set.objects.filter(
+            workout_exercise__workout__owner=owner,
+            workout_exercise__exercise_id=exercise_id,
+            is_warmup=False,
+            reps__gte=1,
+            weight_kg__gt=0,
+        )
+        .order_by("performed_at", "id")
+        .values_list("id", "weight_kg", "reps", "performed_at")
+    )
+    best: dict[str, Decimal] = {}
+    records: list[PersonalRecord] = []
+    for set_id, weight_kg, reps, performed_at in sets.iterator():
+        values = {
+            RecordKind.HEAVIEST: weight_kg,
+            RecordKind.ESTIMATED_ONE_REP_MAX: estimate_one_rep_max(weight_kg, reps, formula),
+        }
+        for kind, value in values.items():
+            if kind in kinds and value is not None and value > best.get(kind, Decimal(0)):
+                best[kind] = value
+                records.append(
+                    PersonalRecord(
+                        owner=owner,
+                        exercise_id=exercise_id,
+                        kind=kind,
+                        value_kg=value,
+                        set_id=set_id,
+                        achieved_at=performed_at,
+                    )
+                )
+    return records
+
+
+def recompute_all_records(*, owner: User) -> None:
+    """1RM estimés de `owner`, pour tous ses exercices (la formule a changé). La charge
+    maximale ne dépend pas de la formule : ses records ne sont pas touchés."""
+    exercise_ids = set(
+        WorkoutExercise.objects.filter(workout__owner=owner).values_list("exercise_id", flat=True)
+    )
+    with transaction.atomic():
+        _recompute(owner, exercise_ids, kinds=frozenset({RecordKind.ESTIMATED_ONE_REP_MAX}))

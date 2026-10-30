@@ -6,7 +6,7 @@ from django.db.models import Prefetch
 
 from apps.accounts.models import User
 
-from .models import Set, Workout, WorkoutExercise
+from .models import PersonalRecord, Set, Workout, WorkoutExercise
 
 
 def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:
@@ -17,7 +17,7 @@ def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:
             Prefetch(
                 "exercises",
                 queryset=WorkoutExercise.objects.select_related("exercise").prefetch_related(
-                    "sets"
+                    "sets__records"
                 ),
             )
         )
@@ -41,6 +41,32 @@ def workout_volume_kg(workout: Workout) -> Decimal:
         ),
         Decimal(0),
     )
+
+
+# Historique borné : les plus récents seulement (pagination par curseur avec l'écran).
+MAX_HISTORY = 200
+
+
+def records_history(*, owner: User, exercise_id: UUID) -> list[PersonalRecord]:
+    """Records successifs de `owner` pour un exercice, du plus ancien au plus récent (les
+    `MAX_HISTORY` derniers)."""
+    latest = PersonalRecord.objects.filter(owner=owner, exercise_id=exercise_id).order_by(
+        "-achieved_at", "-kind"
+    )[:MAX_HISTORY]
+    return list(reversed(latest))
+
+
+def export_records(*, owner: User) -> list[dict[str, Any]]:
+    """Records de `owner` pour l'export RGPD (dérivés de ses séries)."""
+    return [
+        {
+            "exercise": record.exercise.name,
+            "kind": record.kind,
+            "value_kg": float(record.value_kg),
+            "achieved_at": record.achieved_at.isoformat(),
+        }
+        for record in PersonalRecord.objects.filter(owner=owner).select_related("exercise")
+    ]
 
 
 def export_workouts(*, owner: User) -> list[dict[str, Any]]:
