@@ -42,6 +42,23 @@
             "title": "Id",
             "type": "string"
           },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/ImageOut"
+            },
+            "title": "Images",
+            "type": "array"
+          },
           "is_active": {
             "title": "Is Active",
             "type": "boolean"
@@ -88,7 +105,9 @@
           "category",
           "muscles",
           "equipment",
+          "image",
           "secondary_muscles",
+          "images",
           "license",
           "license_author",
           "is_active"
@@ -166,6 +185,16 @@
             "title": "Id",
             "type": "string"
           },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "muscles": {
             "items": {
               "$ref": "#/components/schemas/NamedOut"
@@ -192,7 +221,8 @@
           "name_language",
           "category",
           "muscles",
-          "equipment"
+          "equipment",
+          "image"
         ],
         "title": "ExerciseOut",
         "type": "object"
@@ -361,6 +391,29 @@
           "checks"
         ],
         "title": "HealthOut",
+        "type": "object"
+      },
+      "ImageOut": {
+        "properties": {
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "license_author": {
+            "title": "License Author",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "license",
+          "license_author"
+        ],
+        "title": "ImageOut",
         "type": "object"
       },
       "LastSetsOut": {
@@ -724,10 +777,34 @@
       },
       "WorkoutExerciseDetailOut": {
         "properties": {
+          "exercise_category": {
+            "enum": [
+              "abs",
+              "arms",
+              "back",
+              "calves",
+              "cardio",
+              "chest",
+              "legs",
+              "shoulders"
+            ],
+            "title": "Exercise Category",
+            "type": "string"
+          },
           "exercise_id": {
             "format": "uuid",
             "title": "Exercise Id",
             "type": "string"
+          },
+          "exercise_image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "exercise_name": {
             "title": "Exercise Name",
@@ -766,6 +843,8 @@
           "position",
           "exercise_name",
           "exercise_name_language",
+          "exercise_category",
+          "exercise_image",
           "sets"
         ],
         "title": "WorkoutExerciseDetailOut",

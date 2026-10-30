@@ -49,12 +49,14 @@ Lest les sert lui-même. Les exercices sans image affichent un pictogramme de le
 
 | Réglage | Valeur |
 | --- | --- |
-| Format | WebP, **carré 640 × 640**, qualité 80 ; image entière (pas de recadrage destructif) centrée avec une marge, sur un **fond clair neutre** commun (`#F4F6F8`), dans les deux thèmes : les dessins au trait restent lisibles en mode sombre |
+| Format | WebP, **carré 640 × 640**, qualité 80 ; image entière (pas de recadrage destructif) centrée avec une marge, sur un **fond blanc** commun (celui de la plupart des images de wger : le cadre reste uniforme), dans les deux thèmes ; les dessins au trait restent lisibles en mode sombre |
+| Version | `FORMAT_VERSION` enregistrée avec chaque image : un changement de rendu refait les images concernées à l'import suivant |
+| Curation | `EXCLUDED_IMAGES` : images de wger relues et écartées (sans rapport avec l'exercice), une ligne commentée chacune |
 | Nettoyage | Réencodage complet : métadonnées (EXIF, GPS) supprimées ; GIF animé réduit à sa première image ; conversion RGB |
 | Image principale | `is_main` de wger, sinon la première ; les autres gardées pour la fiche |
 | Stockage | `FileField` (stockage par défaut, `MEDIA_ROOT`, volume Docker `media`) ; nom de fichier = empreinte SHA-256 du WebP produit : contenu immuable, doublons fusionnés |
 | Service | `GET /api/v1/exercise-images/{empreinte}.webp`, **public** (le catalogue l'est), `Content-Type: image/webp`, `X-Content-Type-Options: nosniff`, `Cache-Control: public, max-age=31536000, immutable` ; le BFF laisse passer ce `Cache-Control` sur ce seul chemin (il impose `no-store` partout ailleurs) |
-| Import | Seulement les URL `https` de l'hôte de `WGER_API_URL` (pas de SSRF par une donnée de l'API), 5 Mo maximum, délai borné, limite de pixels de Pillow (`DecompressionBombError` → image ignorée et journalisée sans contenu) ; image déjà importée (même URL source et même date) non retéléchargée |
+| Import | Seulement les URL `https` de l'hôte de `WGER_API_URL`, **sans suivi de redirection** (pas de SSRF par une donnée de l'API), 15 Mo maximum (certains PNG de wger dépassent 6 Mo), délai borné, décodeurs limités à PNG, JPEG, GIF et WebP (surface d'attaque réduite), 25 mégapixels maximum vérifiés avant décodage ; toute erreur sur une image la compte en échec sans interrompre l'import ; fichier existant vérifié par son empreinte, réécrit s'il est abîmé ; image déjà importée (même URL source et même date) non retéléchargée |
 | Attribution | Par image : licence, auteur (« auteur non renseigné sur wger » sinon), lien vers l'exercice sur wger, mention « image recadrée et convertie » (modification signalée, exigée par CC-BY-SA) |
 | Pictogrammes | 8 SVG maison au trait, un par catégorie, dans le style « Fonte calibrée », dans le même cadre carré ; `aria-hidden`, le nom de l'exercice porte le sens |
 | Texte alternatif | Vide pour les vignettes (le nom est juste à côté) ; « Illustration de l'exercice {nom} » sur la fiche |
