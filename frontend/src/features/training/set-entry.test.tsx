@@ -6,7 +6,7 @@ import type { Schemas } from "@/shared/api/client";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { prefill, SET_NOT_SAVED, SetEntry } from "./set-entry";
+import { prefill, SET_NOT_DELETED, SET_NOT_SAVED, SetEntry } from "./set-entry";
 import type { RestTimer } from "./use-rest-timer";
 import { workoutKey } from "./use-workout";
 
@@ -214,5 +214,109 @@ describe("SetEntry", () => {
       expect(body.is_warmup).toBe(true);
     });
     expect(screen.getByRole("checkbox", { name: "Série d’échauffement" })).not.toBeChecked();
+  });
+
+  it("modifie une série en gardant son identifiant, sa place et son heure", async () => {
+    lastTime([]);
+    const first = set(80, 8, { rpe: 8, performed_at: "2026-10-30T17:05:00Z" });
+    const second = set(80, 6, { position: 1 });
+    let body: Record<string, unknown> = {};
+    let path = "";
+    server.use(
+      http.put("*/api/v1/sets/:id/", async ({ request, params }) => {
+        path = String(params.id);
+        body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json({ ...first, reps: 9 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderEntry(item([first, second]));
+
+    await user.click(await screen.findByRole("button", { name: "Modifier la série 1" }));
+    // Le formulaire reprend la série ; le focus va à son titre.
+    expect(screen.getByRole("heading", { name: "Modifier la série 1" })).toHaveFocus();
+    expect(valueOf("Répétitions")).toContain("8");
+    expect(screen.getByRole("radio", { name: "8" })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "+1 répétition" }));
+    await user.click(screen.getByRole("button", { name: "Enregistrer la série 1" }));
+
+    await waitFor(() => {
+      expect(body).toMatchObject({
+        position: 0,
+        reps: 9,
+        rpe: 8,
+        performed_at: "2026-10-30T17:05:00Z",
+      });
+    });
+    expect(path).toBe(first.id);
+    expect(await screen.findByText("Série 1 modifiée.")).toBeVisible();
+    // Retour à la saisie d'une nouvelle série, focus sur le bouton de la série modifiée.
+    expect(screen.getByRole("button", { name: "Valider la série" })).toBeVisible();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Modifier la série 1" })).toHaveFocus();
+    });
+  });
+
+  it("supprime une série après confirmation", async () => {
+    lastTime([]);
+    const first = set(80, 8);
+    let deleted = "";
+    server.use(
+      http.delete("*/api/v1/sets/:id/", ({ params }) => {
+        deleted = String(params.id);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { queryClient } = renderEntry(item([first]));
+
+    await user.click(await screen.findByRole("button", { name: "Modifier la série 1" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer la série" }));
+    await user.click(screen.getByRole("button", { name: "Garder" }));
+    expect(deleted).toBe("");
+    await user.click(screen.getByRole("button", { name: "Supprimer la série" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+
+    expect(await screen.findByText("Série 1 supprimée.")).toBeVisible();
+    expect(deleted).toBe(first.id);
+    const cached = queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID));
+    expect(cached?.exercises[0]?.sets).toEqual([]);
+  });
+
+  it("rétablit la série si la suppression est refusée", async () => {
+    lastTime([]);
+    const first = set(80, 8);
+    server.use(http.delete("*/api/v1/sets/:id/", () => new HttpResponse(null, { status: 503 })));
+    const user = userEvent.setup();
+    const { queryClient } = renderEntry(item([first]));
+
+    await user.click(await screen.findByRole("button", { name: "Modifier la série 1" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer la série" }));
+    await user.click(screen.getByRole("button", { name: "Supprimer" }));
+
+    expect(await screen.findByText(SET_NOT_DELETED)).toBeVisible();
+    const cached = queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID));
+    expect(cached?.exercises[0]?.sets.map((one) => one.id)).toEqual([first.id]);
+  });
+
+  it("annule une modification sans rien envoyer ni lancer le repos", async () => {
+    lastTime([]);
+    const put = vi.fn();
+    server.use(
+      http.put("*/api/v1/sets/:id/", () => {
+        put();
+        return HttpResponse.json(set(80, 8));
+      }),
+    );
+    const user = userEvent.setup();
+    vi.mocked(timer.start).mockClear();
+    renderEntry(item([set(80, 8)]));
+
+    await user.click(await screen.findByRole("button", { name: "Modifier la série 1" }));
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    expect(screen.getByRole("button", { name: "Valider la série" })).toBeVisible();
+    expect(put).not.toHaveBeenCalled();
+    expect(timer.start).not.toHaveBeenCalled();
   });
 });
