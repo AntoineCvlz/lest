@@ -52,6 +52,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0002 — chiffrement au repos des secrets et champs sensibles (Fernet)](docs/adr/0002-chiffrement-au-repos.md)
 - [ADR 0003 — écritures de séance idempotentes (UUID client, `PUT`), pour le hors-ligne](docs/adr/0003-ecritures-idempotentes-hors-ligne.md)
 - [ADR 0004 — catalogue d'exercices importé de wger, sous licence CC-BY-SA](docs/adr/0004-donnees-exercices-wger.md)
+- [ADR 0005 — images des exercices : wger normalisées et servies par Lest, pictogrammes sinon](docs/adr/0005-images-exercices.md)
 
 ## Qualité et sécurité
 
