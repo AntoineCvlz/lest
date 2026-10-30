@@ -14,6 +14,8 @@ import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { Stepper } from "@/shared/ui/stepper";
 
+import { RestTimer } from "./rest-timer";
+import type { RestTimer as Timer } from "./use-rest-timer";
 import { nextSet, useLastSets, useSaveSet } from "./use-sets";
 
 type SetOut = Schemas["SetOut"];
@@ -57,11 +59,13 @@ function SetForm({
   item,
   system,
   initial,
+  timer,
 }: {
   workoutId: string;
   item: Item;
   system: UnitSystem;
   initial: { weight: number; reps: number };
+  timer: Timer;
 }) {
   const save = useSaveSet(workoutId);
   const [weight, setWeight] = useState(initial.weight);
@@ -102,6 +106,8 @@ function SetForm({
     );
     setRpe(undefined);
     setWarmup(false);
+    // Le repos commence à la validation, sans attendre la réponse de l'API.
+    timer.start();
   }
 
   return (
@@ -171,7 +177,8 @@ function SetForm({
         )}
       </div>
       {/* Toujours à portée du pouce, au-dessus des onglets. */}
-      <div className="bg-ground sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] py-3">
+      <div className="bg-ground sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] flex flex-col gap-3 py-3">
+        <RestTimer timer={timer} />
         <Button variant="primary" size="lg" block onClick={validate}>
           Valider la série
         </Button>
@@ -185,11 +192,13 @@ export function SetEntry({
   workoutId,
   item,
   system,
+  timer,
   onClose,
 }: {
   workoutId: string;
   item: Item;
   system: UnitSystem;
+  timer: Timer;
   onClose: () => void;
 }) {
   const lastSets = useLastSets(item.exercise_id, workoutId);
@@ -238,6 +247,7 @@ export function SetEntry({
           item={item}
           system={system}
           initial={prefill(item, lastSets.data ?? [], system)}
+          timer={timer}
         />
       )}
     </section>
