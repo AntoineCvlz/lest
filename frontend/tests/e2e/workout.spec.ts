@@ -41,6 +41,17 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   await page.getByRole("button", { name: "Passer" }).click();
   await expect(page.getByRole("timer")).toBeHidden();
+
+  // Correction d'une série déjà saisie.
+  await page.getByRole("button", { name: "Modifier la série 1" }).click();
+  await expect(page.getByRole("heading", { name: "Modifier la série 1" })).toBeFocused();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await page.getByRole("button", { name: "+1 répétition" }).click();
+  await page.getByRole("button", { name: "Enregistrer la série 1" }).click();
+  await expect(page.getByText("Série 1 modifiée.")).toBeVisible();
+  await expect(page.getByRole("list", { name: "Séries de la séance" })).toContainText(
+    "Série 1 : 22,5 kg × 9",
+  );
   await page.getByRole("button", { name: "Retour à la séance" }).click();
 
   const plan = page.getByRole("list", { name: "Exercices de la séance" });
