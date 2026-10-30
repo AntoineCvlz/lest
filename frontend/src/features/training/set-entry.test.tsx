@@ -38,6 +38,8 @@ function item(sets: Schemas["SetOut"][] = []): Schemas["WorkoutExerciseDetailOut
     position: 0,
     exercise_name: "Développé couché",
     exercise_name_language: "fr",
+    exercise_category: "chest",
+    exercise_image: null,
     sets,
   };
 }

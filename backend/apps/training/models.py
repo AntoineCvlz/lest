@@ -95,6 +95,40 @@ class Exercise(models.Model):
         return self.name
 
 
+class ExerciseImage(models.Model):
+    """Image d'un exercice, importée de wger et normalisée (ADR 0005) : WebP carré, servi par
+    Lest sous le nom de son empreinte. Licence et auteur gardés pour l'attribution."""
+
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name="images")
+    # Clé de l'import : rejouable sans doublon, et sans retélécharger une image connue.
+    wger_uuid = models.UUIDField(unique=True)
+    source_url = models.URLField(max_length=500)
+    file = models.FileField(upload_to="exercises/")
+    # SHA-256 du fichier : nom immuable (cache long) ; deux images identiques le partagent.
+    digest = models.CharField(max_length=64, db_index=True)
+    # Version du rendu (`images.FORMAT_VERSION`) qui a produit le fichier.
+    format_version = models.PositiveSmallIntegerField()
+    is_main = models.BooleanField(default=False)
+    position = models.PositiveSmallIntegerField(default=0)
+    license = models.CharField(max_length=20)
+    license_author = models.CharField(max_length=200, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Image principale d'abord, puis l'ordre de wger.
+        ordering = ("-is_main", "position")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(digest__regex=r"^[0-9a-f]{64}$"),
+                name="training_exerciseimage_digest_sha256",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Image {self.digest[:12]}"
+
+
 # --- Séances (propres à chaque compte) ------------------------------------------------------
 # Identifiants générés par le client et écritures par `PUT` (ADR 0003) : `id` n'a pas de
 # valeur par défaut, le client la fournit toujours. Charges en kilogrammes (unités SI).

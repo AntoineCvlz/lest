@@ -4,6 +4,7 @@ Routers minces : schémas Pydantic, appel du service, traduction des erreurs. Un
 d'un autre compte répond 404 comme un identifiant inconnu ; un parent inconnu, 422.
 """
 
+import re
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -11,7 +12,8 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from allauth.core import ratelimit
-from django.http import Http404, HttpRequest
+from django.core.files.storage import default_storage
+from django.http import FileResponse, Http404, HttpRequest
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
 from pydantic import UUID4, AfterValidator, AwareDatetime
@@ -24,6 +26,7 @@ from apps.training.models import (
     Category,
     Equipment,
     Exercise,
+    ExerciseImage,
     Muscle,
     PersonalRecord,
     Set,
@@ -41,6 +44,7 @@ EARLIEST = datetime(2000, 1, 1, tzinfo=UTC)
 WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
 RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
 INVALID_CURSOR_TYPE = "urn:lest:problem:invalid-cursor"
+IMAGE_NAME = re.compile(r"[0-9a-f]{64}\.webp")
 # Écritures de séance par compte (`ACCOUNT_RATE_LIMITS`) : une file hors ligne rejoue vite,
 # un script pas indéfiniment (chaque écriture recalcule des records).
 WRITE_ACTION = "training_write"
@@ -102,6 +106,13 @@ class NamedOut(Schema):
     name: str
 
 
+class ImageOut(Schema):
+    # Chemin sur la même origine (CSP `img-src 'self'`), immuable : mis en cache longtemps.
+    url: str
+    license: str
+    license_author: str
+
+
 class ExerciseOut(Schema):
     id: UUID
     name: str
@@ -110,10 +121,13 @@ class ExerciseOut(Schema):
     category: CategoryName
     muscles: list[NamedOut]
     equipment: list[NamedOut]
+    # Image principale (ADR 0005) ; `None` : l'interface affiche le pictogramme de la catégorie.
+    image: ImageOut | None
 
 
 class ExerciseDetailOut(ExerciseOut):
     secondary_muscles: list[NamedOut]
+    images: list[ImageOut]
     # Attribution exigée par la licence de wger (CC-BY-SA), affichée avec l'exercice.
     license: str
     license_author: str
@@ -169,6 +183,8 @@ class WorkoutExerciseOut(Schema):
 class WorkoutExerciseDetailOut(WorkoutExerciseOut):
     exercise_name: str
     exercise_name_language: str
+    exercise_category: CategoryName
+    exercise_image: ImageOut | None
     sets: list[SetOut]
 
 
@@ -206,6 +222,20 @@ def _named(rows: Iterable[Muscle | Equipment]) -> list[NamedOut]:
     return [NamedOut(id=row.pk, name=row.name) for row in rows]
 
 
+def _image_out(image: ExerciseImage) -> ImageOut:
+    return ImageOut(
+        url=f"/api/v1/exercise-images/{image.digest}.webp",
+        license=image.license,
+        license_author=image.license_author,
+    )
+
+
+def _main_image(exercise: Exercise) -> ImageOut | None:
+    # Images préchargées dans l'ordre du modèle : la principale d'abord.
+    first = next(iter(exercise.images.all()), None)
+    return _image_out(first) if first else None
+
+
 def _exercise_out(exercise: Exercise) -> ExerciseOut:
     return ExerciseOut(
         id=exercise.pk,
@@ -214,6 +244,7 @@ def _exercise_out(exercise: Exercise) -> ExerciseOut:
         category=exercise.category,  # type: ignore[arg-type]  # contrainte en base
         muscles=_named(exercise.muscles.all()),
         equipment=_named(exercise.equipment.all()),
+        image=_main_image(exercise),
     )
 
 
@@ -298,10 +329,31 @@ def read_exercise(request: HttpRequest, exercise_id: UUID) -> ExerciseDetailOut:
     return ExerciseDetailOut(
         **_exercise_out(exercise).model_dump(),
         secondary_muscles=_named(exercise.secondary_muscles.all()),
+        images=[_image_out(image) for image in exercise.images.all()],
         license=exercise.license,
         license_author=exercise.license_author,
         is_active=exercise.is_active,
     )
+
+
+@router.get(
+    "/exercise-images/{name}",
+    auth=None,
+    include_in_schema=False,
+    summary="Image d'exercice normalisée",
+)
+def read_exercise_image(request: HttpRequest, name: str) -> FileResponse:
+    """Image publique, comme le catalogue (ADR 0005). Le nom est l'empreinte du fichier : le
+    contenu ne change jamais, d'où un cache d'un an."""
+    if not IMAGE_NAME.fullmatch(name):
+        raise Http404
+    path = f"exercises/{name}"
+    if not default_storage.exists(path):
+        raise Http404
+    response = FileResponse(default_storage.open(path), content_type="image/webp")
+    response["Cache-Control"] = "public, max-age=31536000, immutable"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @router.get("/exercise-filters/", response=ExerciseFiltersOut, summary="Valeurs des filtres")
@@ -359,6 +411,8 @@ def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut
                 position=item.position,
                 exercise_name=item.exercise.name,
                 exercise_name_language=item.exercise.name_language,
+                exercise_category=item.exercise.category,  # type: ignore[arg-type]  # contrainte en base
+                exercise_image=_main_image(item.exercise),
                 sets=[_set_out(one) for one in item.sets.all()],
             )
             for item in workout.exercises.all()
