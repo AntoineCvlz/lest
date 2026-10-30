@@ -185,8 +185,15 @@ class WorkoutQuery(Schema):
     limit: int = Field(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT)
 
 
+class WorkoutSummaryOut(WorkoutOut):
+    exercise_count: int
+    # Séries de travail (hors échauffement), comme le volume.
+    working_set_count: int
+    volume_kg: float
+
+
 class WorkoutPageOut(Schema):
-    items: list[WorkoutOut]
+    items: list[WorkoutSummaryOut]
     next_cursor: str | None
 
 
@@ -310,7 +317,7 @@ def read_exercise_filters(request: HttpRequest) -> ExerciseFiltersOut:
 @router.get("/workouts/", response=WorkoutPageOut, summary="Séances, les plus récentes d'abord")
 def list_workouts(request: HttpRequest, filters: Query[WorkoutQuery]) -> WorkoutPageOut:
     try:
-        page = selectors.list_workouts(
+        summaries, next_cursor = selectors.list_workouts(
             owner=request_user(request),
             ongoing=filters.ongoing,
             cursor=filters.cursor,
@@ -319,7 +326,18 @@ def list_workouts(request: HttpRequest, filters: Query[WorkoutQuery]) -> Workout
     except InvalidCursorError as error:
         raise _invalid_cursor() from error
     return WorkoutPageOut(
-        items=[_workout_out(workout) for workout in page.items], next_cursor=page.next_cursor
+        items=[
+            WorkoutSummaryOut(
+                id=summary.workout.pk,
+                started_at=summary.workout.started_at,
+                ended_at=summary.workout.ended_at,
+                exercise_count=summary.exercise_count,
+                working_set_count=summary.working_set_count,
+                volume_kg=float(summary.volume_kg),
+            )
+            for summary in summaries
+        ],
+        next_cursor=next_cursor,
     )
 
 

@@ -603,7 +603,7 @@ export interface components {
         /** WorkoutPageOut */
         WorkoutPageOut: {
             /** Items */
-            items: components["schemas"]["WorkoutOut"][];
+            items: components["schemas"]["WorkoutSummaryOut"][];
             /** Next Cursor */
             next_cursor: string | null;
         };
@@ -618,6 +618,27 @@ export interface components {
             limit: number;
             /** Ongoing */
             ongoing?: boolean | null;
+        };
+        /** WorkoutSummaryOut */
+        WorkoutSummaryOut: {
+            /** Ended At */
+            ended_at: string | null;
+            /** Exercise Count */
+            exercise_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Volume Kg */
+            volume_kg: number;
+            /** Working Set Count */
+            working_set_count: number;
         };
     };
     responses: never;
