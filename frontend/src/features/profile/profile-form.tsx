@@ -32,6 +32,11 @@ const UNIT_OPTIONS = [
   { value: "imperial", label: "lb, ft" },
 ] as const;
 
+const FORMULA_OPTIONS = [
+  { value: "epley", label: "Epley (par défaut)" },
+  { value: "brzycki", label: "Brzycki" },
+] as const;
+
 export const SAVED = "Profil enregistré.";
 const SESSION_EXPIRED = "Votre session a expiré : reconnectez-vous pour enregistrer.";
 const NOT_SAVED = "Le profil n’a pas pu être enregistré. Réessayez dans un instant.";
@@ -44,7 +49,7 @@ async function saveProfile(values: ProfileFormValues): Promise<void> {
 
 /**
  * Objectif, unités d'affichage et taille. Sert à l'onboarding (`redirectTo`) et à l'écran de
- * profil (message de confirmation sur place).
+ * profil (message de confirmation sur place), qui propose aussi la formule du 1RM.
  */
 export function ProfileForm({
   initial,
@@ -145,6 +150,27 @@ export function ProfileForm({
             />
           </div>
         </fieldset>
+      )}
+      {initial && (
+        <Controller
+          control={form.control}
+          name="one_rm_formula"
+          render={({ field }) => (
+            <div className="flex flex-col gap-2">
+              <ChoiceGroup
+                legend="Formule du 1RM estimé"
+                layout="column"
+                options={FORMULA_OPTIONS}
+                value={field.value}
+                onChange={field.onChange}
+              />
+              <p className="text-ink-muted text-sm">
+                Estime la charge maximale sur une répétition à partir d’une série : Epley jusqu’à 12
+                répétitions, Brzycki jusqu’à 10. Changer de formule recalcule vos records.
+              </p>
+            </div>
+          )}
+        />
       )}
       <div role="alert" className="empty:hidden">
         {mutation.isError && (
