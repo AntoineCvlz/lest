@@ -1,4 +1,10 @@
-import { feetInchesToMetres, metresToCentimetres, metresToFeetInches } from "./units";
+import {
+  displayToKilograms,
+  feetInchesToMetres,
+  kilogramsToDisplay,
+  metresToCentimetres,
+  metresToFeetInches,
+} from "./units";
 
 describe("conversions de taille (stockage en mètres)", () => {
   it.each([
@@ -30,5 +36,20 @@ describe("conversions de taille (stockage en mètres)", () => {
     const { feet, inches } = metresToFeetInches(1.8);
 
     expect(feetInchesToMetres(feet, inches)).toBe(1.8);
+  });
+});
+
+describe("conversions de charge (stockage en kilos)", () => {
+  it("garde les kilos au centième", () => {
+    expect(kilogramsToDisplay(82.5, "metric")).toBe(82.5);
+    expect(displayToKilograms(82.5, "metric")).toBe(82.5);
+  });
+
+  it("convertit les livres sans dériver d'un aller-retour", () => {
+    expect(displayToKilograms(225, "imperial")).toBe(102.06);
+    expect(kilogramsToDisplay(102.06, "imperial")).toBe(225);
+    for (const pounds of [45, 135, 185, 315, 2.5]) {
+      expect(kilogramsToDisplay(displayToKilograms(pounds, "imperial"), "imperial")).toBe(pounds);
+    }
   });
 });

@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
 
-test("démarre une séance, ajoute un exercice et la termine", async ({
+test("démarre une séance, ajoute un exercice, saisit une série et la termine", async ({
   page,
   makeAxeBuilder,
   cspViolations,
@@ -28,9 +28,20 @@ test("démarre une séance, ajoute un exercice et la termine", async ({
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   await choice.click();
 
+  // Saisie ouverte sur l'exercice ajouté : barre à vide proposée, une série d'un appui.
+  await expect(page.getByText("Première fois pour cet exercice.")).toBeVisible();
+  await page.getByRole("button", { name: "+2,5 kilos" }).click();
+  await page.getByRole("button", { name: "Valider la série" }).click();
+  await expect(page.getByText(/^Série 1 enregistrée\. Nouveau record/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "Séries de la séance" })).toContainText(
+    "Série 1 : 22,5 kg × 8",
+  );
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await page.getByRole("button", { name: "Retour à la séance" }).click();
+
   const plan = page.getByRole("list", { name: "Exercices de la séance" });
   await expect(plan.getByRole("listitem")).toHaveCount(1);
-  await expect(plan).toContainText("Aucune série");
+  await expect(plan).toContainText("1 série");
   // Rechargement : la séance en cours est reprise.
   await page.reload();
   await expect(plan).toContainText("Développé couché");

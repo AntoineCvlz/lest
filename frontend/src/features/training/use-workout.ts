@@ -6,7 +6,7 @@ import { WORKOUTS_KEY } from "./query-keys";
 
 const ONGOING_KEY = [...WORKOUTS_KEY, "ongoing"] as const;
 
-function workoutKey(id: string) {
+export function workoutKey(id: string) {
   return [...WORKOUTS_KEY, id] as const;
 }
 
@@ -49,7 +49,7 @@ export function useWorkout(id: string | undefined) {
 }
 
 /** Identifiant généré par le client (UUID v4) : l'écriture peut être rejouée (ADR 0003). */
-function newId(): string {
+export function newId(): string {
   return crypto.randomUUID();
 }
 
