@@ -13,9 +13,9 @@ DEMO_EMAIL = "demo@example.com"
 
 class Command(BaseCommand):
     help = (
-        "Séances de démo (dev uniquement) : 8 semaines de poussée, tirage et jambes pour le "
-        f"compte {DEMO_EMAIL} (ou --email). Exige le catalogue (import_exercises). Relançable : "
-        "les séances sont remplacées, jamais dupliquées."
+        "Séances de démo (dev uniquement) : programme et 8 semaines de poussée, tirage et "
+        f"jambes pour le compte {DEMO_EMAIL} (ou --email). Exige le catalogue "
+        "(import_exercises). Relançable : rien n'est dupliqué."
     )
 
     def add_arguments(self, parser: CommandParser) -> None:
@@ -36,6 +36,27 @@ class Command(BaseCommand):
             raise CommandError(
                 f"Exercices absents du catalogue : {', '.join(missing)}. Lancer import_exercises."
             )
+
+        program_id, days = demo.program()
+        services.put_program(owner=owner, program_id=program_id, name=demo.PROGRAM_NAME)
+        for day in days:
+            services.put_program_day(
+                owner=owner,
+                day_id=day.id,
+                program_id=program_id,
+                name=day.name,
+                position=day.position,
+            )
+            for target in day.exercises:
+                services.put_program_exercise(
+                    owner=owner,
+                    program_exercise_id=target.id,
+                    day_id=day.id,
+                    exercise_id=catalog[target.source_id],
+                    position=target.position,
+                    target_sets=target.target_sets,
+                    target_reps=target.target_reps,
+                )
 
         workouts = demo.plan(today=timezone.localdate())
         for workout in workouts:
@@ -66,4 +87,7 @@ class Command(BaseCommand):
                         performed_at=one.performed_at,
                     )
         sets = sum(len(item.sets) for workout in workouts for item in workout.exercises)
-        self.stdout.write(f"Séances de démo prêtes : {len(workouts)} séances, {sets} séries.")
+        self.stdout.write(
+            f"Séances de démo prêtes : programme « {demo.PROGRAM_NAME} », "
+            f"{len(workouts)} séances, {sets} séries."
+        )

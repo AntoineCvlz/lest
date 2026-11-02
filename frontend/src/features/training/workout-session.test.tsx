@@ -27,13 +27,16 @@ const benchItem = {
   exercise_name_language: "fr",
   exercise_category: "chest",
   exercise_image: null,
+  target_sets: null,
+  target_reps: null,
   sets: [],
 };
 
 function api({
   current = null as object | null,
   exercises = [] as object[],
-}: { current?: object | null; exercises?: object[] } = {}) {
+  programs = [] as object[],
+}: { current?: object | null; exercises?: object[]; programs?: object[] } = {}) {
   server.use(
     http.get("*/api/v1/workouts/", () =>
       HttpResponse.json({ items: current ? [current] : [], next_cursor: null }),
@@ -58,6 +61,7 @@ function api({
       HttpResponse.json({ categories: [], muscles: [], equipment: [] }),
     ),
     http.get("*/api/v1/me/profile/", () => new HttpResponse(null, { status: 404 })),
+    http.get("*/api/v1/programs/", () => HttpResponse.json(programs)),
     http.get("*/api/v1/exercises/:id/last-sets/", () => HttpResponse.json({ sets: [] })),
   );
 }
@@ -82,6 +86,49 @@ describe("WorkoutSession", () => {
     expect(await screen.findByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
     expect(path).toMatch(UUID_V4);
     expect(body).toEqual({ started_at: expect.any(String) as string });
+  });
+
+  it("démarre une séance depuis une séance type d'un programme", async () => {
+    const dayId = "4b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
+    api({
+      programs: [
+        {
+          id: "5b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+          name: "PPL",
+          days: [{ id: dayId, program_id: "p", name: "Poussée", position: 0, exercises: [] }],
+        },
+      ],
+    });
+    let body: unknown;
+    server.use(
+      http.put("*/api/v1/workouts/:id/", async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...ongoing, program_day_id: dayId }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<WorkoutSession />);
+
+    await user.click(await screen.findByRole("button", { name: "Démarrer Poussée (PPL)" }));
+
+    await waitFor(() => {
+      expect(body).toEqual({ started_at: expect.any(String) as string, program_day_id: dayId });
+    });
+  });
+
+  it("invite à créer un programme quand il n'y a aucune séance type", async () => {
+    api();
+    renderWithQuery(<WorkoutSession />);
+
+    expect(
+      await screen.findByText(
+        "Aucune séance type pour l’instant : créez un programme pour démarrer en un appui.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Mes programmes" })).toHaveAttribute(
+      "href",
+      "/seance/programmes",
+    );
   });
 
   it("reprend la séance en cours et ajoute un exercice à la suite, puis ouvre sa saisie", async () => {

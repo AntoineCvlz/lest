@@ -12,6 +12,7 @@ import { ExerciseImage } from "./exercise-image";
 import { ExerciseLibrary } from "./exercise-library";
 import { RestTimer } from "./rest-timer";
 import { SetEntry } from "./set-entry";
+import { usePrograms } from "./use-programs";
 import { useRestTimer } from "./use-rest-timer";
 import { WorkoutHistory } from "./workout-history";
 import {
@@ -150,7 +151,9 @@ function OngoingWorkout({
                       {item.exercise_name}
                     </span>
                     <span className="text-ink-muted block text-sm">
-                      {setCount(item.sets.length)}
+                      {item.target_sets === null
+                        ? setCount(item.sets.length)
+                        : `${String(item.sets.filter((one) => !one.is_warmup).length)} sur ${String(item.target_sets)} séries, cible ${String(item.target_sets)} × ${String(item.target_reps)}`}
                     </span>
                   </span>
                 </button>
@@ -202,6 +205,53 @@ function OngoingWorkout({
         </Button>
       )}
     </div>
+  );
+}
+
+/** Un bouton par séance type des programmes : la séance démarre avec ses exercices. */
+function ProgramStarts({
+  pending,
+  onStart,
+}: {
+  pending: boolean;
+  onStart: (dayId: string) => void;
+}) {
+  const programs = usePrograms();
+  const withDays = (programs.data ?? []).filter((program) => program.days.length > 0);
+
+  return (
+    <section aria-labelledby="depuis-un-programme" className="flex flex-col gap-3">
+      <h2 id="depuis-un-programme" className="text-xl font-bold">
+        Depuis un programme
+      </h2>
+      {programs.isSuccess && withDays.length === 0 && (
+        <p className="text-ink-muted">
+          Aucune séance type pour l’instant : créez un programme pour démarrer en un appui.
+        </p>
+      )}
+      {withDays.map((program) => (
+        <div key={program.id} className="flex flex-col gap-2">
+          <p className="text-ink-muted text-sm">{program.name}</p>
+          <div className="flex flex-wrap gap-2">
+            {program.days.map((day) => (
+              <Button
+                key={day.id}
+                disabled={pending}
+                aria-label={`Démarrer ${day.name} (${program.name})`}
+                onClick={() => {
+                  onStart(day.id);
+                }}
+              >
+                {day.name}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ))}
+      <TextLink href="/seance/programmes" className="self-start">
+        Mes programmes
+      </TextLink>
+    </section>
   );
 }
 
@@ -266,9 +316,13 @@ export function WorkoutSession() {
       >
         Démarrer une séance
       </Button>
-      <TextLink href="/seance/programmes" className="self-start">
-        Mes programmes
-      </TextLink>
+      <ProgramStarts
+        pending={start.isPending}
+        onStart={(dayId) => {
+          setFinished(false);
+          start.mutate(dayId);
+        }}
+      />
       <WorkoutHistory system={profile.data?.unit_system ?? "metric"} />
     </div>
   );
