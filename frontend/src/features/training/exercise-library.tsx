@@ -45,7 +45,7 @@ function ExerciseItem({
     <>
       <ExerciseImage image={exercise.image} category={exercise.category} size="thumb" />
       <span className="flex min-w-0 flex-col gap-1">
-        {/* Nom anglais quand wger n'en a pas de français (ADR 0004) : prononcé en anglais. */}
+        {/* Noms anglais de RepDB (ADR 0006) : prononcés en anglais. */}
         <span className="block text-[17px] font-bold" lang={exercise.name_language}>
           {exercise.name}
         </span>

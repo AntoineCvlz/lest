@@ -90,7 +90,9 @@ class SetIn(Schema):
 # --- Catalogue (commun à tous les comptes, lecture seule) -----------------------------------
 
 # Valeurs de `Category` (un test vérifie qu'elles restent alignées) : énumération dans l'OpenAPI.
-CategoryName = Literal["abs", "arms", "back", "calves", "cardio", "chest", "legs", "shoulders"]
+CategoryName = Literal[
+    "abs", "arms", "back", "calves", "cardio", "chest", "legs", "shoulders", "full_body"
+]
 MAX_QUERY_LENGTH = 100
 
 
@@ -118,7 +120,7 @@ class ImageOut(Schema):
 class ExerciseOut(Schema):
     id: UUID
     name: str
-    # « en » : pas de nom français dans wger, le nom anglais est affiché (ADR 0004).
+    # « en » : RepDB ne fournit pas de nom français, le nom anglais est affiché (ADR 0006).
     name_language: Literal["fr", "en"]
     category: CategoryName
     muscles: list[NamedOut]
@@ -130,7 +132,7 @@ class ExerciseOut(Schema):
 class ExerciseDetailOut(ExerciseOut):
     secondary_muscles: list[NamedOut]
     images: list[ImageOut]
-    # Attribution exigée par la licence de wger (CC-BY-SA), affichée avec l'exercice.
+    # Attribution exigée par la licence RepDB, affichée avec l'exercice (ADR 0006).
     license: str
     license_author: str
     is_active: bool

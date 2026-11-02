@@ -11,8 +11,8 @@ const FRAMES: Record<Size, string> = {
   small: "size-20",
   large: "aspect-square w-full max-w-80",
 };
-// Taille de l'image servie (640 px), affichée à ces dimensions : le navigateur la réduit.
-const PIXELS = 640;
+// Taille de l'image servie (512 px, ADR 0006), affichée à ces dimensions.
+const PIXELS = 512;
 
 /**
  * Pictogrammes maison par catégorie (ADR 0005), au trait, dans le même cadre que les images :
@@ -35,6 +35,10 @@ const PICTOGRAMS: Record<Category, ReactNode> = {
   legs: <path d="M10 8v32M38 8v32M8 18h32M24 18v8M24 26l-6 6v8M24 26l6 6v8" />,
   // Barre au-dessus de la tête, bras tendus.
   shoulders: <path d="M8 10h32M12 6v8M36 6v8M16 10l6 12M32 10l-6 12M22 22h4M24 22v16" />,
+  // Silhouette entière, bras et jambes écartés.
+  full_body: (
+    <path d="M24 10a4 4 0 1 0 0-.1M24 14v14M24 18l-10-4M24 18l10-4M24 28l-7 12M24 28l7 12" />
+  ),
 };
 
 /**
@@ -44,11 +48,14 @@ const PICTOGRAMS: Record<Category, ReactNode> = {
  */
 export function ExerciseImage({
   image,
+  alternate = null,
   category,
   size,
   alt = "",
 }: {
   image: Schemas["ImageOut"] | null;
+  /** Seconde position (effort), alternée avec la première ; coupée si le mouvement est réduit. */
+  alternate?: Schemas["ImageOut"] | null;
   category: Category;
   size: Size;
   alt?: string;
@@ -57,25 +64,40 @@ export function ExerciseImage({
     <span
       className={[
         "rounded-control bg-tile border-line-subtle flex shrink-0 items-center justify-center",
-        "overflow-hidden border",
+        "relative overflow-hidden border",
         FRAMES[size],
       ].join(" ")}
     >
       {image ? (
-        // Déjà normalisée par l'API (WebP 640 px, ADR 0005). Pas `next/image` : il pose un
+        // Déjà normalisée par l'API (WebP 512 px, ADR 0006). Pas `next/image` : il pose un
         // attribut `style` en ligne, refusé par la CSP de prod.
-        <picture className="size-full">
-          <source srcSet={image.url} type="image/webp" />
-          <img
-            src={image.url}
-            alt={alt}
-            width={PIXELS}
-            height={PIXELS}
-            loading={size === "large" ? "eager" : "lazy"}
-            decoding="async"
-            className="size-full object-contain"
-          />
-        </picture>
+        <>
+          <picture className="size-full">
+            <source srcSet={image.url} type="image/webp" />
+            <img
+              src={image.url}
+              alt={alt}
+              width={PIXELS}
+              height={PIXELS}
+              loading={size === "large" ? "eager" : "lazy"}
+              decoding="async"
+              className="size-full object-contain"
+            />
+          </picture>
+          {alternate && (
+            // Décorative : `alt` décrit déjà les deux positions.
+            <picture className="animate-pose absolute inset-0 opacity-0 motion-reduce:hidden">
+              <img
+                src={alternate.url}
+                alt=""
+                width={PIXELS}
+                height={PIXELS}
+                decoding="async"
+                className="size-full object-contain"
+              />
+            </picture>
+          )}
+        </>
       ) : (
         <svg
           viewBox="0 0 48 48"

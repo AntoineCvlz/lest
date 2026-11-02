@@ -318,7 +318,7 @@ export interface components {
              * Category
              * @enum {string}
              */
-            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body";
             /** Equipment */
             equipment: components["schemas"]["NamedOut"][];
             /**
@@ -350,7 +350,7 @@ export interface components {
         /** ExerciseFiltersOut */
         ExerciseFiltersOut: {
             /** Categories */
-            categories: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders")[];
+            categories: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body")[];
             /** Equipment */
             equipment: components["schemas"]["NamedOut"][];
             /** Muscles */
@@ -362,7 +362,7 @@ export interface components {
              * Category
              * @enum {string}
              */
-            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body";
             /** Equipment */
             equipment: components["schemas"]["NamedOut"][];
             /**
@@ -391,7 +391,7 @@ export interface components {
         /** ExerciseQuery */
         ExerciseQuery: {
             /** Category */
-            category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders") | null;
+            category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body") | null;
             /** Cursor */
             cursor?: string | null;
             /** Equipment */
@@ -580,7 +580,7 @@ export interface components {
              * Exercise Category
              * @enum {string}
              */
-            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body";
             /**
              * Exercise Id
              * Format: uuid
@@ -759,7 +759,7 @@ export interface components {
              * Exercise Category
              * @enum {string}
              */
-            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body";
             /**
              * Exercise Id
              * Format: uuid
@@ -928,7 +928,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: string;
-                category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders") | null;
+                category?: ("abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body") | null;
                 muscle?: number | null;
                 equipment?: number | null;
                 cursor?: string | null;

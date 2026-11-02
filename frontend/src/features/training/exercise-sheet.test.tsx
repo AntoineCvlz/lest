@@ -17,8 +17,8 @@ const sheet = {
   muscles: [{ id: 4, name: "Grand pectoral" }],
   secondary_muscles: [{ id: 5, name: "Triceps" }],
   equipment: [{ id: 1, name: "Barre" }],
-  license: "CC-BY-SA 4",
-  license_author: "wger contributors",
+  license: "RepDB free tier v1.0",
+  license_author: "RepDB",
   is_active: true,
   image: null,
   images: [] as object[],
@@ -53,9 +53,11 @@ describe("ExerciseSheet", () => {
     expect(title).toHaveAttribute("lang", "en");
     expect(screen.getByText("Grand pectoral")).toBeVisible();
     expect(screen.getByText("Triceps")).toBeVisible();
-    expect(
-      screen.getByText(/Source : wger, licence CC-BY-SA 4, par wger contributors\./),
-    ).toBeVisible();
+    // Mention et lien exigés par la licence RepDB (ADR 0006).
+    expect(screen.getByRole("link", { name: "Exercise data by RepDB (repdb.co)" })).toHaveAttribute(
+      "href",
+      "https://repdb.co",
+    );
     expect(screen.getByRole("link", { name: "Sources et licences" })).toHaveAttribute(
       "href",
       "/sources",
@@ -109,15 +111,16 @@ describe("ExerciseSheet", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(13);
   });
 
-  it("montre l'image principale et l'attribue", async () => {
-    const image = {
+  it("montre le mouvement : départ puis effort, en alternance", async () => {
+    const start = {
       url: `/api/v1/exercise-images/${"b".repeat(64)}.webp`,
-      license: "CC-BY-SA 3",
-      license_author: "",
+      license: "RepDB free tier v1.0",
+      license_author: "RepDB",
     };
+    const peak = { ...start, url: `/api/v1/exercise-images/${"c".repeat(64)}.webp` };
     server.use(
       http.get(`*/api/v1/exercises/${ID}/`, () =>
-        HttpResponse.json({ ...sheet, image, images: [image] }),
+        HttpResponse.json({ ...sheet, image: start, images: [start, peak] }),
       ),
       http.get(`*/api/v1/exercises/${ID}/records/`, () => HttpResponse.json({ history: [] })),
       http.get("*/api/v1/me/profile/", () => new HttpResponse(null, { status: 404 })),
@@ -125,13 +128,14 @@ describe("ExerciseSheet", () => {
     renderWithQuery(<ExerciseSheet id={ID} />);
 
     expect(
-      await screen.findByRole("img", { name: "Illustration de l’exercice Bench press" }),
-    ).toHaveAttribute("src", image.url);
-    expect(
-      screen.getByText(
-        /Image : auteur non renseigné sur wger, licence CC-BY-SA 3, recadrée et convertie\./,
-      ),
-    ).toBeVisible();
+      await screen.findByRole("img", {
+        name: "Illustration de l’exercice Bench press, position de départ et position d’effort",
+      }),
+    ).toHaveAttribute("src", start.url);
+    // Image d'effort : décorative, animée par CSS et masquée si le mouvement est réduit.
+    const effort = document.querySelector(`img[src="${peak.url}"]`);
+    expect(effort).toHaveAttribute("alt", "");
+    expect(effort?.parentElement).toHaveClass("animate-pose", "motion-reduce:hidden");
   });
 
   it("signale un exercice inconnu", async () => {

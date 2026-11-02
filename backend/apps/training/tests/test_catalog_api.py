@@ -44,8 +44,8 @@ def test_search_ignores_accents_case_and_word_order(athlete: Athlete) -> None:
 
 
 def test_filters_by_category_muscle_and_equipment(athlete: Athlete) -> None:
-    biceps = Muscle.objects.create(wger_id=1, name="Biceps brachii", is_front=True)
-    dumbbell = Equipment.objects.create(wger_id=3, name="Dumbbell")
+    biceps = Muscle.objects.create(code="m1", name="Biceps brachii", is_front=True)
+    dumbbell = Equipment.objects.create(code="e3", name="Dumbbell")
     curl = make_exercise(name="Curl", category=Category.ARMS)
     curl.muscles.add(biceps)
     curl.equipment.add(dumbbell)
@@ -96,7 +96,7 @@ def test_the_exercise_sheet_carries_its_attribution(athlete: Athlete) -> None:
         name="Bench press",
         name_language=NameLanguage.ENGLISH,
         license="CC-BY-SA 4",
-        license_author="wger contributors",
+        license_author="RepDB",
         is_active=False,  # retiré : toujours lisible depuis l'historique
     )
 
@@ -111,7 +111,7 @@ def test_the_exercise_sheet_carries_its_attribution(athlete: Athlete) -> None:
         "secondary_muscles": [],
         "equipment": [],
         "license": "CC-BY-SA 4",
-        "license_author": "wger contributors",
+        "license_author": "RepDB",
         "is_active": False,
         "image": None,  # sans image : pictogramme de la catégorie (ADR 0005)
         "images": [],
@@ -123,11 +123,11 @@ def test_an_unknown_exercise_is_not_found(athlete: Athlete) -> None:
 
 
 def test_filters_list_only_values_used_by_active_exercises(athlete: Athlete) -> None:
-    used = Muscle.objects.create(wger_id=1, name="Biceps brachii", is_front=True)
-    secondary = Muscle.objects.create(wger_id=2, name="Brachialis", is_front=True)
-    retired = Muscle.objects.create(wger_id=3, name="Soleus", is_front=False)
-    Muscle.objects.create(wger_id=4, name="Unused", is_front=False)
-    bar = Equipment.objects.create(wger_id=1, name="Barbell")
+    used = Muscle.objects.create(code="m1", name="Biceps brachii", is_front=True)
+    secondary = Muscle.objects.create(code="m2", name="Brachialis", is_front=True)
+    retired = Muscle.objects.create(code="m3", name="Soleus", is_front=False)
+    Muscle.objects.create(code="m4", name="Unused", is_front=False)
+    bar = Equipment.objects.create(code="e1", name="Barbell")
     curl = make_exercise(name="Curl")
     curl.muscles.add(used)
     curl.secondary_muscles.add(secondary, used)

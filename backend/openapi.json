@@ -25,7 +25,8 @@
               "cardio",
               "chest",
               "legs",
-              "shoulders"
+              "shoulders",
+              "full_body"
             ],
             "title": "Category",
             "type": "string"
@@ -127,7 +128,8 @@
                 "cardio",
                 "chest",
                 "legs",
-                "shoulders"
+                "shoulders",
+                "full_body"
               ],
               "type": "string"
             },
@@ -168,7 +170,8 @@
               "cardio",
               "chest",
               "legs",
-              "shoulders"
+              "shoulders",
+              "full_body"
             ],
             "title": "Category",
             "type": "string"
@@ -268,7 +271,8 @@
                   "cardio",
                   "chest",
                   "legs",
-                  "shoulders"
+                  "shoulders",
+                  "full_body"
                 ],
                 "type": "string"
               },
@@ -704,7 +708,8 @@
               "cardio",
               "chest",
               "legs",
-              "shoulders"
+              "shoulders",
+              "full_body"
             ],
             "title": "Exercise Category",
             "type": "string"
@@ -1115,7 +1120,8 @@
               "cardio",
               "chest",
               "legs",
-              "shoulders"
+              "shoulders",
+              "full_body"
             ],
             "title": "Exercise Category",
             "type": "string"
@@ -1541,7 +1547,8 @@
                     "cardio",
                     "chest",
                     "legs",
-                    "shoulders"
+                    "shoulders",
+                    "full_body"
                   ],
                   "type": "string"
                 },

@@ -22,10 +22,10 @@ NAMESPACE = uuid5(NAMESPACE_URL, "https://lest.local/demo")
 
 @dataclass(frozen=True)
 class Lift:
-    """Exercice du programme : nom exact dans le catalogue, charge de départ, pas de progression
+    """Exercice du programme : identifiant RepDB, charge de départ, pas de progression
     hebdomadaire (kg), séries et répétitions visées, échauffement ou non."""
 
-    name: str
+    source_id: str
     start_kg: Decimal
     step_kg: Decimal
     sets: int
@@ -33,31 +33,31 @@ class Lift:
     warmup: bool = False
 
 
-# Poussée, tirage, jambes : exercices courants de salle, illustrés dans le catalogue wger.
+# Poussée, tirage, jambes : exercices courants de salle du catalogue RepDB (ADR 0006).
 PROGRAM: tuple[tuple[Lift, ...], ...] = (
     (
-        Lift("Développé couché", Decimal(70), Decimal("2.5"), 4, 8, warmup=True),
-        Lift("Développé incliné - haltères", Decimal(24), Decimal(1), 3, 10),
-        Lift("Développé militaire à la barre", Decimal(45), Decimal("1.25"), 3, 8),
-        Lift("Élévation latérale à la machine", Decimal(30), Decimal("1.25"), 3, 12),
-        Lift("Extension des triceps à la barre", Decimal(30), Decimal("1.25"), 3, 10),
+        Lift("bench-press", Decimal(70), Decimal("2.5"), 4, 8, warmup=True),
+        Lift("incline-db-press", Decimal(24), Decimal(1), 3, 10),
+        Lift("seated-barbell-overhead-press", Decimal(45), Decimal("1.25"), 3, 8),
+        Lift("cable-lateral-raise", Decimal(10), Decimal("1.25"), 3, 12),
+        Lift("tricep-pushdown", Decimal(30), Decimal("1.25"), 3, 10),
     ),
     (
-        Lift("Soulevé de terre au rack", Decimal(120), Decimal(5), 3, 5, warmup=True),
-        Lift("Tractions", Decimal(5), Decimal("1.25"), 4, 6),
-        Lift("Rowing assis à la poulie", Decimal(55), Decimal("2.5"), 3, 10),
-        Lift("Tirage bras tendus (poulie)", Decimal(25), Decimal("1.25"), 3, 12),
-        Lift("Curl biceps avec barre SZ", Decimal(30), Decimal("1.25"), 3, 10),
+        Lift("deadlift", Decimal(120), Decimal(5), 3, 5, warmup=True),
+        Lift("pull-up", Decimal(5), Decimal("1.25"), 4, 6),
+        Lift("seated-cable-row", Decimal(55), Decimal("2.5"), 3, 10),
+        Lift("straight-arm-pulldown", Decimal(25), Decimal("1.25"), 3, 12),
+        Lift("ez-bar-curl", Decimal(30), Decimal("1.25"), 3, 10),
     ),
     (
-        Lift("Front Squats", Decimal(70), Decimal("2.5"), 4, 6, warmup=True),
-        Lift("Presse à cuisses", Decimal(160), Decimal(5), 3, 10),
-        Lift("Fentes", Decimal(20), Decimal(1), 3, 10),
-        Lift("Hip Thrust avec haltère", Decimal(40), Decimal("2.5"), 3, 10),
-        Lift("Extension des mollets debout", Decimal(60), Decimal("2.5"), 4, 12),
+        Lift("squat", Decimal(80), Decimal("2.5"), 4, 6, warmup=True),
+        Lift("leg-press", Decimal(160), Decimal(5), 3, 10),
+        Lift("walking-lunge", Decimal(20), Decimal(1), 3, 10),
+        Lift("hip-thrust", Decimal(60), Decimal("2.5"), 3, 10),
+        Lift("standing-calf-raise", Decimal(60), Decimal("2.5"), 4, 12),
     ),
 )
-EXERCISE_NAMES = tuple(lift.name for day in PROGRAM for lift in day)
+SOURCE_IDS = tuple(lift.source_id for day in PROGRAM for lift in day)
 
 
 @dataclass(frozen=True)
@@ -74,7 +74,7 @@ class PlannedSet:
 @dataclass(frozen=True)
 class PlannedExercise:
     id: UUID
-    name: str
+    source_id: str
     position: int
     sets: tuple[PlannedSet, ...]
 
@@ -150,7 +150,7 @@ def plan(*, today: date) -> list[PlannedWorkout]:
                 exercises.append(
                     PlannedExercise(
                         id=_id(week, index, position),
-                        name=lift.name,
+                        source_id=lift.source_id,
                         position=position,
                         sets=tuple(sets),
                     )

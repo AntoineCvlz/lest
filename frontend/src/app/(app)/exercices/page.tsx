@@ -11,8 +11,7 @@ export default function ExercisesPage() {
       <div className="flex flex-col gap-3">
         <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">Exercices</h1>
         <p className="text-ink-muted">
-          Catalogue issu de wger. Certains exercices n’ont pas encore de nom français : leur nom
-          anglais est affiché.
+          Catalogue illustré issu de RepDB. Les noms d’exercices sont en anglais pour l’instant.
         </p>
       </div>
       <ExerciseLibrary />

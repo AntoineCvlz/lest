@@ -1,0 +1,91 @@
+{
+  "exercises": [
+    {
+      "id": "bench-press",
+      "name_en": "Barbell Bench Press",
+      "category": "strength",
+      "body_part": "chest",
+      "primary_muscles": [
+        "pectoralis_major"
+      ],
+      "secondary_muscles": [
+        "triceps_brachii"
+      ],
+      "equipment": "barbell",
+      "images": {
+        "flat": {
+          "start": "images/flat/bench-press-start.webp",
+          "peak": "images/flat/bench-press-peak.webp"
+        }
+      }
+    },
+    {
+      "id": "squat",
+      "name_en": "Barbell Back Squat",
+      "category": "strength",
+      "body_part": "upper_legs",
+      "primary_muscles": [
+        "quadriceps"
+      ],
+      "secondary_muscles": [
+        "gluteus_maximus"
+      ],
+      "equipment": "barbell",
+      "images": {
+        "flat": {
+          "start": "images/flat/squat-start.webp",
+          "peak": "images/flat/squat-peak.webp"
+        }
+      }
+    },
+    {
+      "id": "pull-up",
+      "name_en": "Pull-Up",
+      "category": "strength",
+      "body_part": "back",
+      "primary_muscles": [
+        "latissimus_dorsi"
+      ],
+      "secondary_muscles": [],
+      "equipment": "pull_up_bar",
+      "images": {
+        "flat": {
+          "start": "images/flat/pull-up-start.webp",
+          "peak": "images/flat/pull-up-peak.webp"
+        }
+      }
+    },
+    {
+      "id": "standing-calf-raise",
+      "name_en": "Standing Calf Raise",
+      "category": "strength",
+      "body_part": "lower_legs",
+      "primary_muscles": [
+        "gastrocnemius"
+      ],
+      "secondary_muscles": [],
+      "equipment": "standing_calf_raise_machine",
+      "images": {
+        "flat": {
+          "start": "images/flat/standing-calf-raise-start.webp",
+          "peak": "images/flat/standing-calf-raise-peak.webp"
+        }
+      }
+    },
+    {
+      "id": "plank",
+      "name_en": "Front Plank",
+      "category": "strength",
+      "body_part": "core",
+      "primary_muscles": [
+        "rectus_abdominis"
+      ],
+      "secondary_muscles": [],
+      "images": {
+        "flat": {
+          "main": "images/flat/plank-main.webp"
+        }
+      }
+    }
+  ]
+}

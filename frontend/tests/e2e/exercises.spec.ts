@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 
 // Compte E2E et catalogue de test importés par la CI (`create_verified_user`, puis
-// `import_exercises --file` avec la fixture wger du back, voir e2e.yml).
+// `import_exercises --file` avec les exercices fictifs au format RepDB, voir e2e.yml).
 const EMAIL = process.env.E2E_USER_EMAIL ?? "e2e@example.com";
 const PASSWORD = process.env.E2E_USER_PASSWORD ?? "";
 const RESPONSE_TIMEOUT = 15_000;
@@ -21,10 +21,10 @@ test("cherche un exercice sans accents et filtre le catalogue", async ({
   await page.getByRole("button", { name: "Se connecter", exact: true }).click();
   await expect(page).toHaveURL("/exercices", { timeout: RESPONSE_TIMEOUT });
 
-  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("developpe COUCHE");
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("BENCH press");
   const list = page.getByRole("list", { name: "Exercices" });
   // Premier résultat : vrai en CI (fixture) comme sur le catalogue complet en local.
-  await expect(list.getByRole("listitem").first()).toContainText("Développé couché");
+  await expect(list.getByRole("listitem").first()).toContainText("Barbell Bench Press");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   await page.getByText("Filtres", { exact: true }).click();
@@ -32,24 +32,28 @@ test("cherche un exercice sans accents et filtre le catalogue", async ({
   await expect(page.getByText("Aucun exercice ne correspond", { exact: false })).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
-  // Fiche d'exercice : attribution wger, records (aucun pour un compte neuf).
+  // Fiche d'exercice : crédit RepDB, records (aucun pour un compte neuf).
   await page.getByRole("button", { name: "Effacer la recherche et les filtres" }).click();
-  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("developpe couche");
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("barbell bench press");
   await list
-    .getByRole("link", { name: /^Développé couché/ })
+    .getByRole("link", { name: /^Barbell Bench Press/ })
     .first()
     .click();
-  await expect(page.getByRole("heading", { level: 1, name: "Développé couché" })).toBeVisible();
-  await expect(page.getByText(/^Source : wger, licence /)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Barbell Bench Press" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Exercise data by RepDB (repdb.co)" })).toBeVisible();
   await expect(page.getByText(/^Aucun record pour l’instant/)).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   expect(cspViolations).toEqual([]);
 });
 
-test("la page des sources crédite wger et ses licences", async ({ page, makeAxeBuilder }) => {
+test("la page des sources crédite RepDB comme sa licence l'exige", async ({
+  page,
+  makeAxeBuilder,
+}) => {
   await page.goto("/sources");
 
-  await expect(page.getByRole("link", { name: "wger" })).toHaveAttribute("href", "https://wger.de");
-  await expect(page.getByRole("link", { name: "CC BY-SA 4.0" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Exercise data by RepDB (repdb.co)" }),
+  ).toHaveAttribute("href", "https://repdb.co");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 });

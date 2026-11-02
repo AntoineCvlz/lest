@@ -6,19 +6,21 @@ from typing import Any
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.training import wger
+from apps.training import repdb
 from apps.training.services import (
     EmptyCatalogError,
-    import_wger_exercises,
-    import_wger_images,
+    ImportRunningError,
+    import_exercises,
+    import_images,
+    import_lock,
 )
 
 
 class Command(BaseCommand):
     help = (
-        "Met à jour le catalogue d'exercices depuis wger (ADR 0004). Rejouable. "
-        "--file : pages `exerciseinfo` enregistrées (liste JSON), sans appel réseau ni images. "
-        "--no-images : catalogue seulement (ADR 0005)."
+        "Met à jour le catalogue d'exercices depuis RepDB (ADR 0006), puis ses images. "
+        "Rejouable. --file : `exercises.json` local, sans appel réseau ni images. "
+        "--no-images : catalogue seulement."
     )
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -27,27 +29,32 @@ class Command(BaseCommand):
 
     def handle(self, *args: Any, file: Path | None, no_images: bool, **options: Any) -> None:
         try:
+            with import_lock():
+                self._import(file=file, no_images=no_images)
+        except ImportRunningError as error:
+            raise CommandError("Un import est déjà en cours : relancer plus tard.") from error
+
+    def _import(self, *, file: Path | None, no_images: bool) -> None:
+        try:
             if file is None:
-                exercises = wger.fetch_exercises(settings.WGER_API_URL)
+                exercises = repdb.fetch_catalog(settings.REPDB_BASE_URL)
             else:
-                exercises = []
-                for page in json.loads(file.read_text(encoding="utf-8")):
-                    exercises.extend(wger.parse_page(page)[0])
-            report = import_wger_exercises(exercises=exercises)
-        except (wger.WgerError, EmptyCatalogError, OSError, json.JSONDecodeError) as error:
+                exercises = repdb.parse_catalog(json.loads(file.read_text(encoding="utf-8")))
+            report = import_exercises(exercises=exercises)
+        except (repdb.RepdbError, EmptyCatalogError, OSError, json.JSONDecodeError) as error:
             raise CommandError(f"Import interrompu, catalogue inchangé : {error!r}") from error
         self.stdout.write(
             f"Exercices : {report.created} créés, {report.updated} mis à jour, "
-            f"{report.deactivated} désactivés, {report.skipped} ignorés."
+            f"{report.deactivated} désactivés."
         )
         if file is not None or no_images:
             return
-        images = import_wger_images(exercises=exercises, fetch=_fetch_image)
+        images = import_images(exercises=exercises, fetch=_fetch_image)
         self.stdout.write(
             f"Images : {images.imported} importées, {images.unchanged} inchangées, "
             f"{images.removed} retirées, {images.failed} en échec."
         )
 
 
-def _fetch_image(url: str) -> bytes:
-    return wger.fetch_image(url, base_url=settings.WGER_API_URL)
+def _fetch_image(path: str) -> bytes:
+    return repdb.fetch_image(path, base_url=settings.REPDB_BASE_URL)

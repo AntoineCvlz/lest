@@ -28,10 +28,10 @@ class Command(BaseCommand):
         if owner is None:
             raise CommandError(f"Compte {email} introuvable : lancer d'abord seed_demo.")
         catalog = {
-            exercise.name: exercise.pk
-            for exercise in Exercise.objects.filter(name__in=demo.EXERCISE_NAMES, is_active=True)
+            exercise.source_id: exercise.pk
+            for exercise in Exercise.objects.filter(source_id__in=demo.SOURCE_IDS, is_active=True)
         }
-        missing = sorted(set(demo.EXERCISE_NAMES) - set(catalog))
+        missing = sorted(set(demo.SOURCE_IDS) - set(catalog))
         if missing:
             raise CommandError(
                 f"Exercices absents du catalogue : {', '.join(missing)}. Lancer import_exercises."
@@ -50,7 +50,7 @@ class Command(BaseCommand):
                     owner=owner,
                     workout_exercise_id=item.id,
                     workout_id=workout.id,
-                    exercise_id=catalog[item.name],
+                    exercise_id=catalog[item.source_id],
                     position=item.position,
                 )
                 for one in item.sets:
