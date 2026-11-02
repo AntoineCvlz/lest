@@ -5,14 +5,15 @@ Il valide les pages de `exerciseinfo` (Pydantic) et les transforme en `WgerExerc
 Toute réponse inattendue lève `WgerError` avant la moindre écriture.
 """
 
+import http.client
 import json
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Protocol
-from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 from uuid import UUID
 
 from pydantic import BaseModel, ValidationError
@@ -82,8 +83,32 @@ LICENSES = {
 }
 
 
+# Licences des images (`/api/v2/license/`, identifiants vérifiés le 2026-10-30) ; une image sous
+# toute autre licence (ODbL…) est ignorée.
+IMAGE_LICENSES = {1: "CC-BY-SA 3", 2: "CC-BY-SA 4", 3: "CC0", 4: "CC-BY 4"}
+# Images listées par wger mais écartées : elles ne montrent pas l'exercice. Relues à l'œil
+# (ADR 0005) ; une ligne commentée par image.
+EXCLUDED_IMAGES: frozenset[UUID] = frozenset(
+    {
+        UUID("68b4a33f-40f1-4dda-b56c-a2e20ed13903"),  # logo de marque (haussement d'épaules)
+    }
+)
+# Les images de wger pèsent de quelques Ko à 7 Mo (PNG non compressés, mesuré le 2026-10-30) ;
+# au-delà de 15 Mo, réponse anormale.
+MAX_IMAGE_BYTES = 15 * 1024 * 1024
+
+
 class WgerError(Exception):
     """wger injoignable, ou réponse dont la forme n'est pas celle attendue."""
+
+
+@dataclass(frozen=True)
+class WgerImage:
+    uuid: UUID
+    url: str
+    is_main: bool
+    license: str
+    license_author: str
 
 
 @dataclass(frozen=True)
@@ -98,6 +123,7 @@ class WgerExercise:
     license: str
     license_author: str
     updated_at: datetime | None
+    images: tuple[WgerImage, ...] = ()
 
 
 class _Ref(BaseModel):
@@ -113,6 +139,14 @@ class _License(BaseModel):
     short_name: str
 
 
+class _Image(BaseModel):
+    uuid: UUID
+    image: str
+    is_main: bool = False
+    license: int
+    license_author: str | None = None
+
+
 class _Exercise(BaseModel):
     uuid: UUID
     category: _Ref
@@ -123,6 +157,7 @@ class _Exercise(BaseModel):
     license: _License
     license_author: str | None = None
     last_update_global: datetime | None = None
+    images: list[_Image] = []
 
 
 class _Page(BaseModel):
@@ -153,10 +188,37 @@ def parse_page(payload: object) -> tuple[list[WgerExercise], str | None]:
             license=item.license.short_name,
             license_author=(item.license_author or "").strip(),
             updated_at=item.last_update_global,
+            images=tuple(
+                WgerImage(
+                    uuid=image.uuid,
+                    url=image.image,
+                    is_main=image.is_main,
+                    license=IMAGE_LICENSES[image.license],
+                    license_author=(image.license_author or "").strip()[:200],
+                )
+                for image in item.images
+                if image.license in IMAGE_LICENSES and image.uuid not in EXCLUDED_IMAGES
+            ),
         )
         for item in page.results
     ]
     return exercises, page.next
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Refuse toute redirection : le contrôle d'hôte porte sur l'URL demandée, une redirection
+    le contournerait (vers le réseau interne, par exemple)."""
+
+    def redirect_request(self, *args: Any, **kwargs: Any) -> None:
+        raise WgerError("Redirection refusée")
+
+
+# Ouvreur par défaut des appels à wger : sans suivi de redirection.
+_opener = build_opener(_NoRedirect)
+
+
+def urlopen(request: Request, *, timeout: int) -> Any:
+    return _opener.open(request, timeout=timeout)
 
 
 class _Response(Protocol):
@@ -188,11 +250,35 @@ def _get_json(url: str, opener: Opener) -> Any:
     try:
         with opener(request, timeout=TIMEOUT_SECONDS) as response:
             body = response.read(MAX_PAGE_BYTES + 1)
-    except (URLError, TimeoutError) as error:
-        raise WgerError(f"wger injoignable : {error}") from error
+    except (OSError, http.client.HTTPException, ValueError) as error:
+        # `URLError` et `TimeoutError` sont des `OSError` ; URL invalide : `ValueError`.
+        raise WgerError(f"wger injoignable : {type(error).__name__}") from error
     if len(body) > MAX_PAGE_BYTES:
         raise WgerError("Page wger trop volumineuse")
     try:
         return json.loads(body)
     except json.JSONDecodeError as error:
         raise WgerError(f"Réponse wger illisible : {error}") from error
+
+
+def image_host(base_url: str) -> str:
+    """Origine (schéma et hôte) des images acceptées : celle de l'API configurée."""
+    parts = urlsplit(base_url)
+    return f"{parts.scheme}://{parts.netloc}/"
+
+
+def fetch_image(url: str, *, base_url: str, opener: Opener = urlopen) -> bytes:
+    """Octets d'une image de wger. N'accepte qu'une URL `https` du serveur de l'API : l'adresse
+    vient d'une réponse de wger, jamais d'un appel vers un autre hôte."""
+    host = image_host(base_url)
+    if not url.startswith(host) or not host.startswith("https://"):
+        raise WgerError("Image hors du serveur wger")
+    request = Request(url, headers={"User-Agent": "Lest"})  # noqa: S310 — hôte vérifié ci-dessus
+    try:
+        with opener(request, timeout=TIMEOUT_SECONDS) as response:
+            body = response.read(MAX_IMAGE_BYTES + 1)
+    except (OSError, http.client.HTTPException, ValueError) as error:
+        raise WgerError(f"Image wger injoignable : {type(error).__name__}") from error
+    if len(body) > MAX_IMAGE_BYTES:
+        raise WgerError("Image wger trop volumineuse")
+    return body

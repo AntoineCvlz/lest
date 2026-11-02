@@ -11,8 +11,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     PATH="/opt/venv/bin:${PATH}"
+# Médias (images d'exercices, ADR 0005) : dossier créé avec les droits de l'utilisateur, pour
+# qu'un volume monté là en hérite.
 RUN groupadd --system --gid 10001 app \
- && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app
+ && useradd --system --uid 10001 --gid app --home-dir /app --shell /usr/sbin/nologin app \
+ && install -d -o app -g app -m 750 /var/lib/lest-media
 WORKDIR /app
 
 # --- Dev : dépendances de dev incluses, code synchronisé par `develop.watch` -------------

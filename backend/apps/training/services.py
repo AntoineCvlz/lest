@@ -1,3 +1,5 @@
+import hashlib
+import logging
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -6,6 +8,8 @@ from typing import Any
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import IntegrityError, models, transaction
 
 from apps.accounts.models import User
@@ -13,9 +17,11 @@ from apps.accounts.selectors import get_one_rm_formula
 from apps.accounts.services import lock_account
 
 from . import wger
+from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
 from .models import (
     Equipment,
     Exercise,
+    ExerciseImage,
     Muscle,
     NameLanguage,
     PersonalRecord,
@@ -25,6 +31,8 @@ from .models import (
     WorkoutExercise,
 )
 from .one_rep_max import estimate_one_rep_max
+
+logger = logging.getLogger(__name__)
 
 
 class EmptyCatalogError(Exception):
@@ -381,3 +389,128 @@ def recompute_all_records(*, owner: User) -> None:
     )
     with transaction.atomic():
         _recompute(owner, exercise_ids, kinds=frozenset({RecordKind.ESTIMATED_ONE_REP_MAX}))
+
+
+# --- Images du catalogue (ADR 0005) -----------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ImageImportReport:
+    imported: int
+    unchanged: int
+    removed: int
+    failed: int
+
+
+def import_wger_images(
+    *, exercises: Sequence[wger.WgerExercise], fetch: Callable[[str], bytes]
+) -> ImageImportReport:
+    """
+    Met à jour les images des exercices du catalogue, après `import_wger_exercises`.
+
+    Une image connue (même `uuid` wger, même URL source, même version de rendu) n'est pas
+    retéléchargée. Une image
+    injoignable ou illisible est comptée en échec et l'import continue : une image manquante
+    n'empêche pas d'utiliser l'exercice. Les images que wger ne liste plus sont supprimées,
+    fichier compris. `fetch` lit les octets d'une URL (`wger.fetch_image`, ou un double en test).
+    """
+    known = {image.wger_uuid: image for image in ExerciseImage.objects.all()}
+    by_uuid = {
+        exercise.wger_uuid: exercise
+        for exercise in Exercise.objects.filter(wger_uuid__in=[item.uuid for item in exercises])
+    }
+    listed: set[UUID] = set()
+    imported = unchanged = failed = 0
+    for item in exercises:
+        exercise = by_uuid.get(item.uuid)
+        if exercise is None:  # exercice ignoré par l'import du catalogue (licence, catégorie)
+            continue
+        for position, source in enumerate(item.images):
+            listed.add(source.uuid)
+            current = known.get(source.uuid)
+            if (
+                current is not None
+                and current.source_url == source.url
+                and current.format_version == FORMAT_VERSION
+                and default_storage.exists(current.file.name or "")
+            ):
+                _update_image(current, exercise, source, position)
+                unchanged += 1
+                continue
+            try:
+                normalized = normalize(fetch(source.url))
+            except (wger.WgerError, ImageRejectedError) as error:
+                # Ni URL ni contenu dans le journal : l'identifiant suffit à retrouver l'image.
+                logger.warning("Image wger %s ignorée : %s", source.uuid, type(error).__name__)
+                failed += 1
+                continue
+            _store_image(current, exercise, source, position, normalized)
+            imported += 1
+    stale = [image for uuid, image in known.items() if uuid not in listed]
+    for image in stale:
+        _delete_image(image)
+    return ImageImportReport(
+        imported=imported, unchanged=unchanged, removed=len(stale), failed=failed
+    )
+
+
+def _update_image(
+    image: ExerciseImage, exercise: Exercise, source: wger.WgerImage, position: int
+) -> None:
+    _update_fields(image, exercise, source, position)
+    image.save(update_fields=["exercise", "is_main", "position", "license", "license_author"])
+
+
+def _store_image(
+    current: ExerciseImage | None,
+    exercise: Exercise,
+    source: wger.WgerImage,
+    position: int,
+    normalized: NormalizedImage,
+) -> None:
+    image = current or ExerciseImage(wger_uuid=source.uuid)
+    previous = image.file.name if current else None
+    image.source_url = source.url
+    image.digest = normalized.digest
+    image.format_version = FORMAT_VERSION
+    with transaction.atomic():
+        _update_fields(image, exercise, source, position)
+        name = f"exercises/{normalized.digest}.webp"
+        if not _stored_intact(name, normalized.digest):
+            # Fichier absent, ou abîmé (écriture interrompue) : servi un an sinon, cache immuable.
+            default_storage.delete(name)
+            default_storage.save(name, ContentFile(normalized.content))
+        image.file.name = name
+        image.save()
+    if previous and previous != name:
+        _delete_file_if_unused(previous)
+
+
+def _update_fields(
+    image: ExerciseImage, exercise: Exercise, source: wger.WgerImage, position: int
+) -> None:
+    image.exercise = exercise
+    image.is_main = source.is_main
+    image.position = position
+    image.license = source.license
+    image.license_author = source.license_author
+
+
+def _stored_intact(name: str, digest: str) -> bool:
+    if not default_storage.exists(name):
+        return False
+    with default_storage.open(name) as stored:
+        return hashlib.sha256(stored.read()).hexdigest() == digest
+
+
+def _delete_image(image: ExerciseImage) -> None:
+    name = image.file.name
+    image.delete()
+    if name:
+        _delete_file_if_unused(name)
+
+
+def _delete_file_if_unused(name: str) -> None:
+    # Plusieurs images identiques partagent un fichier (même empreinte).
+    if not ExerciseImage.objects.filter(file=name).exists():
+        default_storage.delete(name)

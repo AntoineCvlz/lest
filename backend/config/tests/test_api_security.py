@@ -14,7 +14,11 @@ from apps.accounts.mfa_views import (
 from common.auth import jwt_auth
 from config.api import api
 
-PUBLIC_OPERATIONS = {("GET", "/health/")}
+PUBLIC_OPERATIONS = {
+    ("GET", "/health/"),
+    # Images du catalogue (ADR 0005) : publiques comme lui, nommées par leur empreinte.
+    ("GET", "/exercise-images/{name}"),
+}
 
 
 def test_jwt_is_documented_as_a_bearer_scheme() -> None:

@@ -113,6 +113,8 @@ def test_the_exercise_sheet_carries_its_attribution(athlete: Athlete) -> None:
         "license": "CC-BY-SA 4",
         "license_author": "wger contributors",
         "is_active": False,
+        "image": None,  # sans image : pictogramme de la catégorie (ADR 0005)
+        "images": [],
     }
 
 

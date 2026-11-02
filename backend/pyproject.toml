@@ -13,6 +13,7 @@ dependencies = [
     "django-environ>=0.14.0",
     "django-ninja>=1.7.1",
     "gunicorn>=26.2.0",
+    "pillow>=13.0.0",
     "psycopg[binary]>=3.3.6",
     "redis>=6.4.0",
 ]

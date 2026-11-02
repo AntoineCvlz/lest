@@ -108,6 +108,10 @@ TIME_ZONE = "Europe/Paris"
 USE_I18N = True
 USE_TZ = True
 
+# Fichiers produits par l'app (images d'exercices normalisées, ADR 0005) : volume Docker en
+# dev et E2E, stockage objet à décider pour la prod.
+MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 

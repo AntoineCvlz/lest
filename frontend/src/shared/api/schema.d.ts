@@ -254,6 +254,9 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            image: components["schemas"]["ImageOut"] | null;
+            /** Images */
+            images: components["schemas"]["ImageOut"][];
             /** Is Active */
             is_active: boolean;
             /** License */
@@ -295,6 +298,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            image: components["schemas"]["ImageOut"] | null;
             /** Muscles */
             muscles: components["schemas"]["NamedOut"][];
             /** Name */
@@ -359,6 +363,15 @@ export interface components {
              * @enum {string}
              */
             status: "ok" | "degraded";
+        };
+        /** ImageOut */
+        ImageOut: {
+            /** License */
+            license: string;
+            /** License Author */
+            license_author: string;
+            /** Url */
+            url: string;
         };
         /** LastSetsOut */
         LastSetsOut: {
@@ -517,10 +530,16 @@ export interface components {
         /** WorkoutExerciseDetailOut */
         WorkoutExerciseDetailOut: {
             /**
+             * Exercise Category
+             * @enum {string}
+             */
+            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            /**
              * Exercise Id
              * Format: uuid
              */
             exercise_id: string;
+            exercise_image: components["schemas"]["ImageOut"] | null;
             /** Exercise Name */
             exercise_name: string;
             /** Exercise Name Language */

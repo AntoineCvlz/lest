@@ -22,8 +22,12 @@ x-backend: &backend
     # Clés de dev (JWT, chiffrement) générées si absentes de .env : un seul jeu pour api et
     # worker, conservé entre deux recréations (sinon les secrets chiffrés seraient perdus).
     DEV_KEYS_DIR: /var/lib/lest-keys
+    # Images d'exercices normalisées (ADR 0005), partagées par api (qui les sert) et worker
+    # (qui les importe).
+    MEDIA_ROOT: /var/lib/lest-media
   volumes:
     - devkeys:/var/lib/lest-keys
+    - media:/var/lib/lest-media
   depends_on:
     db:
       condition: service_healthy
@@ -142,3 +146,4 @@ services:
 volumes:
   pgdata:
   devkeys:
+  media:

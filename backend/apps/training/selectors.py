@@ -49,7 +49,7 @@ def search_exercises(
     if equipment_id is not None:
         exercises = exercises.filter(equipment__id=equipment_id)
     return paginate(
-        exercises.prefetch_related("muscles", "equipment"),
+        exercises.prefetch_related("muscles", "equipment", "images"),
         keys=("name", "id"),
         cursor=cursor,
         limit=limit,
@@ -60,7 +60,7 @@ def get_exercise(*, exercise_id: UUID) -> Exercise | None:
     """Exercice du catalogue, même retiré de wger (il reste lisible depuis l'historique)."""
     return (
         Exercise.objects.filter(pk=exercise_id)
-        .prefetch_related("muscles", "secondary_muscles", "equipment")
+        .prefetch_related("muscles", "secondary_muscles", "equipment", "images")
         .first()
     )
 
@@ -158,7 +158,7 @@ def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:
             Prefetch(
                 "exercises",
                 queryset=WorkoutExercise.objects.select_related("exercise").prefetch_related(
-                    "sets__records"
+                    "sets__records", "exercise__images"
                 ),
             )
         )
