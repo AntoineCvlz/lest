@@ -2,11 +2,11 @@
 
 Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé d'une main entre deux séries, même sans réseau en salle.
 
-> Phase 1 terminée : comptes (inscription avec code e-mail, connexion, mot de passe oublié), onboarding et profil, export et suppression du compte, double authentification et passkeys, appareils connectés, design system « Fonte calibrée ». Prochaine étape, la musculation (Phase 2) : voir la [roadmap](CLAUDE.md#roadmap).
+> Phases 1 et 2 terminées : comptes sécurisés (code e-mail, double authentification, passkeys, export et suppression RGPD) et **musculation** : catalogue de 701 exercices illustrés, séance en cours avec saisie d'une série en un appui, minuteur de repos, historique, records et programmes avec charge suggérée. Prochaine étape, le corps et la nutrition (Phase 3) : voir la [roadmap](CLAUDE.md#roadmap).
 
 ## Ce que fait Lest
 
-- **Musculation** : séances, séries, charges, RPE, minuteur de repos, records personnels.
+- **Musculation** : séances, séries, charges, RPE, minuteur de repos, records personnels, programmes avec cibles et charge suggérée, catalogue illustré (données RepDB).
 - **Corps** : poids quotidien et moyenne mobile, mensurations, photos de progression privées.
 - **Nutrition** : journal alimentaire, Open Food Facts, scan code-barres, objectifs caloriques et macros.
 - **Autres sports** : course, vélo, natation, sports collectifs, combat…
