@@ -18,6 +18,7 @@ function exercise(id: string, name: string, overrides: object = {}) {
     category: "chest",
     muscles: [{ id: 4, name: "Pectoralis major" }],
     equipment: [{ id: 1, name: "Barre" }],
+    image: null,
     ...overrides,
   };
 }

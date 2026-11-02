@@ -25,6 +25,8 @@ const benchItem = {
   position: 0,
   exercise_name: "Développé couché",
   exercise_name_language: "fr",
+  exercise_category: "chest",
+  exercise_image: null,
   sets: [],
 };
 

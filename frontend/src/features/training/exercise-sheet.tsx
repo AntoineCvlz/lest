@@ -11,6 +11,7 @@ import { kilogramsToDisplay, WEIGHT_UNITS, type UnitSystem } from "@/shared/lib/
 import { Button } from "@/shared/ui/button";
 
 import { CATEGORY_LABELS } from "./categories";
+import { ExerciseImage } from "./exercise-image";
 import { useExercise, useExerciseRecords } from "./use-exercise";
 
 export const EXERCISE_NOT_FOUND = "Cet exercice n’existe pas ou plus.";
@@ -25,6 +26,12 @@ type RecordOut = Schemas["RecordOut"];
 
 function weightText(kilograms: number, system: UnitSystem): string {
   return `${formatNumber(kilogramsToDisplay(kilograms, system))} ${WEIGHT_UNITS[system].symbol}`;
+}
+
+/** Attribution d'une image (ADR 0005) : licence, auteur, modification signalée (CC-BY-SA). */
+export function imageCredit(image: Schemas["ImageOut"]): string {
+  const author = image.license_author || "auteur non renseigné sur wger";
+  return `Image : ${author}, licence ${image.license}, recadrée et convertie.`;
 }
 
 function names(rows: { name: string }[]): string {
@@ -159,6 +166,12 @@ export function ExerciseSheet({ id }: { id: string }) {
           <p className="text-ink-muted">Retiré du catalogue : gardé pour votre historique.</p>
         )}
       </div>
+      <ExerciseImage
+        image={sheet.images[0] ?? null}
+        category={sheet.category}
+        size="large"
+        alt={`Illustration de l’exercice ${sheet.name}`}
+      />
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
         <dt className="text-ink-muted">Catégorie</dt>
         <dd>{CATEGORY_LABELS[sheet.category]}</dd>
@@ -190,6 +203,7 @@ export function ExerciseSheet({ id }: { id: string }) {
       <p className="text-ink-muted text-sm">
         {`Source : wger, licence ${sheet.license}`}
         {sheet.license_author && `, par ${sheet.license_author}`}.{" "}
+        {sheet.images[0] && `${imageCredit(sheet.images[0])} `}
         <Link href="/sources" className="text-ink font-semibold underline underline-offset-4">
           Sources et licences
         </Link>

@@ -38,6 +38,11 @@
   --lest-qr-light: #ffffff;
   --lest-qr-dark: #000000;
 
+  /* Tuiles d'images d'exercices (ADR 0005) : fond blanc dans les deux thèmes, celui des images
+     normalisées ; trait des pictogrammes à 6,9:1 sur ce fond. */
+  --lest-tile: #ffffff;
+  --lest-tile-ink: #4f5d6b;
+
   /* Forme et mouvement */
   --lest-radius-control: 6px;
   --lest-radius-plate: 3px;
