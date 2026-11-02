@@ -121,7 +121,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
 - Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
-- `seed` (Phase 1, après le modèle `User` personnalisé) : utilisateur démo, ~150 exercices (groupes musculaires, équipement), 8 semaines de séances et de poids réalistes.
+- `seed` : utilisateur démo (`seed_demo`), catalogue wger complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records). Poids et mensurations avec la Phase 3.
 - Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
 - E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 

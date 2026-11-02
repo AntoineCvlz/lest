@@ -36,10 +36,13 @@ logs *services:
 sh-api:
     docker compose exec api bash
 
-# Données de démo (dev) : compte demo@example.com vérifié + profil ; mot de passe lu dans
-# LEST_USER_PASSWORD (à définir dans le terminal, jamais en argument)
+# Données de démo (dev) : compte demo@example.com vérifié + profil, catalogue wger avec ses
+# images s'il est vide (quelques minutes la première fois), 8 semaines de séances. Mot de passe
+# lu dans LEST_USER_PASSWORD (à définir dans le terminal, jamais en argument). Relançable.
 seed:
     docker compose exec -e LEST_USER_PASSWORD api python manage.py seed_demo
+    docker compose exec api sh -c "python manage.py shell -c 'import sys; from apps.training.models import Exercise; sys.exit(0 if Exercise.objects.exists() else 1)' || python manage.py import_exercises"
+    docker compose exec api python manage.py seed_training
 
 # Applique les migrations
 migrate:
