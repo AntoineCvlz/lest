@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { TextLink } from "@/features/auth/text-link";
 import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
 import { useWakeLock } from "@/shared/lib/use-wake-lock";
@@ -265,6 +266,9 @@ export function WorkoutSession() {
       >
         Démarrer une séance
       </Button>
+      <TextLink href="/seance/programmes" className="self-start">
+        Mes programmes
+      </TextLink>
       <WorkoutHistory system={profile.data?.unit_system ?? "metric"} />
     </div>
   );
