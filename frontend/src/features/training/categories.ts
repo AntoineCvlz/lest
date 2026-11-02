@@ -12,4 +12,5 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   chest: "Pectoraux",
   legs: "Jambes",
   shoulders: "Épaules",
+  full_body: "Corps entier",
 };

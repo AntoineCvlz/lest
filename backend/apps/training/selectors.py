@@ -69,7 +69,7 @@ def search_exercises(
 
 
 def get_exercise(*, exercise_id: UUID) -> Exercise | None:
-    """Exercice du catalogue, même retiré de wger (il reste lisible depuis l'historique)."""
+    """Exercice du catalogue, même retiré de RepDB (il reste lisible depuis l'historique)."""
     return (
         Exercise.objects.filter(pk=exercise_id)
         .prefetch_related("muscles", "secondary_muscles", "equipment", "images")

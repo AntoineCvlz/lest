@@ -1,8 +1,8 @@
-"""Normalisation des images d'exercices (ADR 0005) : même format pour toutes, quelle que soit
-la source (photo, dessin, PNG transparent, GIF animé).
+"""Normalisation des images d'exercices (ADR 0005, ADR 0006) : même format pour toutes.
 
-Carré de `SIZE` pixels, image entière centrée avec une marge sur un fond clair commun, WebP.
-Le réencodage complet supprime toutes les métadonnées (EXIF, GPS, profils).
+Carré de `SIZE` pixels, image entière centrée sur un fond commun, WebP. Les images de RepDB,
+déjà carrées et homogènes, sont seulement réencodées à leur taille (sans agrandissement). Le
+réencodage complet supprime toutes les métadonnées (EXIF, GPS, profils).
 """
 
 import hashlib
@@ -15,10 +15,12 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 # À augmenter à chaque changement de rendu : l'import refait alors les images d'une version
 # antérieure, sans toucher aux autres.
-FORMAT_VERSION: Final = 1
-SIZE: Final = 640
-MARGIN: Final = 32
-# Blanc : la plupart des images de wger ont déjà ce fond, le cadre reste ainsi uniforme.
+FORMAT_VERSION: Final = 2
+# Taille native des images de RepDB : ni agrandies, ni réduites.
+SIZE: Final = 512
+# Sans marge : les illustrations de RepDB occupent déjà tout le carré, sur leur propre fond.
+MARGIN: Final = 0
+# Fond des rares images non carrées ou transparentes.
 BACKGROUND: Final = (0xFF, 0xFF, 0xFF)
 QUALITY: Final = 80
 # Bien au-delà d'une image d'exercice (quelques mégapixels) : protège de la « bombe de

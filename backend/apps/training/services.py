@@ -1,12 +1,14 @@
 import hashlib
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
@@ -16,7 +18,7 @@ from apps.accounts.models import User
 from apps.accounts.selectors import get_one_rm_formula
 from apps.accounts.services import lock_account
 
-from . import wger
+from . import repdb
 from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
 from .models import (
     Equipment,
@@ -38,8 +40,33 @@ from .one_rep_max import estimate_one_rep_max
 logger = logging.getLogger(__name__)
 
 
+# Verrou d'exclusivité de l'import (cache partagé, Redis) : deux imports simultanés (commande
+# et tâche, ou deux commandes) créeraient les mêmes images en même temps. Durée bornée : un
+# import interrompu ne bloque pas le suivant indéfiniment.
+IMPORT_LOCK = "training:import-exercises"
+IMPORT_LOCK_SECONDS = 60 * 60
+
+
+class ImportRunningError(Exception):
+    """Un import du catalogue est déjà en cours."""
+
+
+@contextmanager
+def import_lock() -> Iterator[None]:
+    """Exécute l'import seul, ou lève `ImportRunningError`. Le verrou n'est rendu que par celui
+    qui le détient (jeton), même s'il a expiré entre-temps."""
+    token = uuid4().hex
+    if not cache.add(IMPORT_LOCK, token, IMPORT_LOCK_SECONDS):
+        raise ImportRunningError
+    try:
+        yield
+    finally:
+        if cache.get(IMPORT_LOCK) == token:
+            cache.delete(IMPORT_LOCK)
+
+
 class EmptyCatalogError(Exception):
-    """wger n'a renvoyé aucun exercice exploitable : rien n'est modifié (sinon tout le
+    """RepDB n'a renvoyé aucun exercice exploitable : rien n'est modifié (sinon tout le
     catalogue serait désactivé sur une réponse vide)."""
 
 
@@ -48,78 +75,66 @@ class ImportReport:
     created: int
     updated: int
     deactivated: int
-    skipped: int
 
 
-def sync_reference_data() -> None:
-    """Muscles et équipements de wger, avec leurs libellés français (`wger.MUSCLES`…)."""
-    for wger_id, (name, is_front) in wger.MUSCLES.items():
-        Muscle.objects.update_or_create(
-            wger_id=wger_id, defaults={"name": name, "is_front": is_front}
+def _reference_data(
+    exercises: Sequence[repdb.RepdbExercise],
+) -> tuple[dict[str, Muscle], dict[str, Equipment]]:
+    """Muscles et équipements cités par le catalogue, avec nos libellés français ; un code
+    encore inconnu garde son code comme libellé, lisible."""
+    muscle_codes = {
+        code for item in exercises for code in item.muscle_codes + item.secondary_muscle_codes
+    }
+    equipment_codes = {code for item in exercises for code in item.equipment_codes}
+    muscles: dict[str, Muscle] = {}
+    for code in sorted(muscle_codes):
+        name, is_front = repdb.MUSCLES.get(code, (code.replace("_", " ")[:60], True))
+        muscles[code], _ = Muscle.objects.update_or_create(
+            code=code, defaults={"name": name, "is_front": is_front}
         )
-    for wger_id, name in wger.EQUIPMENT.items():
-        Equipment.objects.update_or_create(wger_id=wger_id, defaults={"name": name})
+    equipment: dict[str, Equipment] = {}
+    for code in sorted(equipment_codes):
+        name = repdb.EQUIPMENT.get(code, code.replace("_", " ")[:60])
+        equipment[code], _ = Equipment.objects.update_or_create(code=code, defaults={"name": name})
+    return muscles, equipment
 
 
-def import_wger_exercises(*, exercises: Sequence[wger.WgerExercise]) -> ImportReport:
+def import_exercises(*, exercises: Sequence[repdb.RepdbExercise]) -> ImportReport:
     """
-    Met le catalogue à jour depuis wger (ADR 0004), en une transaction.
+    Met le catalogue à jour depuis RepDB (ADR 0006), en une transaction.
 
-    Rejouable : la clé est l'`uuid` de wger. Un exercice est ignoré si sa licence n'est pas
-    acceptée (`wger.LICENSES`), s'il n'a ni nom français ni nom anglais, ou si sa catégorie est
-    inconnue. Un exercice qui n'est plus chez wger est désactivé, jamais supprimé : il peut
-    figurer dans des séances. Lève `EmptyCatalogError` si aucun exercice n'est exploitable.
+    Rejouable : la clé est l'identifiant RepDB. Un exercice qui n'est plus chez RepDB est
+    désactivé, jamais supprimé : il peut figurer dans des séances. Lève `EmptyCatalogError` si
+    aucun exercice n'est exploitable.
     """
-    usable = [(item, named) for item in exercises if (named := _usable_name(item))]
-    if not usable:
+    if not exercises:
         raise EmptyCatalogError
     created = updated = 0
     with transaction.atomic():
-        sync_reference_data()
-        muscles = {m.wger_id: m for m in Muscle.objects.all()}
-        equipment = {e.wger_id: e for e in Equipment.objects.filter(wger_id__isnull=False)}
-        for item, (name, language) in usable:
+        muscles, equipment = _reference_data(exercises)
+        for item in exercises:
             exercise, was_created = Exercise.objects.update_or_create(
-                wger_uuid=item.uuid,
+                source_id=item.id,
                 defaults={
-                    "name": name,
-                    "name_language": language,
-                    "category": wger.CATEGORIES[item.category_id],
-                    "license": item.license,
-                    "license_author": item.license_author[:200],
-                    "source_updated_at": item.updated_at,
+                    "name": item.name,
+                    "name_language": NameLanguage.ENGLISH,
+                    "category": item.category,
+                    "license": repdb.LICENSE,
+                    "license_author": repdb.AUTHOR,
                     "is_active": True,
                 },
             )
-            exercise.muscles.set([muscles[i] for i in item.muscle_ids if i in muscles])
-            exercise.secondary_muscles.set(
-                [muscles[i] for i in item.secondary_muscle_ids if i in muscles]
-            )
-            exercise.equipment.set([equipment[i] for i in item.equipment_ids if i in equipment])
+            exercise.muscles.set([muscles[code] for code in item.muscle_codes])
+            exercise.secondary_muscles.set([muscles[code] for code in item.secondary_muscle_codes])
+            exercise.equipment.set([equipment[code] for code in item.equipment_codes])
             created += was_created
             updated += not was_created
         deactivated = (
-            Exercise.objects.filter(wger_uuid__isnull=False, is_active=True)
-            .exclude(wger_uuid__in=[item.uuid for item, _ in usable])
+            Exercise.objects.filter(source_id__isnull=False, is_active=True)
+            .exclude(source_id__in=[item.id for item in exercises])
             .update(is_active=False)
         )
-    return ImportReport(
-        created=created,
-        updated=updated,
-        deactivated=deactivated,
-        skipped=len(exercises) - len(usable),
-    )
-
-
-def _usable_name(item: wger.WgerExercise) -> tuple[str, NameLanguage] | None:
-    """Nom affiché et sa langue (français, sinon anglais), ou `None` si l'exercice est ignoré."""
-    if item.license not in wger.LICENSES or item.category_id not in wger.CATEGORIES:
-        return None
-    if item.name_fr:
-        return item.name_fr[:200], NameLanguage.FRENCH
-    if item.name_en:
-        return item.name_en[:200], NameLanguage.ENGLISH
-    return None
+    return ImportReport(created=created, updated=updated, deactivated=deactivated)
 
 
 # --- Séances : écritures idempotentes (ADR 0003) -------------------------------------------
@@ -535,7 +550,7 @@ def recompute_all_records(*, owner: User) -> None:
         _recompute(owner, exercise_ids, kinds=frozenset({RecordKind.ESTIMATED_ONE_REP_MAX}))
 
 
-# --- Images du catalogue (ADR 0005) -----------------------------------------------------------
+# --- Images du catalogue (ADR 0006) -----------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -546,51 +561,52 @@ class ImageImportReport:
     failed: int
 
 
-def import_wger_images(
-    *, exercises: Sequence[wger.WgerExercise], fetch: Callable[[str], bytes]
+def import_images(
+    *, exercises: Sequence[repdb.RepdbExercise], fetch: Callable[[str], bytes]
 ) -> ImageImportReport:
     """
-    Met à jour les images des exercices du catalogue, après `import_wger_exercises`.
+    Met à jour les images des exercices du catalogue, après `import_exercises`.
 
-    Une image connue (même `uuid` wger, même URL source, même version de rendu) n'est pas
-    retéléchargée. Une image
-    injoignable ou illisible est comptée en échec et l'import continue : une image manquante
-    n'empêche pas d'utiliser l'exercice. Les images que wger ne liste plus sont supprimées,
-    fichier compris. `fetch` lit les octets d'une URL (`wger.fetch_image`, ou un double en test).
+    Une image connue (même exercice et position, même source, même version de rendu, fichier
+    intact) n'est pas retéléchargée. Une image injoignable ou illisible est comptée en échec et
+    l'import continue. Les images que RepDB ne liste plus sont supprimées, fichier compris.
+    `fetch` lit les octets d'un chemin RepDB (`repdb.fetch_image`, ou un double en test).
     """
-    known = {image.wger_uuid: image for image in ExerciseImage.objects.all()}
-    by_uuid = {
-        exercise.wger_uuid: exercise
-        for exercise in Exercise.objects.filter(wger_uuid__in=[item.uuid for item in exercises])
+    known = {(image.exercise_id, image.pose): image for image in ExerciseImage.objects.all()}
+    by_source = {
+        exercise.source_id: exercise
+        for exercise in Exercise.objects.filter(source_id__in=[item.id for item in exercises])
     }
-    listed: set[UUID] = set()
+    listed: set[tuple[UUID, str]] = set()
     imported = unchanged = failed = 0
     for item in exercises:
-        exercise = by_uuid.get(item.uuid)
-        if exercise is None:  # exercice ignoré par l'import du catalogue (licence, catégorie)
+        exercise = by_source.get(item.id)
+        if exercise is None:  # catalogue pas encore importé pour cet exercice
             continue
-        for position, source in enumerate(item.images):
-            listed.add(source.uuid)
-            current = known.get(source.uuid)
+        for source in item.images:
+            key = (exercise.pk, source.pose)
+            listed.add(key)
+            current = known.get(key)
             if (
                 current is not None
-                and current.source_url == source.url
+                and current.source_url == source.path
                 and current.format_version == FORMAT_VERSION
                 and default_storage.exists(current.file.name or "")
             ):
-                _update_image(current, exercise, source, position)
                 unchanged += 1
                 continue
             try:
-                normalized = normalize(fetch(source.url))
-            except (wger.WgerError, ImageRejectedError) as error:
-                # Ni URL ni contenu dans le journal : l'identifiant suffit à retrouver l'image.
-                logger.warning("Image wger %s ignorée : %s", source.uuid, type(error).__name__)
+                normalized = normalize(fetch(source.path))
+            except (repdb.RepdbError, ImageRejectedError) as error:
+                # Ni chemin ni contenu dans le journal : l'exercice et la position suffisent.
+                logger.warning(
+                    "Image RepDB %s/%s ignorée : %s", item.id, source.pose, type(error).__name__
+                )
                 failed += 1
                 continue
-            _store_image(current, exercise, source, position, normalized)
+            _store_image(current, exercise, source, normalized)
             imported += 1
-    stale = [image for uuid, image in known.items() if uuid not in listed]
+    stale = [image for key, image in known.items() if key not in listed]
     for image in stale:
         _delete_image(image)
     return ImageImportReport(
@@ -598,28 +614,22 @@ def import_wger_images(
     )
 
 
-def _update_image(
-    image: ExerciseImage, exercise: Exercise, source: wger.WgerImage, position: int
-) -> None:
-    _update_fields(image, exercise, source, position)
-    image.save(update_fields=["exercise", "is_main", "position", "license", "license_author"])
-
-
 def _store_image(
     current: ExerciseImage | None,
     exercise: Exercise,
-    source: wger.WgerImage,
-    position: int,
+    source: repdb.RepdbImage,
     normalized: NormalizedImage,
 ) -> None:
-    image = current or ExerciseImage(wger_uuid=source.uuid)
+    image = current or ExerciseImage(exercise=exercise, pose=source.pose)
     previous = image.file.name if current else None
-    image.source_url = source.url
+    image.position = repdb.POSES.index(source.pose)
+    image.source_url = source.path
     image.digest = normalized.digest
     image.format_version = FORMAT_VERSION
+    image.license = repdb.LICENSE
+    image.license_author = repdb.AUTHOR
+    name = f"exercises/{normalized.digest}.webp"
     with transaction.atomic():
-        _update_fields(image, exercise, source, position)
-        name = f"exercises/{normalized.digest}.webp"
         if not _stored_intact(name, normalized.digest):
             # Fichier absent, ou abîmé (écriture interrompue) : servi un an sinon, cache immuable.
             default_storage.delete(name)
@@ -628,16 +638,6 @@ def _store_image(
         image.save()
     if previous and previous != name:
         _delete_file_if_unused(previous)
-
-
-def _update_fields(
-    image: ExerciseImage, exercise: Exercise, source: wger.WgerImage, position: int
-) -> None:
-    image.exercise = exercise
-    image.is_main = source.is_main
-    image.position = position
-    image.license = source.license
-    image.license_author = source.license_author
 
 
 def _stored_intact(name: str, digest: str) -> bool:

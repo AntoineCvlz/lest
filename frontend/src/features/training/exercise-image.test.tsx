@@ -38,6 +38,23 @@ describe("ExerciseImage", () => {
     );
   });
 
+  it("superpose la seconde position sans attribut style (CSP)", () => {
+    const peak = { ...IMAGE, url: `/api/v1/exercise-images/${"b".repeat(64)}.webp` };
+    const { container } = render(
+      <ExerciseImage
+        image={IMAGE}
+        alternate={peak}
+        category="chest"
+        size="large"
+        alt="Mouvement"
+      />,
+    );
+
+    const images = container.querySelectorAll("img");
+    expect([...images].map((img) => img.getAttribute("src"))).toEqual([IMAGE.url, peak.url]);
+    expect(container.querySelector("[style]")).toBeNull();
+  });
+
   it("remplace une image absente par le pictogramme de la catégorie", () => {
     const { container, rerender } = render(
       <ExerciseImage image={null} category="legs" size="small" />,

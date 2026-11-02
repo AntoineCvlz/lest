@@ -14,7 +14,7 @@ else:
 
 @admin.register(Exercise)
 class ExerciseAdmin(BaseExerciseAdmin):
-    """Consultation du catalogue : il ne se modifie que par l'import wger."""
+    """Consultation du catalogue : il ne se modifie que par l'import RepDB (ADR 0006)."""
 
     list_display = ("name", "name_language", "category", "license", "is_active")
     list_filter = ("category", "name_language", "is_active", "license")

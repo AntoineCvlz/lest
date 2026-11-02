@@ -1,4 +1,4 @@
-"""Musculation : catalogue d'exercices (importé de wger, ADR 0004), séances et séries.
+"""Musculation : catalogue d'exercices (importé de RepDB, ADR 0006), séances et séries.
 
 Le catalogue est commun à tous les comptes ; séances et séries sont propres à chacun.
 """
@@ -19,17 +19,19 @@ class Category(models.TextChoices):
     CHEST = "chest", "Pectoraux"
     LEGS = "legs", "Jambes"
     SHOULDERS = "shoulders", "Épaules"
+    FULL_BODY = "full_body", "Corps entier"
 
 
 class NameLanguage(models.TextChoices):
-    """Langue du nom affiché : wger n'a pas de nom français pour un tiers des exercices."""
+    """Langue du nom affiché : RepDB ne fournit pas de nom français (ADR 0006)."""
 
     FRENCH = "fr", "Français"
     ENGLISH = "en", "Anglais"
 
 
 class Muscle(models.Model):
-    wger_id = models.PositiveIntegerField(unique=True)
+    # Code de RepDB (`latissimus_dorsi`) : clé de l'import ; libellé français à nous.
+    code = models.CharField(max_length=40, unique=True)
     name = models.CharField(max_length=60)
     is_front = models.BooleanField()
 
@@ -41,9 +43,9 @@ class Muscle(models.Model):
 
 
 class Equipment(models.Model):
-    """Équipement : ceux de wger, puis les machines de salle ajoutées par Lest (sans `wger_id`)."""
+    """Équipement : ceux de RepDB, puis les machines de salle ajoutées par Lest (sans code)."""
 
-    wger_id = models.PositiveIntegerField(unique=True, null=True, blank=True)
+    code = models.CharField(max_length=60, unique=True, null=True, blank=True)
     name = models.CharField(max_length=60, unique=True)
 
     class Meta:
@@ -56,8 +58,8 @@ class Equipment(models.Model):
 
 class Exercise(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    # Identifiant stable de wger : clé de l'import, qui le rend rejouable sans doublon.
-    wger_uuid = models.UUIDField(unique=True, null=True, blank=True)
+    # Identifiant stable de RepDB (`bench-press`) : clé de l'import, rejouable sans doublon.
+    source_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
     name = models.CharField(max_length=200)
     name_language = models.CharField(max_length=2, choices=NameLanguage)
     category = models.CharField(max_length=20, choices=Category)
@@ -66,12 +68,11 @@ class Exercise(models.Model):
         Muscle, related_name="secondary_exercises", blank=True
     )
     equipment = models.ManyToManyField(Equipment, related_name="exercises", blank=True)
-    # Attribution (CC-BY-SA, ADR 0004) : licence et auteur tels que fournis par wger.
-    license = models.CharField(max_length=20)
+    # Attribution (licence RepDB, ADR 0006).
+    license = models.CharField(max_length=40)
     license_author = models.CharField(max_length=200, blank=True)
-    # Retiré de wger : gardé pour l'historique des séances, masqué de la recherche.
+    # Retiré de RepDB : gardé pour l'historique des séances, masqué de la recherche.
     is_active = models.BooleanField(default=True)
-    source_updated_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -95,30 +96,43 @@ class Exercise(models.Model):
         return self.name
 
 
+class Pose(models.TextChoices):
+    """Position illustrée : départ et effort (le mouvement), ou position unique (étirement)."""
+
+    START = "start", "Départ"
+    PEAK = "peak", "Effort"
+    MAIN = "main", "Position"
+
+
 class ExerciseImage(models.Model):
-    """Image d'un exercice, importée de wger et normalisée (ADR 0005) : WebP carré, servi par
-    Lest sous le nom de son empreinte. Licence et auteur gardés pour l'attribution."""
+    """Image d'un exercice, importée de RepDB et réencodée (ADR 0006) : WebP servi par Lest
+    sous le nom de son empreinte. Licence et auteur gardés pour l'attribution."""
 
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name="images")
-    # Clé de l'import : rejouable sans doublon, et sans retélécharger une image connue.
-    wger_uuid = models.UUIDField(unique=True)
+    pose = models.CharField(max_length=5, choices=Pose)
+    # Ordre d'affichage : départ, effort, position unique.
+    position = models.PositiveSmallIntegerField()
+    # Clé de retéléchargement : une image connue (même chemin source) n'est pas reprise.
     source_url = models.URLField(max_length=500)
     file = models.FileField(upload_to="exercises/")
     # SHA-256 du fichier : nom immuable (cache long) ; deux images identiques le partagent.
     digest = models.CharField(max_length=64, db_index=True)
     # Version du rendu (`images.FORMAT_VERSION`) qui a produit le fichier.
     format_version = models.PositiveSmallIntegerField()
-    is_main = models.BooleanField(default=False)
-    position = models.PositiveSmallIntegerField(default=0)
-    license = models.CharField(max_length=20)
+    license = models.CharField(max_length=40)
     license_author = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Image principale d'abord, puis l'ordre de wger.
-        ordering = ("-is_main", "position")
+        ordering = ("position",)
         constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(
+                fields=("exercise", "pose"), name="training_exerciseimage_one_per_pose"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(pose__in=Pose.values), name="training_exerciseimage_pose"
+            ),
             models.CheckConstraint(
                 condition=models.Q(digest__regex=r"^[0-9a-f]{64}$"),
                 name="training_exerciseimage_digest_sha256",

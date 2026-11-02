@@ -30,7 +30,7 @@ just migrate              # dans un second terminal, au premier démarrage
 | API + doc interactive | http://localhost:8000/api/v1/docs/ |
 | E-mails capturés (Mailpit) | http://localhost:8025 |
 
-Compte de démo (`demo@example.com`, profil rempli, 8 semaines de séances poussée/tirage/jambes avec leurs records) : définir `LEST_USER_PASSWORD` dans le terminal, puis `just seed` (la première fois, importe aussi le catalogue wger et ses images : quelques minutes). Autre compte déjà vérifié ; le mot de passe est lu dans l'environnement :
+Compte de démo (`demo@example.com`, profil rempli, 8 semaines de séances poussée/tirage/jambes avec leurs records) : définir `LEST_USER_PASSWORD` dans le terminal, puis `just seed` (la première fois, importe aussi le catalogue RepDB et ses images : quelques minutes). Autre compte déjà vérifié ; le mot de passe est lu dans l'environnement :
 
 ```sh
 LEST_USER_PASSWORD='…' docker compose exec -e LEST_USER_PASSWORD api python manage.py create_verified_user --email moi@example.com
@@ -51,8 +51,9 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0001 — authentification JWT `django-allauth` derrière un proxy Next.js (BFF)](docs/adr/0001-choix-auth.md)
 - [ADR 0002 — chiffrement au repos des secrets et champs sensibles (Fernet)](docs/adr/0002-chiffrement-au-repos.md)
 - [ADR 0003 — écritures de séance idempotentes (UUID client, `PUT`), pour le hors-ligne](docs/adr/0003-ecritures-idempotentes-hors-ligne.md)
-- [ADR 0004 — catalogue d'exercices importé de wger, sous licence CC-BY-SA](docs/adr/0004-donnees-exercices-wger.md)
-- [ADR 0005 — images des exercices : wger normalisées et servies par Lest, pictogrammes sinon](docs/adr/0005-images-exercices.md)
+- [ADR 0004 — catalogue d'exercices importé de wger, sous licence CC-BY-SA](docs/adr/0004-donnees-exercices-wger.md) (remplacé par l'ADR 0006)
+- [ADR 0005 — images des exercices : wger normalisées et servies par Lest, pictogrammes sinon](docs/adr/0005-images-exercices.md) (remplacé par l'ADR 0006)
+- [ADR 0006 — catalogue d'exercices et images de RepDB, à la place de wger](docs/adr/0006-catalogue-repdb.md)
 
 ## Qualité et sécurité
 

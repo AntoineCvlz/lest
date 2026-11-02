@@ -5,11 +5,19 @@ import { TextLink } from "@/features/auth/text-link";
 
 export const metadata: Metadata = { title: "Sources et licences" };
 
-function External({ href, children }: { href: string; children: ReactNode }) {
+function External({
+  href,
+  rel = "noopener noreferrer",
+  children,
+}: {
+  href: string;
+  rel?: string;
+  children: ReactNode;
+}) {
   return (
     <a
       href={href}
-      rel="noopener noreferrer"
+      rel={rel}
       className="text-ink inline-flex min-h-11 items-center font-semibold underline underline-offset-4"
     >
       {children}
@@ -17,7 +25,7 @@ function External({ href, children }: { href: string; children: ReactNode }) {
   );
 }
 
-/** Attribution exigée par les licences des données d'exercices (ADR 0004). Page publique. */
+/** Crédits exigés par les licences des données d'exercices (ADR 0006). Page publique. */
 export default function SourcesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pt-8 pb-10 sm:pt-16">
@@ -29,38 +37,19 @@ export default function SourcesPage() {
           Catalogue d’exercices
         </h2>
         <p>
-          Les exercices, leurs muscles et leurs équipements viennent de{" "}
-          <External href="https://wger.de">wger</External>, base libre tenue par sa communauté. Lest
-          les importe chaque mois.
+          Les exercices, leurs muscles, leurs équipements et leurs illustrations viennent de l’offre
+          gratuite de RepDB, utilisée dans Lest selon sa licence (usage dans l’application, avec
+          attribution). Lest les importe chaque mois, les redimensionne et traduit en français les
+          catégories, muscles et équipements.
         </p>
         <p>
-          Chaque exercice garde sa licence d’origine, y compris une fois adapté, et le nom de ses
-          auteurs, indiqués sur sa fiche :
+          <External href="https://repdb.co" rel="nofollow noopener noreferrer">
+            Exercise data by RepDB (repdb.co)
+          </External>
         </p>
-        <ul className="flex list-disc flex-col gap-1 pl-6">
-          <li>
-            <External href="https://creativecommons.org/licenses/by-sa/4.0/deed.fr">
-              CC BY-SA 4.0
-            </External>{" "}
-            et{" "}
-            <External href="https://creativecommons.org/licenses/by-sa/3.0/deed.fr">
-              CC BY-SA 3.0
-            </External>{" "}
-            : attribution, partage dans les mêmes conditions ;
-          </li>
-          <li>
-            <External href="https://creativecommons.org/licenses/by/4.0/deed.fr">
-              CC BY 4.0
-            </External>{" "}
-            : attribution ;
-          </li>
-          <li>
-            <External href="https://creativecommons.org/publicdomain/zero/1.0/deed.fr">
-              CC0 1.0
-            </External>{" "}
-            : domaine public.
-          </li>
-        </ul>
+        <p className="text-ink-muted">
+          Ces données ne sont ni redistribuées ni réutilisées hors de l’application.
+        </p>
       </section>
       <section aria-labelledby="application" className="flex flex-col gap-3">
         <h2 id="application" className="text-xl font-bold">

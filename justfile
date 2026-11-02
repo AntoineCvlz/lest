@@ -36,7 +36,7 @@ logs *services:
 sh-api:
     docker compose exec api bash
 
-# Données de démo (dev) : compte demo@example.com vérifié + profil, catalogue wger avec ses
+# Données de démo (dev) : compte demo@example.com vérifié + profil, catalogue RepDB avec ses
 # images s'il est vide (quelques minutes la première fois), 8 semaines de séances. Mot de passe
 # lu dans LEST_USER_PASSWORD (à définir dans le terminal, jamais en argument). Relançable.
 seed:

@@ -22,8 +22,8 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   await page.getByRole("button", { name: "Ajouter un exercice" }).click();
-  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("developpe couche");
-  const choice = page.getByRole("button", { name: /^Développé couché/ }).first();
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("barbell bench press");
+  const choice = page.getByRole("button", { name: /^Barbell Bench Press/ }).first();
   await expect(choice).toBeEnabled();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   await choice.click();
@@ -59,7 +59,7 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   await expect(plan).toContainText("1 série");
   // Rechargement : la séance en cours est reprise.
   await page.reload();
-  await expect(plan).toContainText("Développé couché");
+  await expect(plan).toContainText("Barbell Bench Press");
 
   await page.getByRole("button", { name: "Terminer la séance" }).click();
   await page.getByRole("button", { name: "Terminer", exact: true }).click();
@@ -72,7 +72,7 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   await expect(history).toContainText("1 exercice, 1 série, 202,5 kg");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   await history.getByRole("link").click();
-  await expect(page.getByRole("region", { name: "Développé couché" })).toContainText(
+  await expect(page.getByRole("region", { name: "Barbell Bench Press" })).toContainText(
     "Série 1 : 22,5 kg × 9",
   );
   expect(cspViolations).toEqual([]);

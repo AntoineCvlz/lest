@@ -5,6 +5,22 @@
  * Exposition des tokens à Tailwind sous des noms d'usage (bg-ground, text-ink, bg-accent…).
  * `inline` : les utilitaires référencent la variable --lest-*, qui change avec le thème.
  */
+/* Alternance départ / effort des illustrations d'exercices (ADR 0006) : changement net toutes
+   les 1,2 s, sans fondu. Coupée par `motion-reduce:hidden` sur l'image d'effort. */
+@theme {
+  --animate-pose: pose 2.4s steps(1, end) infinite;
+
+  @keyframes pose {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
+
 @theme inline {
   --color-ground: var(--lest-ground);
   --color-surface: var(--lest-surface);

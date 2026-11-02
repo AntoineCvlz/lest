@@ -28,12 +28,6 @@ function weightText(kilograms: number, system: UnitSystem): string {
   return `${formatNumber(kilogramsToDisplay(kilograms, system))} ${WEIGHT_UNITS[system].symbol}`;
 }
 
-/** Attribution d'une image (ADR 0005) : licence, auteur, modification signalée (CC-BY-SA). */
-export function imageCredit(image: Schemas["ImageOut"]): string {
-  const author = image.license_author || "auteur non renseigné sur wger";
-  return `Image : ${author}, licence ${image.license}, recadrée et convertie.`;
-}
-
 function names(rows: { name: string }[]): string {
   return rows.map((row) => row.name).join(", ");
 }
@@ -121,7 +115,7 @@ function Records({ id, system }: { id: string; system: UnitSystem }) {
   );
 }
 
-/** Fiche d'exercice : description du catalogue, attribution wger, records du compte. */
+/** Fiche d’exercice : description du catalogue, crédit RepDB, records du compte. */
 export function ExerciseSheet({ id }: { id: string }) {
   const exercise = useExercise(id);
   const profile = useProfile();
@@ -159,18 +153,21 @@ export function ExerciseSheet({ id }: { id: string }) {
         >
           {sheet.name}
         </h1>
-        {sheet.name_language === "en" && (
-          <p className="text-ink-muted">Pas encore de nom français : nom anglais affiché.</p>
-        )}
         {!sheet.is_active && (
           <p className="text-ink-muted">Retiré du catalogue : gardé pour votre historique.</p>
         )}
       </div>
       <ExerciseImage
         image={sheet.images[0] ?? null}
+        // Départ puis effort (ADR 0006) : les deux images alternent pour montrer le mouvement.
+        alternate={sheet.images[1] ?? null}
         category={sheet.category}
         size="large"
-        alt={`Illustration de l’exercice ${sheet.name}`}
+        alt={
+          sheet.images.length > 1
+            ? `Illustration de l’exercice ${sheet.name}, position de départ et position d’effort`
+            : `Illustration de l’exercice ${sheet.name}`
+        }
       />
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
         <dt className="text-ink-muted">Catégorie</dt>
@@ -201,9 +198,15 @@ export function ExerciseSheet({ id }: { id: string }) {
         <Records id={id} system={system} />
       </section>
       <p className="text-ink-muted text-sm">
-        {`Source : wger, licence ${sheet.license}`}
-        {sheet.license_author && `, par ${sheet.license_author}`}.{" "}
-        {sheet.images[0] && `${imageCredit(sheet.images[0])} `}
+        {/* Mention exigée par la licence RepDB (ADR 0006), lien compris. */}
+        <a
+          href="https://repdb.co"
+          rel="nofollow noopener noreferrer"
+          className="text-ink font-semibold underline underline-offset-4"
+        >
+          Exercise data by RepDB (repdb.co)
+        </a>
+        .{" "}
         <Link href="/sources" className="text-ink font-semibold underline underline-offset-4">
           Sources et licences
         </Link>

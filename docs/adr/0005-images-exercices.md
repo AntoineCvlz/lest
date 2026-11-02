@@ -1,6 +1,6 @@
 # ADR 0005 — Illustrer les exercices avec les images de wger, normalisées et servies par Lest
 
-- **Statut** : proposé
+- **Statut** : remplacé par ADR 0006
 - **Date** : 2026-10-30
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

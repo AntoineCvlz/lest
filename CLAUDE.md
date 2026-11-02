@@ -59,7 +59,7 @@ Package `basicfit` (v1.0.0, juillet 2026, MIT, un seul mainteneur) : client asyn
 
 Non exposé : journal de progression des séances, affluence des clubs. Vérifier le dépôt avant la Phase 4 ; proposer une PR upstream si simple.
 
-**Exercices** : source principale API REST wger (`/api/v2/exerciseinfo/`, ~845 exercices, CC-BY-SA → **attribution obligatoire dans l'app**), synchronisée par la commande `import_exercises`. Machines guidées de salle ajoutées comme `Equipment` maison, annotables par club (« présent dans ma salle »). Secours : free-exercise-db (domaine public).
+**Exercices** (ADR 0006, remplace wger) : offre gratuite de **RepDB** (701 exercices illustrés dans un style unique, positions départ et effort), importée par `import_exercises` depuis le dépôt GitHub officiel de RepDB. Licence maison : usage dans l'app avec la mention **« Exercise data by RepDB (repdb.co) »**, **rien du jeu de données dans notre dépôt public** (ni JSON, ni images, ni traduction des noms : tests sur des exercices fictifs), aucune IA générative sur les images. Noms en anglais ; catégories, muscles et équipements traduits par nos libellés. Machines guidées de salle ajoutées comme `Equipment` maison, annotables par club (« présent dans ma salle »). Secours : Everkinetic (CC-BY-SA).
 
 ### Règles d'implémentation
 
@@ -121,7 +121,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
 - Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
-- `seed` : utilisateur démo (`seed_demo`), catalogue wger complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records). Poids et mensurations avec la Phase 3.
+- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records). Poids et mensurations avec la Phase 3.
 - Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
 - E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 
@@ -260,7 +260,7 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 
 0. **Socle** ✅ (2026-10-27) : monorepo, Compose + hot reload, Django + Next.js « hello » reliés, pre-commit, CI complète (16 checks requis sur `main`), `CLAUDE.md`, ADR 0001 (auth).
 1. **Comptes & design system** ✅ (2026-10-29) : direction « Fonte calibrée », tokens, Storybook ; auth allauth + JWT + BFF, inscription, connexion, mot de passe oublié ; profil, onboarding, pages privées ; `seed` de démo ; export et suppression RGPD ; double authentification (TOTP, codes de secours) et passkeys, connexion sans mot de passe ; appareils connectés ; ADR 0002 (chiffrement au repos).
-2. **Musculation** : import wger + équipements, séance en cours, séries, minuteur, historique, records.
+2. **Musculation** : catalogue RepDB illustré + équipements, séance en cours, séries, minuteur, historique, records, programmes.
 3. **Corps & nutrition** : poids + moyenne mobile, mensurations, photos, journal alimentaire, Open Food Facts, objectifs macros.
 4. **Autres sports & insights** : activités génériques, Basic-Fit (visites, pesées, clubs, recettes), tableau de bord, graphiques accessibles.
 5. **Mobile** : PWA installable, hors ligne + synchronisation, notifications. Option : app native Expo réutilisant le client API typé.

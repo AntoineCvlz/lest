@@ -10,13 +10,13 @@ flowchart LR
     user(["Pratiquant·e<br/>(mobile en salle, desktop)"])
     lest["Lest<br/>suivi musculation, corps, nutrition, sports"]
     off[("Open Food Facts<br/>aliments, codes-barres")]
-    wger[("wger<br/>catalogue d'exercices, CC-BY-SA")]
+    repdb[("RepDB<br/>catalogue d'exercices illustré, attribution")]
     bf[("API Basic-Fit<br/>non officielle, optionnelle")]
     mail[("Serveur SMTP<br/>e-mails de compte")]
 
     user -- "HTTPS (PWA)" --> lest
     lest -- "recherche, scan" --> off
-    lest -- "import_exercises" --> wger
+    lest -- "import_exercises" --> repdb
     lest -. "visites, pesées, clubs<br/>(BASICFIT_ENABLED)" .-> bf
     lest -- "vérification, reset" --> mail
 ```

@@ -41,7 +41,7 @@ def test_loads_progress_with_a_deload_week() -> None:
     bench = [
         max(one.weight_kg for one in workout.exercises[0].sets)
         for workout in demo.plan(today=TODAY)
-        if workout.exercises[0].name == "Développé couché"
+        if workout.exercises[0].source_id == "bench-press"
     ]
 
     assert bench[0] < bench[3]
@@ -63,8 +63,8 @@ def test_compound_lifts_start_with_a_lighter_warm_up_set() -> None:
 
 @pytest.fixture
 def catalog() -> None:
-    for name in demo.EXERCISE_NAMES:
-        make_exercise(name=name)
+    for source_id in demo.SOURCE_IDS:
+        make_exercise(name=source_id, source_id=source_id)
 
 
 @pytest.fixture
