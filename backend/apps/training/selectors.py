@@ -10,6 +10,7 @@ from django.db.models import (
     F,
     Prefetch,
     Q,
+    QuerySet,
     Sum,
     Value,
 )
@@ -18,7 +19,18 @@ from django.db.models.functions import Coalesce
 from apps.accounts.models import User
 from common.pagination import Page, paginate
 
-from .models import Equipment, Exercise, Muscle, PersonalRecord, Set, Workout, WorkoutExercise
+from .models import (
+    Equipment,
+    Exercise,
+    Muscle,
+    PersonalRecord,
+    Program,
+    ProgramDay,
+    ProgramExercise,
+    Set,
+    Workout,
+    WorkoutExercise,
+)
 
 # Recherche : quelques mots, chacun présent dans le nom (sans accents ni casse).
 MAX_SEARCH_TERMS = 5
@@ -210,6 +222,56 @@ def export_records(*, owner: User) -> list[dict[str, Any]]:
     ]
 
 
+def _programs(owner: User) -> QuerySet[Program]:
+    return Program.objects.filter(owner=owner).prefetch_related(
+        Prefetch(
+            "days",
+            queryset=ProgramDay.objects.prefetch_related(
+                Prefetch(
+                    "exercises",
+                    queryset=ProgramExercise.objects.select_related("exercise").prefetch_related(
+                        "exercise__images"
+                    ),
+                )
+            ),
+        )
+    )
+
+
+def list_programs(*, owner: User) -> list[Program]:
+    """Programmes de `owner`, avec leurs séances types et exercices (peu nombreux, plafonnés)."""
+    return list(_programs(owner))
+
+
+def get_program(*, owner: User, program_id: UUID) -> Program | None:
+    """Programme de `owner`, ou `None` (absent ou d'un autre compte)."""
+    return _programs(owner).filter(pk=program_id).first()
+
+
+def export_programs(*, owner: User) -> list[dict[str, Any]]:
+    """Programmes de `owner` pour l'export RGPD, sans identifiants internes."""
+    return [
+        {
+            "name": program.name,
+            "days": [
+                {
+                    "name": day.name,
+                    "exercises": [
+                        {
+                            "exercise": planned.exercise.name,
+                            "target_sets": planned.target_sets,
+                            "target_reps": planned.target_reps,
+                        }
+                        for planned in day.exercises.all()
+                    ],
+                }
+                for day in program.days.all()
+            ],
+        }
+        for program in _programs(owner)
+    ]
+
+
 def export_workouts(*, owner: User) -> list[dict[str, Any]]:
     """Séances de `owner` pour l'export RGPD : dates, exercices (nom du catalogue) et séries,
     sans identifiants internes."""
@@ -226,6 +288,9 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
             "exercises": [
                 {
                     "exercise": item.exercise.name,
+                    # Cible recopiée du programme : seule trace une fois le programme supprimé.
+                    "target_sets": item.target_sets,
+                    "target_reps": item.target_reps,
                     "sets": [
                         {
                             "weight_kg": float(one.weight_kg),

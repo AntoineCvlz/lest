@@ -67,6 +67,8 @@ Moment = Annotated[AwareDatetime, AfterValidator(_plausible)]
 class WorkoutIn(Schema):
     started_at: Moment
     ended_at: Moment | None = None
+    # Séance type suivie : ses exercices et cibles sont recopiés à la création seulement.
+    program_day_id: ClientId | None = None
 
 
 class WorkoutExerciseIn(Schema):
@@ -185,6 +187,9 @@ class WorkoutExerciseDetailOut(WorkoutExerciseOut):
     exercise_name_language: str
     exercise_category: CategoryName
     exercise_image: ImageOut | None
+    # Cible recopiée du programme (séries x répétitions), `None` hors programme.
+    target_sets: int | None
+    target_reps: int | None
     sets: list[SetOut]
 
 
@@ -192,6 +197,7 @@ class WorkoutOut(Schema):
     id: UUID
     started_at: datetime
     ended_at: datetime | None
+    program_day_id: UUID | None
 
 
 class WorkoutQuery(Schema):
@@ -277,7 +283,12 @@ def _workout_exercise_out(item: WorkoutExercise) -> WorkoutExerciseOut:
 
 
 def _workout_out(workout: Workout) -> WorkoutOut:
-    return WorkoutOut(id=workout.pk, started_at=workout.started_at, ended_at=workout.ended_at)
+    return WorkoutOut(
+        id=workout.pk,
+        started_at=workout.started_at,
+        ended_at=workout.ended_at,
+        program_day_id=workout.program_day_id,
+    )
 
 
 def _status[T](created: bool, body: T) -> Status[T]:
@@ -383,6 +394,7 @@ def list_workouts(request: HttpRequest, filters: Query[WorkoutQuery]) -> Workout
                 id=summary.workout.pk,
                 started_at=summary.workout.started_at,
                 ended_at=summary.workout.ended_at,
+                program_day_id=summary.workout.program_day_id,
                 exercise_count=summary.exercise_count,
                 working_set_count=summary.working_set_count,
                 volume_kg=float(summary.volume_kg),
@@ -402,6 +414,7 @@ def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut
         id=workout.pk,
         started_at=workout.started_at,
         ended_at=workout.ended_at,
+        program_day_id=workout.program_day_id,
         volume_kg=float(selectors.workout_volume_kg(workout)),
         exercises=[
             WorkoutExerciseDetailOut(
@@ -413,6 +426,8 @@ def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut
                 exercise_name_language=item.exercise.name_language,
                 exercise_category=item.exercise.category,  # type: ignore[arg-type]  # contrainte en base
                 exercise_image=_main_image(item.exercise),
+                target_sets=item.target_sets,
+                target_reps=item.target_reps,
                 sets=[_set_out(one) for one in item.sets.all()],
             )
             for item in workout.exercises.all()
@@ -434,6 +449,7 @@ def write_workout(
             workout_id=workout_id,
             started_at=payload.started_at,
             ended_at=payload.ended_at,
+            program_day_id=payload.program_day_id,
         )
     except services.NotFoundError as error:
         raise Http404 from error

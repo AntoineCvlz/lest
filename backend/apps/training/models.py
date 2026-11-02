@@ -137,10 +137,90 @@ MAX_WEIGHT_KG = 1000
 MAX_REPS = 1000
 
 
+# Cibles d'un exercice de programme : séries x répétitions.
+MAX_TARGET_SETS = 20
+MAX_TARGET_REPS = 100
+
+
+class Program(models.Model):
+    """Programme de `owner` : quelques séances types (« Poussée », « Tirage »…). Identifiants
+    du client et écritures par `PUT`, comme les séances (ADR 0003)."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="programs"
+    )
+    name = models.CharField(max_length=80)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("name", "created_at")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=~models.Q(name=""), name="training_program_name_not_empty"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Programme {self.pk}"
+
+
+class ProgramDay(models.Model):
+    """Séance type d'un programme, à sa place dans le programme."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    program = models.ForeignKey(Program, on_delete=models.CASCADE, related_name="days")
+    name = models.CharField(max_length=80)
+    position = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ("position", "id")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=~models.Q(name=""), name="training_programday_name_not_empty"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Séance type {self.pk}"
+
+
+class ProgramExercise(models.Model):
+    """Exercice d'une séance type et sa cible (séries x répétitions)."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    day = models.ForeignKey(ProgramDay, on_delete=models.CASCADE, related_name="exercises")
+    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    position = models.PositiveSmallIntegerField()
+    target_sets = models.PositiveSmallIntegerField()
+    target_reps = models.PositiveSmallIntegerField()
+
+    class Meta:
+        ordering = ("position", "id")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(target_sets__gte=1, target_sets__lte=MAX_TARGET_SETS),
+                name="training_programexercise_target_sets_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(target_reps__gte=1, target_reps__lte=MAX_TARGET_REPS),
+                name="training_programexercise_target_reps_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Exercice de programme {self.pk}"
+
+
 class Workout(models.Model):
     id = models.UUIDField(primary_key=True, editable=False)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="workouts"
+    )
+    # Séance type suivie, le cas échéant. Un programme supprimé laisse la séance intacte.
+    program_day = models.ForeignKey(
+        ProgramDay, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     started_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
@@ -170,11 +250,22 @@ class WorkoutExercise(models.Model):
     # PROTECT : un exercice utilisé n'est jamais supprimé du catalogue (désactivé, ADR 0004).
     exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
     position = models.PositiveSmallIntegerField()
+    # Cible recopiée du programme au démarrage : modifier le programme ensuite ne réécrit pas
+    # l'historique. Vide hors programme.
+    target_sets = models.PositiveSmallIntegerField(null=True, blank=True)
+    target_reps = models.PositiveSmallIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("position", "created_at")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(target_sets__isnull=True, target_reps__isnull=True)
+                | models.Q(target_sets__isnull=False, target_reps__isnull=False),
+                name="training_workoutexercise_target_complete",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"Exercice de séance {self.pk}"

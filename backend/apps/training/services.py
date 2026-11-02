@@ -25,6 +25,9 @@ from .models import (
     Muscle,
     NameLanguage,
     PersonalRecord,
+    Program,
+    ProgramDay,
+    ProgramExercise,
     RecordKind,
     Set,
     Workout,
@@ -190,21 +193,65 @@ def _put[M: models.Model](
     raise AssertionError  # pragma: no cover — la boucle revient ou lève
 
 
-def _no_parent() -> dict[str, Any]:
-    return {}
+def copied_exercise_id(workout_id: UUID, program_exercise_id: UUID) -> UUID:
+    """Identifiant de l'exercice de séance recopié d'un exercice de programme : stable (même
+    séance, même exercice de programme) et au format v4, le seul que l'API accepte en retour
+    pour y ajouter des séries ou le retirer."""
+    digest = hashlib.sha256(workout_id.bytes + program_exercise_id.bytes).digest()
+    return UUID(bytes=digest[:16], version=4)
 
 
 def put_workout(
-    *, owner: User, workout_id: UUID, started_at: datetime, ended_at: datetime | None
+    *,
+    owner: User,
+    workout_id: UUID,
+    started_at: datetime,
+    ended_at: datetime | None,
+    program_day_id: UUID | None = None,
 ) -> tuple[Workout, bool]:
-    """Crée ou remplace une séance de `owner`. Renvoie la séance et `True` si elle est créée."""
-    return _put(
-        Workout,
-        pk=workout_id,
-        owned=models.Q(owner=owner),
-        values={"owner": owner, "started_at": started_at, "ended_at": ended_at},
-        parents=_no_parent,
-    )
+    """Crée ou remplace une séance de `owner`. Renvoie la séance et `True` si elle est créée.
+
+    `program_day_id` : séance type suivie, lue **à la création seulement** : ses exercices et
+    leurs cibles sont alors recopiés dans la séance, sous des identifiants dérivés
+    (`copied_exercise_id`) qu'un rejeu retrouve, sans doublon (ADR 0003). Ensuite, le champ est
+    ignoré : une séance type supprimée depuis n'empêche pas de terminer la séance. À la
+    création, une séance type inconnue ou d'un autre compte est refusée (422, sans dire
+    laquelle des deux).
+    """
+
+    def parents() -> dict[str, Any]:
+        if program_day_id is None or Workout.objects.filter(pk=workout_id).exists():
+            return {}
+        day = (
+            ProgramDay.objects.select_for_update()
+            .filter(pk=program_day_id, program__owner=owner)
+            .first()
+        )
+        if day is None:
+            raise _unknown("program_day_id")
+        return {"program_day": day}
+
+    with transaction.atomic():
+        workout, created = _put(
+            Workout,
+            pk=workout_id,
+            owned=models.Q(owner=owner),
+            values={"owner": owner, "started_at": started_at, "ended_at": ended_at},
+            parents=parents,
+        )
+        if created and workout.program_day_id is not None:
+            WorkoutExercise.objects.bulk_create(
+                WorkoutExercise(
+                    id=copied_exercise_id(workout.pk, planned.pk),
+                    workout=workout,
+                    exercise_id=planned.exercise_id,
+                    position=planned.position,
+                    target_sets=planned.target_sets,
+                    target_reps=planned.target_reps,
+                )
+                for planned in ProgramExercise.objects.filter(day_id=workout.program_day_id)
+            )
+    return workout, created
 
 
 def put_workout_exercise(
@@ -308,6 +355,103 @@ def delete_set(*, owner: User, set_id: UUID) -> None:
         touched = _exercise_ids(Set.objects.filter(pk=set_id), owner, via="workout_exercise__")
         Set.objects.filter(pk=set_id, workout_exercise__workout__owner=owner).delete()
         _recompute(owner, touched)
+
+
+# --- Programmes : séances types et cibles ---------------------------------------------------
+
+# Plafonds (422 au-delà) : un programme reste un carnet, pas un entrepôt.
+MAX_PROGRAMS = 30
+MAX_DAYS_PER_PROGRAM = 7
+MAX_EXERCISES_PER_DAY = 20
+
+
+def put_program(*, owner: User, program_id: UUID, name: str) -> tuple[Program, bool]:
+    """Crée ou renomme un programme de `owner`."""
+
+    def parents() -> dict[str, Any]:
+        # Verrou du compte : deux créations simultanées ne dépassent pas le plafond ensemble.
+        lock_account(owner)
+        if Program.objects.filter(owner=owner).exclude(pk=program_id).count() >= MAX_PROGRAMS:
+            raise _too_many("program_id")
+        return {}
+
+    return _put(
+        Program,
+        pk=program_id,
+        owned=models.Q(owner=owner),
+        values={"owner": owner, "name": name},
+        parents=parents,
+    )
+
+
+def put_program_day(
+    *, owner: User, day_id: UUID, program_id: UUID, name: str, position: int
+) -> tuple[ProgramDay, bool]:
+    """Crée ou remplace une séance type d'un programme de `owner`."""
+
+    def parents() -> dict[str, Any]:
+        program = Program.objects.select_for_update().filter(pk=program_id, owner=owner).first()
+        if program is None:
+            raise _unknown("program_id")
+        if program.days.exclude(pk=day_id).count() >= MAX_DAYS_PER_PROGRAM:
+            raise _too_many("program_id")
+        return {"program": program}
+
+    return _put(
+        ProgramDay,
+        pk=day_id,
+        owned=models.Q(program__owner=owner),
+        values={"name": name, "position": position},
+        parents=parents,
+    )
+
+
+def put_program_exercise(
+    *,
+    owner: User,
+    program_exercise_id: UUID,
+    day_id: UUID,
+    exercise_id: UUID,
+    position: int,
+    target_sets: int,
+    target_reps: int,
+) -> tuple[ProgramExercise, bool]:
+    """Crée ou remplace un exercice d'une séance type de `owner`, avec sa cible."""
+
+    def parents() -> dict[str, Any]:
+        day = ProgramDay.objects.select_for_update().filter(pk=day_id, program__owner=owner).first()
+        if day is None:
+            raise _unknown("day_id")
+        if day.exercises.exclude(pk=program_exercise_id).count() >= MAX_EXERCISES_PER_DAY:
+            raise _too_many("day_id")
+        exercise = Exercise.objects.filter(pk=exercise_id).first()
+        if exercise is None:
+            raise _unknown("exercise_id")
+        return {"day": day, "exercise": exercise}
+
+    return _put(
+        ProgramExercise,
+        pk=program_exercise_id,
+        owned=models.Q(day__program__owner=owner),
+        values={"position": position, "target_sets": target_sets, "target_reps": target_reps},
+        parents=parents,
+    )
+
+
+def delete_program(*, owner: User, program_id: UUID) -> None:
+    """Supprime un programme de `owner` et ses séances types. Idempotent. Les séances déjà
+    faites restent, avec leurs cibles recopiées."""
+    Program.objects.filter(pk=program_id, owner=owner).delete()
+
+
+def delete_program_day(*, owner: User, day_id: UUID) -> None:
+    """Supprime une séance type de `owner`. Idempotent."""
+    ProgramDay.objects.filter(pk=day_id, program__owner=owner).delete()
+
+
+def delete_program_exercise(*, owner: User, program_exercise_id: UUID) -> None:
+    """Supprime un exercice d'une séance type de `owner`. Idempotent."""
+    ProgramExercise.objects.filter(pk=program_exercise_id, day__program__owner=owner).delete()
 
 
 # --- Records (CLAUDE.md : détectés à l'enregistrement d'une série, historisés) ---------------

@@ -159,6 +159,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/program-days/{day_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Créer ou remplacer une séance type */
+        put: operations["apps_training_api_programs_write_program_day"];
+        post?: never;
+        /** Supprimer une séance type */
+        delete: operations["apps_training_api_programs_remove_program_day"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/program-exercises/{program_exercise_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajouter ou remplacer un exercice de séance type */
+        put: operations["apps_training_api_programs_write_program_exercise"];
+        post?: never;
+        /** Retirer un exercice de séance type */
+        delete: operations["apps_training_api_programs_remove_program_exercise"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/programs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Programmes */
+        get: operations["apps_training_api_programs_list_programs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/programs/{program_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Programme */
+        get: operations["apps_training_api_programs_read_program"];
+        /** Créer ou renommer un programme */
+        put: operations["apps_training_api_programs_write_program"];
+        post?: never;
+        /** Supprimer un programme */
+        delete: operations["apps_training_api_programs_remove_program"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sets/{set_id}/": {
         parameters: {
             query?: never;
@@ -437,6 +509,158 @@ export interface components {
              */
             unit_system: "metric" | "imperial";
         };
+        /** ProgramDayDetailOut */
+        ProgramDayDetailOut: {
+            /** Exercises */
+            exercises: components["schemas"]["ProgramExerciseDetailOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /**
+             * Program Id
+             * Format: uuid
+             */
+            program_id: string;
+        };
+        /** ProgramDayIn */
+        ProgramDayIn: {
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /**
+             * Program Id
+             * Format: uuid4
+             */
+            program_id: string;
+        };
+        /** ProgramDayOut */
+        ProgramDayOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /**
+             * Program Id
+             * Format: uuid
+             */
+            program_id: string;
+        };
+        /** ProgramDetailOut */
+        ProgramDetailOut: {
+            /** Days */
+            days: components["schemas"]["ProgramDayDetailOut"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ProgramExerciseDetailOut */
+        ProgramExerciseDetailOut: {
+            /**
+             * Day Id
+             * Format: uuid
+             */
+            day_id: string;
+            /**
+             * Exercise Category
+             * @enum {string}
+             */
+            exercise_category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders";
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            exercise_image: components["schemas"]["ImageOut"] | null;
+            /** Exercise Name */
+            exercise_name: string;
+            /** Exercise Name Language */
+            exercise_name_language: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Target Reps */
+            target_reps: number;
+            /** Target Sets */
+            target_sets: number;
+        };
+        /** ProgramExerciseIn */
+        ProgramExerciseIn: {
+            /**
+             * Day Id
+             * Format: uuid4
+             */
+            day_id: string;
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            /** Position */
+            position: number;
+            /** Target Reps */
+            target_reps: number;
+            /** Target Sets */
+            target_sets: number;
+        };
+        /** ProgramExerciseOut */
+        ProgramExerciseOut: {
+            /**
+             * Day Id
+             * Format: uuid
+             */
+            day_id: string;
+            /**
+             * Exercise Id
+             * Format: uuid
+             */
+            exercise_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /** Target Reps */
+            target_reps: number;
+            /** Target Sets */
+            target_sets: number;
+        };
+        /** ProgramIn */
+        ProgramIn: {
+            /** Name */
+            name: string;
+        };
+        /** ProgramOut */
+        ProgramOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** RecordOut */
         RecordOut: {
             /**
@@ -519,6 +743,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Program Day Id */
+            program_day_id: string | null;
             /**
              * Started At
              * Format: date-time
@@ -553,6 +779,10 @@ export interface components {
             position: number;
             /** Sets */
             sets: components["schemas"]["SetOut"][];
+            /** Target Reps */
+            target_reps: number | null;
+            /** Target Sets */
+            target_sets: number | null;
             /**
              * Workout Id
              * Format: uuid
@@ -598,6 +828,8 @@ export interface components {
         WorkoutIn: {
             /** Ended At */
             ended_at?: string | null;
+            /** Program Day Id */
+            program_day_id?: string | null;
             /**
              * Started At
              * Format: date-time
@@ -613,6 +845,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Program Day Id */
+            program_day_id: string | null;
             /**
              * Started At
              * Format: date-time
@@ -649,6 +883,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Program Day Id */
+            program_day_id: string | null;
             /**
              * Started At
              * Format: date-time
@@ -913,6 +1149,213 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProfileOut"];
                 };
+            };
+        };
+    };
+    apps_training_api_programs_write_program_day: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramDayIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDayOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDayOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_remove_program_day: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_training_api_programs_write_program_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramExerciseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramExerciseOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramExerciseOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_remove_program_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_training_api_programs_list_programs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDetailOut"][];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_read_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDetailOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_write_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_remove_program: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                program_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -12,6 +12,7 @@ EXPORTED_MODELS = {
     "usersessions.usersession",
     "training.workout",  # avec ses exercices de séance et ses séries
     "training.personalrecord",
+    "training.program",  # avec ses séances types et leurs exercices
 }
 
 EXCLUDED_FROM_EXPORT = {
