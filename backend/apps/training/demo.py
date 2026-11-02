@@ -5,10 +5,11 @@ lieu de les dupliquer, grâce aux écritures idempotentes (ADR 0003). Les charge
 d'une semaine à l'autre, avec quelques séances moins bonnes, comme un vrai carnet.
 """
 
+import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 WEEKS = 8
@@ -17,7 +18,6 @@ DAYS = (0, 2, 4)
 START_TIME = time(18, 0)
 TIMEZONE = ZoneInfo("Europe/Paris")
 RPES = ("7", "7.5", "8", "8.5", "9", "9.5")
-NAMESPACE = uuid5(NAMESPACE_URL, "https://lest.local/demo")
 
 
 @dataclass(frozen=True)
@@ -60,6 +60,51 @@ PROGRAM: tuple[tuple[Lift, ...], ...] = (
 SOURCE_IDS = tuple(lift.source_id for day in PROGRAM for lift in day)
 
 
+PROGRAM_NAME = "Poussée / Tirage / Jambes"
+DAY_NAMES = ("Poussée", "Tirage", "Jambes")
+
+
+@dataclass(frozen=True)
+class ProgramTarget:
+    """Exercice d'une séance type du programme de démo, avec sa cible."""
+
+    id: UUID
+    source_id: str
+    position: int
+    target_sets: int
+    target_reps: int
+
+
+@dataclass(frozen=True)
+class ProgramDayPlan:
+    id: UUID
+    name: str
+    position: int
+    exercises: tuple[ProgramTarget, ...]
+
+
+def program() -> tuple[UUID, tuple[ProgramDayPlan, ...]]:
+    """Programme de démo : les séances types du plan, avec les séries et répétitions visées."""
+    return _id("programme"), tuple(
+        ProgramDayPlan(
+            id=_id("programme", index),
+            name=DAY_NAMES[index],
+            position=index,
+            exercises=tuple(
+                ProgramTarget(
+                    id=_id("programme", index, position),
+                    source_id=lift.source_id,
+                    position=position,
+                    target_sets=lift.sets,
+                    target_reps=lift.reps,
+                )
+                for position, lift in enumerate(day)
+            ),
+        )
+        for index, day in enumerate(PROGRAM)
+    )
+
+
 @dataclass(frozen=True)
 class PlannedSet:
     id: UUID
@@ -88,7 +133,10 @@ class PlannedWorkout:
 
 
 def _id(*parts: object) -> UUID:
-    return uuid5(NAMESPACE, "/".join(str(part) for part in parts))
+    """Identifiant stable, au format v4 : l'API n'accepte que celui-là en retour (ADR 0003),
+    l'app peut donc modifier les données de démo comme les autres."""
+    digest = hashlib.sha256("/".join(("lest-demo", *map(str, parts))).encode()).digest()
+    return UUID(bytes=digest[:16], version=4)
 
 
 def _draw(*parts: object) -> float:

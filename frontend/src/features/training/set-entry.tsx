@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import type { Schemas } from "@/shared/api/client";
-import { formatNumber } from "@/shared/lib/number";
+import { formatNumber, stepValue } from "@/shared/lib/number";
 import {
   displayToKilograms,
   kilogramsToDisplay,
@@ -46,17 +46,63 @@ interface Values {
   warmup: boolean;
 }
 
-/** Charge et répétitions proposées : dernière série de la séance, sinon de la dernière fois. */
-export function prefill(
-  item: Item,
-  lastSets: SetOut[],
-  system: UnitSystem,
-): { weight: number; reps: number } {
+/** Charge et répétitions proposées, et pourquoi (`null` : rien à expliquer). */
+export interface Suggestion {
+  weight: number;
+  reps: number;
+  reason: string | null;
+}
+
+/**
+ * Charge et répétitions proposées : dernière série de la séance, sinon la dernière fois.
+ *
+ * Exercice d'un programme (cible) : les répétitions visées ; et si toutes les séries de travail
+ * de la dernière fois ont atteint la cible, un pas de plus (+2,5 kg, +5 lb), sinon la même
+ * charge. La charge reste modifiable : c'est une suggestion.
+ */
+export function prefill(item: Item, lastSets: SetOut[], system: UnitSystem): Suggestion {
   const ownLast = item.sets.at(-1);
-  const reference = ownLast ?? lastSets.find((one) => !one.is_warmup) ?? lastSets.at(0);
-  return reference
-    ? { weight: kilogramsToDisplay(reference.weight_kg, system), reps: reference.reps }
-    : { weight: EMPTY_BAR[system], reps: DEFAULT_REPS };
+  const working = lastSets.filter((one) => !one.is_warmup);
+  const targetReps = item.target_reps;
+  if (ownLast) {
+    return {
+      weight: kilogramsToDisplay(ownLast.weight_kg, system),
+      reps: targetReps ?? ownLast.reps,
+      reason: null,
+    };
+  }
+  const reference = working.at(0) ?? lastSets.at(0);
+  if (!reference) {
+    return { weight: EMPTY_BAR[system], reps: targetReps ?? DEFAULT_REPS, reason: null };
+  }
+  const weight = kilogramsToDisplay(reference.weight_kg, system);
+  if (targetReps === null || item.target_sets === null) {
+    return { weight, reps: reference.reps, reason: null };
+  }
+  const reached =
+    working.length >= item.target_sets && working.every((one) => one.reps >= targetReps);
+  const unit = WEIGHT_UNITS[system];
+  return reached
+    ? {
+        weight: stepValue(weight, 1, { step: unit.step }),
+        reps: targetReps,
+        reason: `Cible atteinte la dernière fois : +${formatNumber(unit.step)} ${unit.symbol} proposés.`,
+      }
+    : {
+        weight,
+        reps: targetReps,
+        reason: "Cible pas encore atteinte la dernière fois : même charge proposée.",
+      };
+}
+
+/** « Cible : 4 × 8, série 2 sur 4. » (séries de travail : l'échauffement ne compte pas). */
+export function targetText(sets: number, reps: number, done: SetOut[]): string {
+  const working = done.filter((one) => !one.is_warmup).length;
+  const progress =
+    working >= sets
+      ? "toutes les séries sont faites"
+      : `série ${String(working + 1)} sur ${String(sets)}`;
+  return `Cible : ${String(sets)} × ${String(reps)}, ${progress}.`;
 }
 
 /** Série en cours de modification et son numéro affiché (« série 2 »). */
@@ -292,6 +338,7 @@ export function SetEntry({
 }) {
   const lastSets = useLastSets(item.exercise_id, workoutId);
   const previous = (lastSets.data ?? []).filter((one) => !one.is_warmup);
+  const suggestion = lastSets.isPending ? null : prefill(item, lastSets.data ?? [], system);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [announce, setAnnounce] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -330,6 +377,12 @@ export function SetEntry({
             ? `La dernière fois : ${previous.map((one) => setText(one, system)).join(", ")}.`
             : "Première fois pour cet exercice."}
       </p>
+      {item.target_sets !== null && item.target_reps !== null && (
+        <p className="font-semibold [font-variant-numeric:tabular-nums]">
+          {targetText(item.target_sets, item.target_reps, item.sets)}
+        </p>
+      )}
+      {suggestion?.reason && !editing && <p className="text-ink-muted">{suggestion.reason}</p>}
       {item.sets.length > 0 && (
         <ol aria-label="Séries de la séance" className="border-line-subtle border-t">
           {item.sets.map((one, index) => (
@@ -378,7 +431,11 @@ export function SetEntry({
                   rpe: editing.set.rpe ?? undefined,
                   warmup: editing.set.is_warmup,
                 }
-              : { ...prefill(item, lastSets.data ?? [], system), warmup: false }
+              : {
+                  weight: suggestion?.weight ?? 0,
+                  reps: suggestion?.reps ?? 0,
+                  warmup: false,
+                }
           }
           timer={timer}
           editing={editing ?? undefined}
