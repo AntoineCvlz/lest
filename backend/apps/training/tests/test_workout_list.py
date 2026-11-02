@@ -146,6 +146,7 @@ def test_each_listed_workout_is_summarised_without_warmups() -> None:
         "id": workout,
         "started_at": None,
         "ended_at": None,
+        "program_day_id": None,
         "exercise_count": 3,
         "working_set_count": 3,
         "volume_kg": 2080.0,
