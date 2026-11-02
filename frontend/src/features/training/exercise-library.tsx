@@ -10,6 +10,7 @@ import { SelectField } from "@/shared/ui/select-field";
 import { TextField } from "@/shared/ui/text-field";
 
 import { CATEGORY_LABELS, type Category } from "./categories";
+import { ExerciseImage } from "./exercise-image";
 import { useExerciseFilters, useExercises, type ExerciseSearch } from "./use-exercises";
 
 export const CATALOG_UNAVAILABLE = "Catalogue indisponible. Réessayez dans un instant.";
@@ -42,11 +43,14 @@ function ExerciseItem({
   ].join(", ");
   const content = (
     <>
-      {/* Nom anglais quand wger n'en a pas de français (ADR 0004) : prononcé en anglais. */}
-      <span className="block text-[17px] font-bold" lang={exercise.name_language}>
-        {exercise.name}
+      <ExerciseImage image={exercise.image} category={exercise.category} size="thumb" />
+      <span className="flex min-w-0 flex-col gap-1">
+        {/* Nom anglais quand wger n'en a pas de français (ADR 0004) : prononcé en anglais. */}
+        <span className="block text-[17px] font-bold" lang={exercise.name_language}>
+          {exercise.name}
+        </span>
+        <span className="text-ink-muted block text-sm">{details}</span>
       </span>
-      <span className="text-ink-muted block text-sm">{details}</span>
     </>
   );
   return (
@@ -55,7 +59,7 @@ function ExerciseItem({
         <button
           type="button"
           disabled={disabled}
-          className="hover:bg-surface flex min-h-14 w-full flex-col gap-1 px-1 py-3 text-left disabled:opacity-50"
+          className="hover:bg-surface flex min-h-14 w-full items-center gap-3 px-1 py-3 text-left disabled:opacity-50"
           onClick={() => {
             onSelect(exercise);
           }}
@@ -65,7 +69,7 @@ function ExerciseItem({
       ) : (
         <Link
           href={`/exercices/${exercise.id}`}
-          className="hover:bg-surface flex min-h-14 flex-col gap-1 px-1 py-3"
+          className="hover:bg-surface flex min-h-14 items-center gap-3 px-1 py-3"
         >
           {content}
         </Link>

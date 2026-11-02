@@ -14,6 +14,7 @@ import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { Stepper } from "@/shared/ui/stepper";
 
+import { ExerciseImage } from "./exercise-image";
 import { recordsLine, RECORD_LABELS, setLine, setText, weightText } from "./format";
 import { RestTimer } from "./rest-timer";
 import type { RestTimer as Timer } from "./use-rest-timer";
@@ -310,15 +311,18 @@ export function SetEntry({
       <Button variant="ghost" className="self-start" onClick={onClose}>
         Retour à la séance
       </Button>
-      <h2
-        id="exercice"
-        ref={headingRef}
-        tabIndex={-1}
-        lang={item.exercise_name_language}
-        className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]"
-      >
-        {item.exercise_name}
-      </h2>
+      <div className="flex items-center gap-4">
+        <ExerciseImage image={item.exercise_image} category={item.exercise_category} size="small" />
+        <h2
+          id="exercice"
+          ref={headingRef}
+          tabIndex={-1}
+          lang={item.exercise_name_language}
+          className="min-w-0 text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]"
+        >
+          {item.exercise_name}
+        </h2>
+      </div>
       <p className="text-ink-muted">
         {lastSets.isPending
           ? "Recherche de la dernière fois…"

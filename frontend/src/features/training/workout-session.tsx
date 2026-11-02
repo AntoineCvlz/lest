@@ -7,6 +7,7 @@ import type { Schemas } from "@/shared/api/client";
 import { useWakeLock } from "@/shared/lib/use-wake-lock";
 import { Button } from "@/shared/ui/button";
 
+import { ExerciseImage } from "./exercise-image";
 import { ExerciseLibrary } from "./exercise-library";
 import { RestTimer } from "./rest-timer";
 import { SetEntry } from "./set-entry";
@@ -130,15 +131,27 @@ function OngoingWorkout({
               <li key={item.id} className="border-line-subtle border-b">
                 <button
                   type="button"
-                  className="hover:bg-surface flex min-h-14 w-full flex-col gap-1 px-1 py-3 text-left"
+                  className="hover:bg-surface flex min-h-14 w-full items-center gap-3 px-1 py-3 text-left"
                   onClick={() => {
                     setActive(item.id);
                   }}
                 >
-                  <span className="block text-[17px] font-bold" lang={item.exercise_name_language}>
-                    {item.exercise_name}
+                  <ExerciseImage
+                    image={item.exercise_image}
+                    category={item.exercise_category}
+                    size="thumb"
+                  />
+                  <span className="flex min-w-0 flex-col gap-1">
+                    <span
+                      className="block text-[17px] font-bold"
+                      lang={item.exercise_name_language}
+                    >
+                      {item.exercise_name}
+                    </span>
+                    <span className="text-ink-muted block text-sm">
+                      {setCount(item.sets.length)}
+                    </span>
                   </span>
-                  <span className="text-ink-muted block text-sm">{setCount(item.sets.length)}</span>
                 </button>
               </li>
             ))}

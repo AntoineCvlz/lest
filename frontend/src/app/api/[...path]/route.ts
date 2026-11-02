@@ -41,6 +41,9 @@ const RESET_LOOKUP_SUFFIX = "/auth/password/reset";
 const SESSION_PATH = "/api/v1/auth/app/v1/auth/session";
 const DEVICE_SESSIONS_PATH = "/api/v1/auth/app/v1/auth/sessions";
 const ACCOUNT_PATH = "/api/v1/me";
+// Images du catalogue (ADR 0005) : publiques, nommées par leur empreinte, donc immuables.
+const PUBLIC_IMAGE_PATH = /^\/api\/v1\/exercise-images\/[0-9a-f]{64}\.webp$/;
+const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 
 // Ni `cookie` (les cookies sont ceux de Next.js), ni `authorization` : posés par le BFF.
 const FORWARDED_REQUEST_HEADERS = [
@@ -155,6 +158,35 @@ function routedPath(pathname: string): string {
   return decodeURIComponent(pathname).replace(/\/+$/, "");
 }
 
+/**
+ * Image publique du catalogue : relayée sans jeton ni cookie, dans un sens comme dans l'autre.
+ * C'est la seule réponse que le BFF laisse mettre en cache (immuable) : elle ne doit donc rien
+ * porter de propre à l'utilisateur, `Set-Cookie` compris.
+ */
+async function relayPublicImage(upstreamUrl: URL, pathname: string): Promise<Response> {
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      headers: { accept: "image/webp" },
+      redirect: "manual",
+      cache: "no-store",
+    });
+  } catch {
+    return problem(502, "Bad Gateway", pathname);
+  }
+  if (upstream.status !== 200 || upstream.headers.get("content-type") !== "image/webp") {
+    return problem(upstream.status === 404 ? 404 : 502, "Image indisponible", pathname);
+  }
+  return new Response(upstream.body, {
+    status: 200,
+    headers: {
+      "content-type": "image/webp",
+      "cache-control": IMMUTABLE_CACHE,
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
 interface Credentials {
   access?: string;
   refresh?: string;
@@ -169,6 +201,9 @@ async function proxy(request: NextRequest): Promise<Response> {
   const isResetLookup = SAFE_METHODS.has(request.method) && routed.endsWith(RESET_LOOKUP_SUFFIX);
   if (!upstreamUrl || routed.endsWith(REFRESH_PATH_SUFFIX) || isResetLookup) {
     return problem(404, "Not Found", pathname);
+  }
+  if (request.method === "GET" && PUBLIC_IMAGE_PATH.test(routed)) {
+    return relayPublicImage(upstreamUrl, pathname);
   }
   if (!SAFE_METHODS.has(request.method) && !isSameOrigin(request)) {
     return problem(403, "Forbidden", pathname);

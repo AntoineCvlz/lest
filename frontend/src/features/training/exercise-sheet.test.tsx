@@ -20,6 +20,8 @@ const sheet = {
   license: "CC-BY-SA 4",
   license_author: "wger contributors",
   is_active: true,
+  image: null,
+  images: [] as object[],
 };
 
 function record(kind: "weight" | "e1rm", value_kg: number, day: number) {
@@ -105,6 +107,31 @@ describe("ExerciseSheet", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(11);
     await user.click(screen.getByRole("button", { name: "Afficher les 12 records" }));
     expect(within(table).getAllByRole("row")).toHaveLength(13);
+  });
+
+  it("montre l'image principale et l'attribue", async () => {
+    const image = {
+      url: `/api/v1/exercise-images/${"b".repeat(64)}.webp`,
+      license: "CC-BY-SA 3",
+      license_author: "",
+    };
+    server.use(
+      http.get(`*/api/v1/exercises/${ID}/`, () =>
+        HttpResponse.json({ ...sheet, image, images: [image] }),
+      ),
+      http.get(`*/api/v1/exercises/${ID}/records/`, () => HttpResponse.json({ history: [] })),
+      http.get("*/api/v1/me/profile/", () => new HttpResponse(null, { status: 404 })),
+    );
+    renderWithQuery(<ExerciseSheet id={ID} />);
+
+    expect(
+      await screen.findByRole("img", { name: "Illustration de l’exercice Bench press" }),
+    ).toHaveAttribute("src", image.url);
+    expect(
+      screen.getByText(
+        /Image : auteur non renseigné sur wger, licence CC-BY-SA 3, recadrée et convertie\./,
+      ),
+    ).toBeVisible();
   });
 
   it("signale un exercice inconnu", async () => {

@@ -612,6 +612,57 @@ describe("IP du navigateur", () => {
   });
 });
 
+describe("images publiques du catalogue (ADR 0005)", () => {
+  const IMAGE = `/api/v1/exercise-images/${"a".repeat(64)}.webp`;
+
+  function webp(): Response {
+    return new Response(new Uint8Array([82, 73, 70, 70]), {
+      status: 200,
+      headers: { "content-type": "image/webp", "set-cookie": "piege=1" },
+    });
+  }
+
+  it("relaie sans jeton ni cookie, avec un cache long et immuable", async () => {
+    fetchMock.mockResolvedValue(webp());
+
+    const response = await GET(
+      request(IMAGE, { cookies: { lest_at: "at-image", lest_rt: unique("rt") } }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(calls()).toHaveLength(1); // aucun refresh
+    expect(lastCall().headers.has("authorization")).toBe(false);
+    expect(lastCall().headers.has("cookie")).toBe(false);
+  });
+
+  it("ne met en cache ni une absence ni une réponse qui n'est pas une image", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }));
+    const missing = await GET(request(IMAGE));
+    fetchMock.mockResolvedValueOnce(json({}));
+    const wrongType = await GET(request(IMAGE));
+
+    expect([missing.status, wrongType.status]).toEqual([404, 502]);
+    expect(missing.headers.get("cache-control")).toBe("no-store");
+    expect(wrongType.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it.each([
+    `/api/v1/exercise-images/${"A".repeat(64)}.webp`,
+    `/api/v1/exercise-images/${"a".repeat(64)}.png`,
+    "/api/v1/exercise-images/autre.webp",
+  ])("passe par le relais ordinaire hors du format attendu : %s", async (path) => {
+    fetchMock.mockResolvedValue(webp());
+
+    const response = await GET(request(path));
+
+    expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
 describe("durcissement", () => {
   it("interdit toute mise en cache, y compris des erreurs du BFF", async () => {
     fetchMock.mockImplementation((input) =>

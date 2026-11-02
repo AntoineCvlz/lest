@@ -19,6 +19,8 @@
   --color-danger: var(--lest-danger);
   --color-qr-light: var(--lest-qr-light);
   --color-qr-dark: var(--lest-qr-dark);
+  --color-tile: var(--lest-tile);
+  --color-tile-ink: var(--lest-tile-ink);
 
   --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
 
