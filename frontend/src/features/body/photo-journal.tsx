@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { Schemas } from "@/shared/api/client";
@@ -65,6 +65,56 @@ function sendError(error: unknown): string {
   return PHOTO_NOT_SENT;
 }
 
+const PREVIEW_WIDTH = 240;
+const PREVIEW_HEIGHT = 320;
+
+/**
+ * Aperçu du fichier choisi, dessiné dans un canevas (recadré au format 3:4) : aucune URL n'est
+ * tirée du fichier (ni `blob:` ni `data:`), donc rien du fichier n'atteint un attribut `src`.
+ * Un fichier illisible laisse le canevas vide : l'API le refusera de toute façon.
+ */
+function PhotoPreview({ file, label }: { file: File; label: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void createImageBitmap(file)
+      .then((bitmap) => {
+        const context = canvasRef.current?.getContext("2d");
+        if (!cancelled && context) {
+          const scale = Math.max(PREVIEW_WIDTH / bitmap.width, PREVIEW_HEIGHT / bitmap.height);
+          const width = bitmap.width * scale;
+          const height = bitmap.height * scale;
+          context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+          context.drawImage(
+            bitmap,
+            (PREVIEW_WIDTH - width) / 2,
+            (PREVIEW_HEIGHT - height) / 2,
+            width,
+            height,
+          );
+        }
+        bitmap.close();
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
+
+  return (
+    <div role="img" aria-label={label} className="w-40">
+      <canvas
+        ref={canvasRef}
+        width={PREVIEW_WIDTH}
+        height={PREVIEW_HEIGHT}
+        aria-hidden="true"
+        className="rounded-control border-line-subtle bg-surface-raised aspect-[3/4] w-full border"
+      />
+    </div>
+  );
+}
+
 /** « Photo choisie : corps.jpg, 2,3 Mo » : confirmation du fichier, lue au lecteur d'écran. */
 export function chosenText(file: File): string {
   const megabytes = Math.max(0.1, Math.round((file.size / 1024 / 1024) * 10) / 10);
@@ -97,15 +147,6 @@ export function PhotoJournal() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Aperçu local du fichier choisi, libéré quand il change.
-  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-  useEffect(
-    () => () => {
-      if (preview) URL.revokeObjectURL(preview);
-    },
-    [preview],
-  );
 
   const all = photos.data ?? [];
   const ofPose = all.filter((p) => p.pose === comparedPose);
@@ -232,15 +273,11 @@ export function PhotoJournal() {
           >
             {file ? chosenText(file) : ""}
           </p>
-          {preview && (
-            // `<picture>`/`<img>`, jamais `next/image` : son style en ligne est refusé par la CSP.
-            <picture>
-              <img
-                src={preview}
-                alt={`Aperçu avant envoi (${poseLabel(pose).toLowerCase()})`}
-                className="rounded-control border-line-subtle aspect-[3/4] w-40 border object-cover"
-              />
-            </picture>
+          {file && (
+            <PhotoPreview
+              file={file}
+              label={`Aperçu avant envoi (${poseLabel(pose).toLowerCase()})`}
+            />
           )}
         </div>
         <div role="alert" className="empty:hidden">

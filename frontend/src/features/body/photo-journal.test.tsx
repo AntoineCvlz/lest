@@ -50,9 +50,11 @@ function picture(type = "image/jpeg", size = 1000): File {
 }
 
 beforeAll(() => {
-  // jsdom n'a pas d'URL d'objet : un aperçu factice suffit.
-  URL.createObjectURL = vi.fn(() => "blob:apercu");
-  URL.revokeObjectURL = vi.fn();
+  // jsdom ne décode pas d'image : l'aperçu reste vide, seul son nom compte ici.
+  vi.stubGlobal(
+    "createImageBitmap",
+    vi.fn(() => Promise.reject(new Error("jsdom"))),
+  );
 });
 
 describe("fileProblem", () => {

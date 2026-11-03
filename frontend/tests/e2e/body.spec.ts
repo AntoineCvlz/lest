@@ -114,6 +114,17 @@ test("envoie une photo, la compare et la supprime", async ({
     await page
       .getByLabel("Choisir une photo")
       .setInputFiles({ name: "face.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    // Aperçu dessiné dans le canevas (aucune URL tirée du fichier) : des pixels non vides.
+    const preview = page.getByRole("img", { name: "Aperçu avant envoi (face)" });
+    await expect(preview).toBeVisible();
+    await expect
+      .poll(() =>
+        preview.locator("canvas").evaluate((canvas: HTMLCanvasElement) => {
+          const pixels = canvas.getContext("2d")?.getImageData(120, 160, 1, 1).data;
+          return pixels ? pixels[3] : 0;
+        }),
+      )
+      .toBeGreaterThan(0);
     await page.getByRole("button", { name: "Envoyer la photo" }).click();
     await expect(page.getByText(/^Photo \(face\) du .* enregistrée\.$/)).toBeVisible();
   };
