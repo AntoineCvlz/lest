@@ -6,7 +6,7 @@ import type { Schemas } from "@/shared/api/client";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { prefill, SET_NOT_DELETED, SET_NOT_SAVED, SetEntry } from "./set-entry";
+import { prefill, SET_NOT_DELETED, SET_NOT_SAVED, SetEntry, targetText } from "./set-entry";
 import type { RestTimer } from "./use-rest-timer";
 import { workoutKey } from "./use-workout";
 
@@ -40,8 +40,8 @@ function item(sets: Schemas["SetOut"][] = []): Schemas["WorkoutExerciseDetailOut
     exercise_name_language: "fr",
     exercise_category: "chest",
     exercise_image: null,
-    target_sets: null,
-    target_reps: null,
+    target_sets: null as number | null,
+    target_reps: null as number | null,
     sets,
   };
 }
@@ -89,10 +89,69 @@ function valueOf(group: string): string {
 describe("prefill", () => {
   it("reprend la dernière série de la séance, sinon la première série de travail de la fois d'avant", () => {
     const warmup = set(40, 10, { is_warmup: true });
-    expect(prefill(item([set(85, 6)]), [set(80, 8)], "metric")).toEqual({ weight: 85, reps: 6 });
-    expect(prefill(item(), [warmup, set(80, 8)], "metric")).toEqual({ weight: 80, reps: 8 });
-    expect(prefill(item(), [], "metric")).toEqual({ weight: 20, reps: 8 });
-    expect(prefill(item(), [], "imperial")).toEqual({ weight: 45, reps: 8 });
+    expect(prefill(item([set(85, 6)]), [set(80, 8)], "metric")).toEqual({
+      weight: 85,
+      reps: 6,
+      reason: null,
+    });
+    expect(prefill(item(), [warmup, set(80, 8)], "metric")).toEqual({
+      weight: 80,
+      reps: 8,
+      reason: null,
+    });
+    expect(prefill(item(), [], "metric")).toEqual({ weight: 20, reps: 8, reason: null });
+    expect(prefill(item(), [], "imperial")).toEqual({ weight: 45, reps: 8, reason: null });
+  });
+});
+
+describe("prefill avec une cible de programme", () => {
+  const target = (sets: Schemas["SetOut"][] = []) => ({
+    ...item(sets),
+    target_sets: 3,
+    target_reps: 8,
+  });
+
+  it("propose un pas de plus quand toutes les séries ont atteint la cible", () => {
+    const last = [set(40, 10, { is_warmup: true }), set(80, 8), set(80, 9), set(80, 8)];
+
+    expect(prefill(target(), last, "metric")).toEqual({
+      weight: 82.5,
+      reps: 8,
+      reason: "Cible atteinte la dernière fois : +2,5 kg proposés.",
+    });
+    expect(prefill(target(), [set(102.06, 8), set(102.06, 8), set(102.06, 8)], "imperial")).toEqual(
+      expect.objectContaining({ weight: 230 }) as object,
+    );
+  });
+
+  it("garde la charge si une série ou le nombre de séries a manqué", () => {
+    const missed = prefill(target(), [set(80, 8), set(80, 7), set(80, 8)], "metric");
+    const short = prefill(target(), [set(80, 8), set(80, 8)], "metric");
+
+    expect(missed).toEqual({
+      weight: 80,
+      reps: 8,
+      reason: "Cible pas encore atteinte la dernière fois : même charge proposée.",
+    });
+    expect(short.weight).toBe(80);
+  });
+
+  it("vise les répétitions de la cible, sans historique comme en cours de séance", () => {
+    expect(prefill(target(), [], "metric")).toEqual({ weight: 20, reps: 8, reason: null });
+    expect(prefill(target([set(82.5, 6)]), [set(80, 8)], "metric")).toEqual({
+      weight: 82.5,
+      reps: 8,
+      reason: null,
+    });
+  });
+});
+
+describe("targetText", () => {
+  it("donne la cible et l'avancement, échauffement exclu", () => {
+    expect(targetText(4, 8, [set(40, 10, { is_warmup: true }), set(80, 8)])).toBe(
+      "Cible : 4 × 8, série 2 sur 4.",
+    );
+    expect(targetText(1, 8, [set(80, 8)])).toBe("Cible : 1 × 8, toutes les séries sont faites.");
   });
 });
 

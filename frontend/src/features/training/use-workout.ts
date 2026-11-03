@@ -75,10 +75,14 @@ export function newId(): string {
 export function useStartWorkout() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (): Promise<Schemas["WorkoutOut"]> => {
+    // `programDayId` : séance type suivie, dont l'API recopie les exercices et leurs cibles.
+    mutationFn: async (programDayId?: string): Promise<Schemas["WorkoutOut"]> => {
       const { data, response } = await fetchClient.PUT("/api/v1/workouts/{workout_id}/", {
         params: { path: { workout_id: newId() } },
-        body: { started_at: new Date().toISOString() },
+        body: {
+          started_at: new Date().toISOString(),
+          ...(programDayId && { program_day_id: programDayId }),
+        },
       });
       if (!data) throw new WorkoutRequestFailed(response.status);
       return data;

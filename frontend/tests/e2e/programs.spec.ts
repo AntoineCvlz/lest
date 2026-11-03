@@ -46,5 +46,14 @@ test("crée un programme, une séance type et règle la cible d'un exercice", as
   await expect(page.getByRole("list", { name: "Mes programmes" })).toContainText(
     "1 séance type, 1 exercice",
   );
+
+  // Séance démarrée depuis la séance type : exercice déjà là, cible affichée à la saisie.
+  await page.getByRole("link", { name: "Revenir à la séance" }).click();
+  await page.getByRole("button", { name: "Démarrer Poussée (PPL)" }).click();
+  const plan = page.getByRole("list", { name: "Exercices de la séance" });
+  await expect(plan).toContainText("0 sur 4 séries, cible 4 × 8");
+  await plan.getByRole("button", { name: /^Barbell Bench Press/ }).click();
+  await expect(page.getByText("Cible : 4 × 8, série 1 sur 4.")).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
   expect(cspViolations).toEqual([]);
 });

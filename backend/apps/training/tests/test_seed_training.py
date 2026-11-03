@@ -9,7 +9,7 @@ from django.core.management import CommandError, call_command
 
 from apps.accounts.tests.factories import make_verified_user
 from apps.training import demo
-from apps.training.models import PersonalRecord, Set, Workout
+from apps.training.models import PersonalRecord, Program, ProgramExercise, Set, Workout
 from apps.training.tests.factories import make_exercise
 
 pytestmark = pytest.mark.django_db
@@ -120,3 +120,26 @@ def test_the_command_needs_the_account_and_the_catalog() -> None:
     make_verified_user(email="demo@example.com")
     with pytest.raises(CommandError, match="import_exercises"):
         seed()
+
+
+def test_demo_ids_are_v4_like_client_ids() -> None:
+    # L'API n'accepte que des UUID v4 en retour : l'app peut modifier les données de démo.
+    workout = demo.plan(today=TODAY)[0]
+    program_id, days = demo.program()
+
+    for identifier in (workout.id, workout.exercises[0].id, program_id, days[0].id):
+        assert identifier.version == 4
+
+
+@pytest.mark.usefixtures("catalog", "dev")
+def test_the_seed_creates_the_demo_program_with_its_targets() -> None:
+    user = make_verified_user(email="demo@example.com")
+
+    seed()
+    seed()
+
+    program = Program.objects.get(owner=user)
+    assert program.name == demo.PROGRAM_NAME
+    assert [day.name for day in program.days.all()] == list(demo.DAY_NAMES)
+    bench = ProgramExercise.objects.get(day__program=program, exercise__source_id="bench-press")
+    assert (bench.target_sets, bench.target_reps) == (4, 8)
