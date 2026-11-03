@@ -80,3 +80,61 @@ test("note des mensurations partielles puis en retire une", async ({
   await expect(history).not.toContainText("Taille");
   expect(cspViolations).toEqual([]);
 });
+
+test("envoie une photo, la compare et la supprime", async ({
+  page,
+  makeAxeBuilder,
+  cspViolations,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "photos");
+  await signUp(page, email, password);
+  await page.goto("/corps/photos");
+  await expect(page.getByText(/^Aucune photo pour l’instant\./)).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  // Un vrai JPEG, dessiné par le navigateur (aucune image du dépôt).
+  const jpeg = Buffer.from(
+    await page.evaluate(async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 600;
+      canvas.height = 800;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.fillStyle = "#5a6473";
+        context.fillRect(200, 150, 200, 500);
+      }
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.8);
+      });
+      return Array.from(new Uint8Array(await (blob ?? new Blob()).arrayBuffer()));
+    }),
+  );
+  const upload = async (day: string) => {
+    await page.getByLabel("Date").fill(day);
+    await page
+      .getByLabel("Choisir une photo")
+      .setInputFiles({ name: "face.jpg", mimeType: "image/jpeg", buffer: jpeg });
+    await page.getByRole("button", { name: "Envoyer la photo" }).click();
+    await expect(page.getByText(/^Photo \(face\) du .* enregistrée\.$/)).toBeVisible();
+  };
+  await upload("2026-09-01");
+  await upload("2026-10-01");
+
+  const gallery = page.getByRole("list", { name: "Photos, les plus récentes d’abord" });
+  await expect(gallery.getByRole("listitem")).toHaveCount(2);
+  // Les images passent par l'API derrière le BFF et s'affichent réellement.
+  const compared = page.locator('img[src$="/large/"]');
+  await expect(compared).toHaveCount(2);
+  for (const image of await compared.all()) {
+    await expect
+      .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
+      .toBeGreaterThan(0);
+  }
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  await gallery.getByRole("button", { name: /^Supprimer la photo Face, 1 septembre/ }).click();
+  await expect(gallery.getByRole("button", { name: "Garder" })).toBeFocused();
+  await gallery.getByRole("button", { name: "Supprimer", exact: true }).click();
+  await expect(gallery.getByRole("listitem")).toHaveCount(1);
+  expect(cspViolations).toEqual([]);
+});
