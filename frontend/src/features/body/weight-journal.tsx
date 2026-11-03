@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { useProfile } from "@/features/profile/use-profile";
-import { formatNumber } from "@/shared/lib/number";
+import { formatNumber, parseDecimal } from "@/shared/lib/number";
 import { displayToKilograms, kilogramsToDisplay, WEIGHT_UNITS } from "@/shared/lib/units";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
@@ -37,13 +37,6 @@ const LIMITS = {
   metric: { min: 20, max: 400 },
   imperial: { min: 45, max: 880 },
 } as const;
-
-/** Nombre saisi au format français (« 81,4 ») ou anglais (« 81.4 »), sinon `null`. */
-export function parseWeight(text: string): number | null {
-  const normalized = text.trim().replace(",", ".");
-  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
-  return Number(normalized);
-}
 
 /**
  * Journal du poids : pesée du jour (pré-remplie avec la dernière), courbe et moyenne sur 7 jours,
@@ -121,8 +114,10 @@ export function WeightJournal() {
         aria-labelledby="weigh-in-title"
         onSubmit={(event) => {
           event.preventDefault();
+          // Pas de `disabled` pendant l'envoi (le focus serait perdu) : un second envoi est ignoré.
+          if (save.isPending) return;
           clearMessages();
-          const value = parseWeight(shown);
+          const value = parseDecimal(shown);
           const fault =
             value === null || value < limits.min || value > limits.max
               ? "weight"
@@ -197,7 +192,7 @@ export function WeightJournal() {
             </p>
           )}
         </div>
-        <p aria-live="polite" className="text-ink-muted empty:hidden">
+        <p aria-live="polite" className="text-ink-muted empty:sr-only">
           {notice}
         </p>
         <Button
@@ -205,7 +200,8 @@ export function WeightJournal() {
           variant="primary"
           size="lg"
           block
-          disabled={!hydrated || save.isPending || shown.trim() === ""}
+          disabled={!hydrated || shown.trim() === ""}
+          aria-disabled={save.isPending}
         >
           {existing ? "Remplacer la pesée" : "Enregistrer la pesée"}
         </Button>
@@ -214,8 +210,9 @@ export function WeightJournal() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="danger"
-                disabled={remove.isPending}
+                aria-disabled={remove.isPending}
                 onClick={() => {
+                  if (remove.isPending) return;
                   remove.mutate(day, {
                     onSuccess: () => {
                       flushSync(() => {

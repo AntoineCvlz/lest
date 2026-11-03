@@ -50,3 +50,19 @@ export function kilogramsToDisplay(kilograms: number, system: UnitSystem): numbe
 export function displayToKilograms(value: number, system: UnitSystem): number {
   return system === "metric" ? round(value, 2) : round(value * KILOGRAMS_PER_POUND, 2);
 }
+
+/** Unité des mensurations : centimètres (métrique) ou pouces (impérial). */
+export const LENGTH_UNITS = {
+  metric: { symbol: "cm", name: "centimètres" },
+  imperial: { symbol: "in", name: "pouces" },
+} as const;
+
+/** Mensuration stockée (m) dans l'unité du profil, au dixième de centimètre ou de pouce. */
+export function metresToLength(metres: number, system: UnitSystem): number {
+  return system === "metric" ? round(metres * 100, 1) : round(metres / METRES_PER_INCH, 1);
+}
+
+/** Mensuration saisie dans l'unité du profil, en mètres au millimètre (précision du stockage). */
+export function lengthToMetres(value: number, system: UnitSystem): number {
+  return system === "metric" ? round(value / 100, 3) : round(value * METRES_PER_INCH, 3);
+}
