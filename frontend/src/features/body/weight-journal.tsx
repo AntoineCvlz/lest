@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { useProfile } from "@/features/profile/use-profile";
-import { formatNumber } from "@/shared/lib/number";
+import { formatNumber, parseDecimal } from "@/shared/lib/number";
 import { displayToKilograms, kilogramsToDisplay, WEIGHT_UNITS } from "@/shared/lib/units";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
@@ -37,13 +37,6 @@ const LIMITS = {
   metric: { min: 20, max: 400 },
   imperial: { min: 45, max: 880 },
 } as const;
-
-/** Nombre saisi au format français (« 81,4 ») ou anglais (« 81.4 »), sinon `null`. */
-export function parseWeight(text: string): number | null {
-  const normalized = text.trim().replace(",", ".");
-  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
-  return Number(normalized);
-}
 
 /**
  * Journal du poids : pesée du jour (pré-remplie avec la dernière), courbe et moyenne sur 7 jours,
@@ -122,7 +115,7 @@ export function WeightJournal() {
         onSubmit={(event) => {
           event.preventDefault();
           clearMessages();
-          const value = parseWeight(shown);
+          const value = parseDecimal(shown);
           const fault =
             value === null || value < limits.min || value > limits.max
               ? "weight"

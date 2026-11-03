@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
+import { parseDecimal } from "@/shared/lib/number";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
@@ -10,7 +11,6 @@ import { bodyWeightText, trendSummary } from "./weight-chart";
 import {
   DATE_OUT_OF_RANGE,
   NO_WEIGHT,
-  parseWeight,
   WEIGHT_NOT_SAVED,
   WEIGHT_REFUSED,
   WeightJournal,
@@ -45,13 +45,13 @@ function api({
   return { query: () => query };
 }
 
-describe("parseWeight", () => {
+describe("parseDecimal", () => {
   it("lit la virgule ou le point, refuse le reste", () => {
-    expect(parseWeight(" 81,4 ")).toBe(81.4);
-    expect(parseWeight("81.4")).toBe(81.4);
-    expect(parseWeight("81,4,2")).toBeNull();
-    expect(parseWeight("-80")).toBeNull();
-    expect(parseWeight("")).toBeNull();
+    expect(parseDecimal(" 81,4 ")).toBe(81.4);
+    expect(parseDecimal("81.4")).toBe(81.4);
+    expect(parseDecimal("81,4,2")).toBeNull();
+    expect(parseDecimal("-80")).toBeNull();
+    expect(parseDecimal("")).toBeNull();
   });
 });
 

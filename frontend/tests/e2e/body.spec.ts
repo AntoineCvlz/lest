@@ -42,3 +42,36 @@ test("enregistre, corrige et supprime une pesée", async ({
   await expect(page.getByText(/^Aucune pesée sur la période\./)).toBeVisible();
   expect(cspViolations).toEqual([]);
 });
+
+test("note des mensurations partielles puis en retire une", async ({
+  page,
+  makeAxeBuilder,
+  cspViolations,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "mensurations");
+  await signUp(page, email, password);
+  await page.goto("/corps");
+  await page.getByRole("link", { name: "Mensurations" }).click();
+  await expect(page).toHaveURL("/corps/mensurations");
+  await expect(page.getByRole("link", { name: "Mensurations" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(page.getByText(/^Aucune mensuration sur l’année\./)).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  await page.getByRole("textbox", { name: "Bras (cm)" }).fill("38,5");
+  await page.getByRole("textbox", { name: "Taille (cm)" }).fill("82");
+  await page.getByRole("button", { name: "Enregistrer les mesures" }).click();
+  await expect(page.getByText(/^Mensurations du .* enregistrées\.$/)).toBeVisible();
+  const history = page.getByRole("list", { name: "Mensurations par date" });
+  await expect(history).toContainText("Bras 38,5 cm, Taille 82 cm");
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  await history.getByRole("button", { name: /^Modifier les mensurations du / }).click();
+  await page.getByRole("textbox", { name: "Taille (cm)" }).fill("");
+  await page.getByRole("button", { name: "Enregistrer les mesures" }).click();
+  await expect(history).toContainText("Bras 38,5 cm");
+  await expect(history).not.toContainText("Taille");
+  expect(cspViolations).toEqual([]);
+});

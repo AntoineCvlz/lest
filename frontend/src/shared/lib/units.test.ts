@@ -2,8 +2,10 @@ import {
   displayToKilograms,
   feetInchesToMetres,
   kilogramsToDisplay,
+  lengthToMetres,
   metresToCentimetres,
   metresToFeetInches,
+  metresToLength,
 } from "./units";
 
 describe("conversions de taille (stockage en mètres)", () => {
@@ -51,5 +53,21 @@ describe("conversions de charge (stockage en kilos)", () => {
     for (const pounds of [45, 135, 185, 315, 2.5]) {
       expect(kilogramsToDisplay(displayToKilograms(pounds, "imperial"), "imperial")).toBe(pounds);
     }
+  });
+});
+
+describe("conversions des mensurations (stockage en mètres)", () => {
+  it.each([
+    [0.385, "metric", 38.5],
+    [0.385, "imperial", 15.2],
+  ] as const)("%f m = %f (%s)", (metres, system, value) => {
+    expect(metresToLength(metres, system)).toBe(value);
+  });
+
+  it.each([
+    [38.5, "metric", 0.385],
+    [15.2, "imperial", 0.386],
+  ] as const)("%f (%s) = %f m", (value, system, metres) => {
+    expect(lengthToMetres(value, system)).toBe(metres);
   });
 });

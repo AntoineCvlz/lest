@@ -30,3 +30,10 @@ const FRENCH_NUMBER = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 
 export function formatNumber(value: number): string {
   return FRENCH_NUMBER.format(value);
 }
+
+/** Nombre positif saisi au format français (« 81,4 ») ou anglais (« 81.4 »), sinon `null`. */
+export function parseDecimal(text: string): number | null {
+  const normalized = text.trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) return null;
+  return Number(normalized);
+}
