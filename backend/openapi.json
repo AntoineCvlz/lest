@@ -1050,6 +1050,101 @@
         "title": "SetOut",
         "type": "object"
       },
+      "WeightIn": {
+        "properties": {
+          "weight_kg": {
+            "anyOf": [
+              {
+                "maximum": 400.0,
+                "minimum": 20.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "required": [
+          "weight_kg"
+        ],
+        "title": "WeightIn",
+        "type": "object"
+      },
+      "WeightOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "weight_kg": {
+            "title": "Weight Kg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "weight_kg"
+        ],
+        "title": "WeightOut",
+        "type": "object"
+      },
+      "WeightPeriod": {
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          }
+        },
+        "title": "WeightPeriod",
+        "type": "object"
+      },
+      "WeightPointOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "trend_kg": {
+            "title": "Trend Kg",
+            "type": "number"
+          },
+          "weight_kg": {
+            "title": "Weight Kg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "weight_kg",
+          "trend_kg"
+        ],
+        "title": "WeightPointOut",
+        "type": "object"
+      },
       "WorkoutDetailOut": {
         "properties": {
           "ended_at": {
@@ -1490,6 +1585,159 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/body-weights/": {
+      "get": {
+        "operationId": "apps_body_api_router_list_weights",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WeightPointOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Pesées d'une période",
+        "tags": [
+          "body"
+        ]
+      }
+    },
+    "/api/v1/body-weights/{day}/": {
+      "delete": {
+        "operationId": "apps_body_api_router_remove_weight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer la pesée d'un jour",
+        "tags": [
+          "body"
+        ]
+      },
+      "put": {
+        "operationId": "apps_body_api_router_write_weight",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeightIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeightOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeightOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Enregistrer ou remplacer la pesée d'un jour",
+        "tags": [
+          "body"
+        ]
+      }
+    },
     "/api/v1/exercise-filters/": {
       "get": {
         "operationId": "apps_training_api_router_read_exercise_filters",

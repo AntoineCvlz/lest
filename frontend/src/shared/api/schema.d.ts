@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/api/v1/body-weights/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Pesées d'une période */
+        get: operations["apps_body_api_router_list_weights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/body-weights/{day}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistrer ou remplacer la pesée d'un jour */
+        put: operations["apps_body_api_router_write_weight"];
+        post?: never;
+        /** Supprimer la pesée d'un jour */
+        delete: operations["apps_body_api_router_remove_weight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exercise-filters/": {
         parameters: {
             query?: never;
@@ -732,6 +767,40 @@ export interface components {
              */
             workout_exercise_id: string;
         };
+        /** WeightIn */
+        WeightIn: {
+            /** Weight Kg */
+            weight_kg: number | string;
+        };
+        /** WeightOut */
+        WeightOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Weight Kg */
+            weight_kg: number;
+        };
+        /** WeightPeriod */
+        WeightPeriod: {
+            /** End */
+            end?: string | null;
+            /** Start */
+            start?: string | null;
+        };
+        /** WeightPointOut */
+        WeightPointOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Trend Kg */
+            trend_kg: number;
+            /** Weight Kg */
+            weight_kg: number;
+        };
         /** WorkoutDetailOut */
         WorkoutDetailOut: {
             /** Ended At */
@@ -904,6 +973,84 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    apps_body_api_router_list_weights: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeightPointOut"][];
+                };
+            };
+        };
+    };
+    apps_body_api_router_write_weight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WeightIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeightOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WeightOut"];
+                };
+            };
+        };
+    };
+    apps_body_api_router_remove_weight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_training_api_router_read_exercise_filters: {
         parameters: {
             query?: never;

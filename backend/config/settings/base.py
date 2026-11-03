@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "allauth.usersessions",
     "apps.accounts",
     "apps.training",
+    "apps.body",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
@@ -161,6 +162,8 @@ ACCOUNT_RATE_LIMITS = {
     # Écritures de séance (séries, exercices, séances) : 300/min par compte, de quoi vider une
     # file hors ligne d'un coup, pas de remplir la base par script.
     "training_write": "300/m/user",
+    # Pesées et mesures : une par jour, une file hors ligne en rejoue au plus quelques dizaines.
+    "body_write": "120/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.

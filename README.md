@@ -54,6 +54,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0004 — catalogue d'exercices importé de wger, sous licence CC-BY-SA](docs/adr/0004-donnees-exercices-wger.md) (remplacé par l'ADR 0006)
 - [ADR 0005 — images des exercices : wger normalisées et servies par Lest, pictogrammes sinon](docs/adr/0005-images-exercices.md) (remplacé par l'ADR 0006)
 - [ADR 0006 — catalogue d'exercices et images de RepDB, à la place de wger](docs/adr/0006-catalogue-repdb.md)
+- [ADR 0007 — mesures corporelles chiffrées, tendances calculées en Python](docs/adr/0007-mesures-corporelles-chiffrees.md)
 
 ## Qualité et sécurité
 
