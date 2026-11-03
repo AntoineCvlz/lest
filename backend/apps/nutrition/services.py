@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -111,6 +111,11 @@ def import_foods(*, foods: list[CiqualFood]) -> ImportReport:
 
 # Sous les 15 lectures par minute et par IP d'OFF : le serveur de Lest est une seule IP.
 OFF_CALLS_PER_MINUTE = 12
+# Part de chaque compte (appels réellement faits) : un compte seul ne prive pas les autres.
+OFF_CALLS_PER_ACCOUNT_MINUTE = 4
+OFF_CALLS_PER_ACCOUNT_DAY = 100
+# Panne d'OFF retenue pour un code : pas de nouvel appel à chaque scan pendant ce temps.
+OFF_ERROR_SECONDS = 60
 # Un produit gardé reste servi tel quel 30 jours ; une absence, 1 jour.
 OFF_FRESH = timedelta(days=30)
 OFF_MISSING_SECONDS = 24 * 60 * 60
@@ -128,20 +133,42 @@ class OffBusyError(Exception):
     """Plafond d'appels à OFF atteint, ou OFF injoignable sans copie locale : réessayer."""
 
 
-def _consume_off_call() -> bool:
-    """Compte un appel dans la minute en cours ; `False` au-delà du plafond."""
-    bucket = f"nutrition:off-calls:{timezone.now():%Y%m%d%H%M}"
-    cache.add(bucket, 0, timeout=120)
-    return cache.incr(bucket) <= OFF_CALLS_PER_MINUTE
+class OffQuotaError(Exception):
+    """Part d'appels à OFF du compte épuisée (minute ou jour) : réessayer plus tard."""
+
+
+def _consume(bucket: str, limit: int, timeout: int = 120) -> bool:
+    cache.add(bucket, 0, timeout=timeout)
+    return cache.incr(bucket) <= limit
+
+
+def _consume_off_call(owner: User) -> None:
+    """Compte un appel réel à OFF : la part du compte (minute, jour) lève `OffQuotaError`, le
+    plafond de l'application `OffBusyError`."""
+    now = timezone.now()
+    minute, day = f"{now:%Y%m%d%H%M}", f"{now:%Y%m%d}"
+    if not (
+        _consume(f"nutrition:off-calls:{owner.pk}:{minute}", OFF_CALLS_PER_ACCOUNT_MINUTE)
+        and _consume(
+            f"nutrition:off-calls:{owner.pk}:{day}", OFF_CALLS_PER_ACCOUNT_DAY, timeout=2 * 86400
+        )
+    ):
+        raise OffQuotaError
+    if not _consume(f"nutrition:off-calls:{minute}", OFF_CALLS_PER_MINUTE):
+        raise OffBusyError
 
 
 def lookup_barcode(
-    *, code: str, fetch: Callable[[str], openfoodfacts.OffProduct | None] | None = None
+    *,
+    owner: User,
+    code: str,
+    fetch: Callable[[str], openfoodfacts.OffProduct | None] | None = None,
 ) -> Food:
     """Aliment du code-barres `code` : copie locale récente, sinon lu chez OFF et gardé.
 
-    Lève `BarcodeNotFoundError`, `BarcodeUnusableError` ou `OffBusyError`. Si OFF est
-    injoignable, une copie locale ancienne est servie plutôt qu'une erreur.
+    Lève `BarcodeNotFoundError`, `BarcodeUnusableError`, `OffQuotaError` ou `OffBusyError`.
+    Une copie locale ancienne est servie plutôt qu'une erreur (plafond, panne, produit retiré
+    d'OFF). Absence, produit inexploitable et panne sont retenus : pas d'appel à chaque scan.
     """
     if not openfoodfacts.valid_barcode(code):
         raise BarcodeNotFoundError
@@ -150,12 +177,22 @@ def lookup_barcode(
     if known is not None and known.fetched_at and now - known.fetched_at < OFF_FRESH:
         return known
     missing_key = f"nutrition:off-missing:{code}"
+    unusable_key = f"nutrition:off-unusable:{code}"
     if known is None and cache.get(missing_key):
         raise BarcodeNotFoundError
-    if not _consume_off_call():
+    error_key = f"nutrition:off-error:{code}"
+    if known is None and cache.get(unusable_key):
+        raise BarcodeUnusableError
+    if cache.get(error_key):
         if known is not None:
             return known
         raise OffBusyError
+    try:
+        _consume_off_call(owner)
+    except (OffQuotaError, OffBusyError):
+        if known is not None:
+            return known
+        raise
     reader = fetch or (
         lambda value: openfoodfacts.fetch_product(
             value, base_url=settings.OFF_BASE_URL, contact=settings.OFF_CONTACT
@@ -164,12 +201,19 @@ def lookup_barcode(
     try:
         product = reader(code)
     except openfoodfacts.OffError as error:
+        cache.set(error_key, 1, OFF_ERROR_SECONDS)
         if known is not None:
             return known
         raise OffBusyError from error
     except openfoodfacts.UnusableProductError as error:
+        cache.set(unusable_key, 1, OFF_MISSING_SECONDS)
         raise BarcodeUnusableError from error
     if product is None:
+        if known is not None:
+            # Retiré d'OFF : la copie reste servie (le journal y renvoie), sans rappel avant 30 j.
+            known.fetched_at = now
+            known.save(update_fields=["fetched_at", "updated_at"])
+            return known
         cache.set(missing_key, 1, OFF_MISSING_SECONDS)
         raise BarcodeNotFoundError
     food = known or Food(source=FoodSource.OFF, source_code=code)
@@ -183,10 +227,21 @@ def lookup_barcode(
     food.is_active = True
     food.fetched_at = now
     try:
-        food.save()
+        with transaction.atomic():
+            food.save()
     except IntegrityError:
         # Deux premiers scans simultanés : l'autre a écrit, on relit sa copie.
-        return Food.objects.get(source=FoodSource.OFF, source_code=code, owner__isnull=True)
+        existing = Food.objects.filter(
+            source=FoodSource.OFF, source_code=code, owner__isnull=True
+        ).first()
+        if existing is not None:
+            return existing
+        cache.set(unusable_key, 1, OFF_MISSING_SECONDS)
+        raise BarcodeUnusableError from None
+    except DatabaseError:
+        # Valeur refusée par la base malgré la validation : pas de nouvel appel à chaque scan.
+        cache.set(unusable_key, 1, OFF_MISSING_SECONDS)
+        raise BarcodeUnusableError from None
     return food
 
 

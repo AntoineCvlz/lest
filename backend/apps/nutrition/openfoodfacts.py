@@ -7,6 +7,7 @@ réponse bornée, et validation stricte : seul un produit exploitable sort d'ici
 
 import http.client
 import json
+import unicodedata
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -82,6 +83,13 @@ class _Answer(BaseModel):
     product: _Product | None = None
 
 
+def clean_text(text: str | None) -> str:
+    """Texte d'OFF (saisi par n'importe qui, puis montré à tous les comptes) : caractères de
+    contrôle et de mise en forme retirés (NUL, inversions du sens d'écriture), espaces resserrés."""
+    kept = "".join(char for char in text or "" if unicodedata.category(char) not in ("Cc", "Cf"))
+    return " ".join(kept.split())
+
+
 def _grams(value: Decimal | None) -> Decimal | None:
     if value is None:
         return None
@@ -100,7 +108,7 @@ def parse_product(code: str, payload: object) -> OffProduct | None:
     if answer.status != 1 or answer.product is None:
         return None
     product = answer.product
-    name = (product.product_name_fr or product.product_name or "").strip()
+    name = clean_text(product.product_name_fr) or clean_text(product.product_name)
     kcal = product.nutriments.kcal
     if not name or kcal is None or not kcal.is_finite() or not Decimal(0) <= kcal <= MAX_KCAL:
         raise UnusableProductError
@@ -111,7 +119,7 @@ def parse_product(code: str, payload: object) -> OffProduct | None:
         code=code,
         name=name[:200],
         # Première marque seulement : OFF les liste séparées par des virgules.
-        brand=(product.brands or "").split(",")[0].strip()[:120],
+        brand=clean_text((product.brands or "").split(",")[0])[:120],
         kcal=kcal.quantize(Decimal("0.1")),
         protein=_grams(product.nutriments.protein),
         carbs=_grams(product.nutriments.carbs),

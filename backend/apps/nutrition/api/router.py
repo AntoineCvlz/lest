@@ -119,9 +119,9 @@ def _limited(request: HttpRequest, action: str) -> User:
     ),
 )
 def lookup_barcode(request: HttpRequest, code: str) -> FoodOut:
-    _limited(request, LOOKUP_ACTION)
+    owner = _limited(request, LOOKUP_ACTION)
     try:
-        food = services.lookup_barcode(code=code)
+        food = services.lookup_barcode(owner=owner, code=code)
     except services.BarcodeNotFoundError as error:
         raise Http404 from error
     except services.BarcodeUnusableError as error:
@@ -129,6 +129,10 @@ def lookup_barcode(request: HttpRequest, code: str) -> FoodOut:
             422,
             "Produit sans valeurs nutritionnelles exploitables : créez un aliment perso.",
             type_=UNUSABLE_TYPE,
+        ) from error
+    except services.OffQuotaError as error:
+        raise ProblemError(
+            429, "Trop de produits nouveaux scannés. Réessayez plus tard.", type_=RATE_LIMITED_TYPE
         ) from error
     except services.OffBusyError as error:
         raise ProblemError(

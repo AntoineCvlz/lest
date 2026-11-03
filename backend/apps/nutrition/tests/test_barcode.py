@@ -24,6 +24,11 @@ pytestmark = pytest.mark.django_db
 CODE = "2000000000008"  # code GTIN fictif, clé de contrôle valide
 
 
+def someone() -> Any:
+    """Compte jetable, pour les appels où le compte importe peu."""
+    return make_verified_user()
+
+
 def answer(**product: Any) -> dict[str, Any]:
     base: dict[str, Any] = {
         "product_name_fr": "Barre témoin protéinée",
@@ -168,8 +173,8 @@ class Calls:
 def test_a_scanned_product_is_kept_and_served_from_the_local_copy() -> None:
     fetch = Calls(product())
 
-    food = services.lookup_barcode(code=CODE, fetch=fetch)
-    again = services.lookup_barcode(code=CODE, fetch=fetch)
+    food = services.lookup_barcode(owner=someone(), code=CODE, fetch=fetch)
+    again = services.lookup_barcode(owner=someone(), code=CODE, fetch=fetch)
 
     assert fetch.count == 1
     assert again.pk == food.pk
@@ -177,14 +182,18 @@ def test_a_scanned_product_is_kept_and_served_from_the_local_copy() -> None:
 
 
 def test_a_stale_copy_is_refreshed_or_served_when_off_fails() -> None:
-    services.lookup_barcode(code=CODE, fetch=Calls(product()))
+    services.lookup_barcode(owner=someone(), code=CODE, fetch=Calls(product()))
     Food.objects.update(fetched_at=timezone.now() - timedelta(days=31))
 
-    refreshed = services.lookup_barcode(code=CODE, fetch=Calls(product(product_name_fr="Nouveau")))
+    refreshed = services.lookup_barcode(
+        owner=someone(), code=CODE, fetch=Calls(product(product_name_fr="Nouveau"))
+    )
     assert refreshed.name == "Nouveau"
 
     Food.objects.update(fetched_at=timezone.now() - timedelta(days=31))
-    served = services.lookup_barcode(code=CODE, fetch=Calls(openfoodfacts.OffError("panne")))
+    served = services.lookup_barcode(
+        owner=someone(), code=CODE, fetch=Calls(openfoodfacts.OffError("panne"))
+    )
     assert served.name == "Nouveau"
 
 
@@ -192,24 +201,28 @@ def test_absence_is_remembered_and_failures_without_copy_are_busy() -> None:
     missing = Calls(None)
     for _ in range(2):
         with pytest.raises(services.BarcodeNotFoundError):
-            services.lookup_barcode(code=CODE, fetch=missing)
+            services.lookup_barcode(owner=someone(), code=CODE, fetch=missing)
     assert missing.count == 1
 
     with pytest.raises(services.OffBusyError):
-        services.lookup_barcode(code="3017624010701", fetch=Calls(openfoodfacts.OffError("x")))
+        services.lookup_barcode(
+            owner=someone(), code="3017624010701", fetch=Calls(openfoodfacts.OffError("x"))
+        )
     with pytest.raises(services.BarcodeUnusableError):
-        services.lookup_barcode(code="96385074", fetch=Calls(openfoodfacts.UnusableProductError()))
+        services.lookup_barcode(
+            owner=someone(), code="96385074", fetch=Calls(openfoodfacts.UnusableProductError())
+        )
     with pytest.raises(services.BarcodeNotFoundError):
-        services.lookup_barcode(code="123", fetch=Calls(product()))
+        services.lookup_barcode(owner=someone(), code="123", fetch=Calls(product()))
 
 
 def test_off_calls_are_capped_for_the_whole_application(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(services, "OFF_CALLS_PER_MINUTE", 1)
     fetch = Calls(product())
-    services.lookup_barcode(code=CODE, fetch=fetch)
+    services.lookup_barcode(owner=someone(), code=CODE, fetch=fetch)
 
     with pytest.raises(services.OffBusyError):
-        services.lookup_barcode(code="3017624010701", fetch=fetch)
+        services.lookup_barcode(owner=someone(), code="3017624010701", fetch=fetch)
     assert fetch.count == 1
 
 
@@ -336,3 +349,73 @@ def test_custom_food_ids_must_be_client_v4_uuids_and_are_capped(
 
     assert refused.status_code == 422
     assert refused.json()["errors"] == [{"loc": ["food_id"], "type": "too_many"}]
+
+
+def test_off_text_is_stripped_of_control_and_format_characters() -> None:
+    found = product(
+        product_name_fr="\u202eBarre\u0000 témoin\u200b  protéinée\n",
+        brands="Marque\u0007 témoin, Autre",
+    )
+
+    assert (found.name, found.brand) == ("Barre témoin protéinée", "Marque témoin")
+    with pytest.raises(openfoodfacts.UnusableProductError):
+        openfoodfacts.parse_product(CODE, answer(product_name_fr="\u0000\u202e", product_name=None))
+
+
+def test_one_account_cannot_use_up_the_off_quota(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(services, "OFF_CALLS_PER_ACCOUNT_MINUTE", 1)
+    greedy, other = make_verified_user(), make_verified_user()
+    fetch = Calls(product())
+    services.lookup_barcode(owner=greedy, code=CODE, fetch=fetch)
+
+    with pytest.raises(services.OffQuotaError):
+        services.lookup_barcode(owner=greedy, code="3017624010701", fetch=fetch)
+    services.lookup_barcode(owner=other, code="3017624010701", fetch=fetch)
+    # Une copie locale ne compte pas : le compte gourmand la lit encore.
+    assert services.lookup_barcode(owner=greedy, code=CODE, fetch=fetch).source_code == CODE
+    assert fetch.count == 2
+
+
+def test_an_unusable_product_is_remembered() -> None:
+    unusable = Calls(openfoodfacts.UnusableProductError())
+    for _ in range(2):
+        with pytest.raises(services.BarcodeUnusableError):
+            services.lookup_barcode(owner=someone(), code=CODE, fetch=unusable)
+    assert unusable.count == 1
+
+
+def test_the_daily_account_share_is_enforced(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(services, "OFF_CALLS_PER_ACCOUNT_DAY", 1)
+    me = make_verified_user()
+    services.lookup_barcode(owner=me, code=CODE, fetch=Calls(product()))
+
+    with pytest.raises(services.OffQuotaError):
+        services.lookup_barcode(owner=me, code="3017624010701", fetch=Calls(product()))
+
+
+def test_an_off_failure_is_remembered_for_a_minute() -> None:
+    failing = Calls(openfoodfacts.OffError("panne"))
+    for _ in range(2):
+        with pytest.raises(services.OffBusyError):
+            services.lookup_barcode(owner=someone(), code=CODE, fetch=failing)
+    assert failing.count == 1
+
+
+def test_a_product_removed_from_off_keeps_its_local_copy() -> None:
+    services.lookup_barcode(owner=someone(), code=CODE, fetch=Calls(product()))
+    Food.objects.update(fetched_at=timezone.now() - timedelta(days=31))
+    gone = Calls(None)
+
+    first = services.lookup_barcode(owner=someone(), code=CODE, fetch=gone)
+    second = services.lookup_barcode(owner=someone(), code=CODE, fetch=gone)
+
+    assert first.name == second.name == "Barre témoin protéinée"
+    assert gone.count == 1
+
+
+def test_the_barcode_route_answers_429_when_the_account_share_is_spent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(services, "OFF_CALLS_PER_ACCOUNT_MINUTE", 0)
+
+    assert Athlete().get(f"barcode/{CODE}/").status_code == 429
