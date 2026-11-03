@@ -1,9 +1,15 @@
 """Double authentification (allauth.mfa, headless) : TOTP, codes de secours, secrets chiffrés."""
 
 import re
+import time
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from allauth.account import app_settings as account_settings
+from allauth.account.internal.flows import reauthentication
+from allauth.account.internal.flows.login import record_authentication
+from allauth.core.exceptions import ReauthenticationRequired
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp.internal.auth import (
     format_hotp_value,
@@ -11,14 +17,16 @@ from allauth.mfa.totp.internal.auth import (
     yield_hotp_counters_from_time,
 )
 from django.conf import settings
+from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.models import Session
 from django.core import mail
 from django.core.cache import cache
 from django.core.checks import run_checks
 from django.core.management import call_command
-from django.test import Client, override_settings
+from django.test import Client, RequestFactory, override_settings
 
 from apps.accounts.checks import check_mfa_bypass
+from apps.accounts.mfa_views import require_second_factor_confirmation
 from apps.accounts.models import User
 from apps.accounts.selectors import export_account
 from apps.accounts.tests.auth import APP, bearer, login
@@ -406,3 +414,34 @@ def test_recovery_codes_show_right_after_activation(client: Client) -> None:
 
     assert response.status_code == 200
     assert response.json()["data"]["unused_codes"]
+
+
+def test_an_old_second_factor_confirmation_no_longer_counts(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Notre garde laisse allauth juger de la fraîcheur (`MFA_REAUTHENTICATION_REQUIRED`).
+    user = make_verified_user()
+    _, token = enable_totp(client, user)
+    recovery = Authenticator.objects.get(user=user, type=Authenticator.Type.RECOVERY_CODES)
+    reauthenticate_with_code(client, token, recovery.wrap().get_unused_codes()[0])
+    later = time.time() + account_settings.REAUTHENTICATION_TIMEOUT + 1
+    # Horloge avancée pour allauth seulement : le jeton d'accès reste valide.
+    monkeypatch.setattr(reauthentication, "time", SimpleNamespace(time=lambda: later))
+
+    assert client.delete(TOTP, headers=bearer(token)).status_code == 401
+    assert Authenticator.objects.filter(user=user, type=Authenticator.Type.TOTP).exists()
+
+
+def test_another_accounts_confirmations_do_not_count() -> None:
+    owner, other = make_verified_user(), make_verified_user()
+    Authenticator.objects.create(user=other, type=Authenticator.Type.TOTP, data={})
+    request = RequestFactory().get("/")
+    request.session = SessionStore()
+    record_authentication(request, owner, "mfa", reauthenticated=True)
+    request.user = other
+
+    with pytest.raises(ReauthenticationRequired):
+        require_second_factor_confirmation(request)
+
+    record_authentication(request, other, "mfa", reauthenticated=True)
+    require_second_factor_confirmation(request)

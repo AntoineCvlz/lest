@@ -462,7 +462,7 @@
       },
       "PasswordLess": {
         "allowEmptyValue": true,
-        "description": "When present (regardless of its value), enables passwordless sign-in via a WebAuthn credential (Passkey),\nbut may enforce additional multi-factor authentication (MFA) requirements. Omit the parameter to disable.\n",
+        "description": "When present (regardless of its value), enables passwordless sign-in via a WebAuthn credential (Passkey),\nwhich requires PIN, biometric, or equivalent user verification. Omit the parameter to disable.\n",
         "in": "query",
         "name": "passwordless",
         "required": false,
@@ -4355,7 +4355,7 @@
     },
     "/api/v1/auth/app/v1/auth/webauthn/authenticate": {
       "get": {
-        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend. The\nuser verification requirement is controlled by\n`MFA_WEBAUTHN_USER_VERIFICATION`.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionToken"
@@ -4404,7 +4404,7 @@
     },
     "/api/v1/auth/app/v1/auth/webauthn/login": {
       "get": {
-        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\nPasskey login always requires user verification.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionToken"
@@ -4468,7 +4468,7 @@
     },
     "/api/v1/auth/app/v1/auth/webauthn/reauthenticate": {
       "get": {
-        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\n",
+        "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend. The\nuser verification requirement is controlled by\n`MFA_WEBAUTHN_USER_VERIFICATION`.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/SessionToken"

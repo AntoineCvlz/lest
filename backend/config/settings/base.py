@@ -186,6 +186,9 @@ HEADLESS_JWT_STATEFUL_VALIDATION_ENABLED = True
 MFA_ADAPTER = "apps.accounts.mfa_adapter.MFAAdapter"
 MFA_SUPPORTED_TYPES = ["totp", "recovery_codes", "webauthn"]
 MFA_TOTP_ISSUER = "Lest"
+# Défaut d'allauth, écrit pour qu'il ne change pas en silence : la garde de `mfa_views.py` laisse
+# allauth vérifier la fraîcheur de la dernière confirmation, ce réglage l'active.
+MFA_REAUTHENTICATION_REQUIRED = True
 # Passkeys : connexion sans mot de passe (clé résidente, vérification de l'utilisateur). Le RP ID
 # est le domaine public (`FRONTEND_URL`), jamais l'hôte interne vu par Django derrière le proxy.
 # Jamais de `MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN` (contrôle de déploiement accounts.E002).
