@@ -7,7 +7,7 @@ from typing import Any, get_args
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, connection, transaction
-from django.test import Client
+from django.test import Client, override_settings
 
 from apps.accounts.selectors import export_account
 from apps.accounts.services import delete_account
@@ -136,6 +136,7 @@ def test_another_account_never_sees_nor_deletes_my_measurements() -> None:
 
     assert other.get("?start=2026-09-01&end=2026-10-31").json() == []
     assert other.delete("2026-10-01/arm/").status_code == 204
+    assert BodyMeasurement.objects.filter(owner=me.user).count() == 1
     other.put("2026-10-01/arm/", {"length_m": 0.3})
 
     assert selectors.list_measurements(owner=me.user, start=DAY, end=DAY)[0].length_m == Decimal(
@@ -158,3 +159,13 @@ def test_measurements_are_exported_and_deleted_with_the_account() -> None:
     ]
     delete_account(user=user, password=TEST_PASSWORD)
     assert not BodyMeasurement.objects.exists()
+
+
+@override_settings(ACCOUNT_RATE_LIMITS={"body_write": "2/m/user"})
+def test_measurement_writes_share_the_body_rate_limit() -> None:
+    me = Athlete()
+
+    assert me.put("2026-10-01/arm/", {"length_m": 0.38}).status_code == 201
+    assert me.delete("2026-10-01/arm/").status_code == 204
+    assert me.put("2026-10-01/arm/", {"length_m": 0.38}).status_code == 429
+    assert me.delete("2026-10-01/arm/").status_code == 429
