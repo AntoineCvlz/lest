@@ -14,6 +14,105 @@
         "title": "AccountDeletionIn",
         "type": "object"
       },
+      "CustomFoodIn": {
+        "properties": {
+          "brand": {
+            "default": "",
+            "maxLength": 120,
+            "title": "Brand",
+            "type": "string"
+          },
+          "carbs_100g": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs 100G"
+          },
+          "fat_100g": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat 100G"
+          },
+          "kcal_100g": {
+            "anyOf": [
+              {
+                "maximum": 900.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Kcal 100G"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "protein_100g": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein 100G"
+          },
+          "serving_g": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 2000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving G"
+          }
+        },
+        "required": [
+          "name",
+          "kcal_100g"
+        ],
+        "title": "CustomFoodIn",
+        "type": "object"
+      },
       "ExerciseDetailOut": {
         "properties": {
           "category": {
@@ -2467,7 +2566,74 @@
         ]
       }
     },
+    "/api/v1/foods/barcode/{code}/": {
+      "get": {
+        "description": "Copie locale récente, sinon lue chez Open Food Facts (un appel par scan, ADR 0009). 404 : code invalide ou produit inconnu ; 422 : produit sans valeurs exploitables ; 503 : Open Food Facts saturé ou injoignable, réessayer.",
+        "operationId": "apps_nutrition_api_router_lookup_barcode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Aliment d'un code-barres (Open Food Facts)",
+        "tags": [
+          "nutrition"
+        ]
+      }
+    },
     "/api/v1/foods/{food_id}/": {
+      "delete": {
+        "operationId": "apps_nutrition_api_router_remove_custom_food",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "food_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Food Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer un aliment perso",
+        "tags": [
+          "nutrition"
+        ]
+      },
       "get": {
         "operationId": "apps_nutrition_api_router_get_food",
         "parameters": [
@@ -2500,6 +2666,62 @@
           }
         ],
         "summary": "Fiche d'un aliment",
+        "tags": [
+          "nutrition"
+        ]
+      },
+      "put": {
+        "operationId": "apps_nutrition_api_router_write_custom_food",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "food_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Food Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFoodIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Créer ou remplacer un aliment perso",
         "tags": [
           "nutrition"
         ]

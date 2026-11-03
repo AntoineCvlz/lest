@@ -171,6 +171,9 @@ ACCOUNT_RATE_LIMITS = {
     "body_photo_write": "30/3600s/user",
     # Archives des photos (export RGPD) : toutes les photos déchiffrées à chaque fois.
     "body_photo_export": "10/3600s/user",
+    # Aliments perso ; scans de code-barres (chacun peut coûter un appel à Open Food Facts).
+    "nutrition_write": "120/m/user",
+    "food_lookup": "30/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
@@ -241,6 +244,10 @@ CIQUAL_BASE_URL = env(
     "CIQUAL_BASE_URL", default="https://entrepot.recherche.data.gouv.fr/api/access/datafile"
 )
 CIQUAL_FILES = {"alim": 666252, "compo": 666249}
+# Open Food Facts (ADR 0009) : lecture seule, un appel par scan ; contact du User-Agent demandé
+# par OFF (`Lest/1.0 (contact)`), jamais une adresse personnelle dans le dépôt.
+OFF_BASE_URL = env("OFF_BASE_URL", default="https://world.openfoodfacts.org")
+OFF_CONTACT = env("OFF_CONTACT", default="github.com/AntoineCvlz/lest")
 # Distribution officielle du jeu de données RepDB (catalogue d'exercices, ADR 0006).
 REPDB_BASE_URL = env(
     "REPDB_BASE_URL",

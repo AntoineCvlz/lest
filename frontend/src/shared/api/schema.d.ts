@@ -176,6 +176,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/foods/barcode/{code}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Aliment d'un code-barres (Open Food Facts)
+         * @description Copie locale récente, sinon lue chez Open Food Facts (un appel par scan, ADR 0009). 404 : code invalide ou produit inconnu ; 422 : produit sans valeurs exploitables ; 503 : Open Food Facts saturé ou injoignable, réessayer.
+         */
+        get: operations["apps_nutrition_api_router_lookup_barcode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/foods/{food_id}/": {
         parameters: {
             query?: never;
@@ -185,9 +205,11 @@ export interface paths {
         };
         /** Fiche d'un aliment */
         get: operations["apps_nutrition_api_router_get_food"];
-        put?: never;
+        /** Créer ou remplacer un aliment perso */
+        put: operations["apps_nutrition_api_router_write_custom_food"];
         post?: never;
-        delete?: never;
+        /** Supprimer un aliment perso */
+        delete: operations["apps_nutrition_api_router_remove_custom_food"];
         options?: never;
         head?: never;
         patch?: never;
@@ -487,6 +509,26 @@ export interface components {
         AccountDeletionIn: {
             /** Password */
             password: string;
+        };
+        /** CustomFoodIn */
+        CustomFoodIn: {
+            /**
+             * Brand
+             * @default
+             */
+            brand: string;
+            /** Carbs 100G */
+            carbs_100g?: number | string | null;
+            /** Fat 100G */
+            fat_100g?: number | string | null;
+            /** Kcal 100G */
+            kcal_100g: number | string;
+            /** Name */
+            name: string;
+            /** Protein 100G */
+            protein_100g?: number | string | null;
+            /** Serving G */
+            serving_g?: number | string | null;
         };
         /** ExerciseDetailOut */
         ExerciseDetailOut: {
@@ -1491,6 +1533,28 @@ export interface operations {
             };
         };
     };
+    apps_nutrition_api_router_lookup_barcode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"];
+                };
+            };
+        };
+    };
     apps_nutrition_api_router_get_food: {
         parameters: {
             query?: never;
@@ -1510,6 +1574,61 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["FoodOut"];
                 };
+            };
+        };
+    };
+    apps_nutrition_api_router_write_custom_food: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                food_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFoodIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_remove_custom_food: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                food_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
