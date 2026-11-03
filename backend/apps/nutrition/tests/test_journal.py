@@ -356,3 +356,32 @@ def test_today_is_accepted_tomorrow_too_but_not_later() -> None:
         assert (
             me.put(f"journal-entries/{uuid4()}/", entry_body(food, date=day)).status_code == status
         )
+
+
+def test_an_inactive_food_cannot_be_added() -> None:
+    food = shared_food()
+    food.is_active = False
+    food.save()
+
+    with pytest.raises(services.UnknownFoodError):
+        eat(make_verified_user(), food)
+
+
+def test_recent_foods_decrypt_only_the_food_reference(monkeypatch: pytest.MonkeyPatch) -> None:
+    from common import crypto
+
+    user = make_verified_user()
+    for _ in range(3):
+        eat(user, shared_food())
+    calls = 0
+    decrypt = crypto.decrypt
+
+    def counting(token: str) -> str:
+        nonlocal calls
+        calls += 1
+        return decrypt(token)
+
+    monkeypatch.setattr(crypto, "decrypt", counting)
+    selectors.recent_foods(owner=user)
+
+    assert calls == 3

@@ -146,9 +146,13 @@ def recent_foods(*, owner: User) -> list[Food]:
     """Aliments saisis récemment par `owner`, du plus récent au plus ancien, sans doublon ;
     seulement ceux qui existent encore et lui sont visibles."""
     refs: list[UUID] = []
-    for entry in JournalEntry.objects.filter(owner=owner).order_by("-date", "-created_at")[
-        :RECENT_SCAN
-    ]:
+    # Seule la référence est lue (et déchiffrée) : 1 jeton par entrée au lieu de 7.
+    latest = (
+        JournalEntry.objects.filter(owner=owner)
+        .order_by("-date", "-created_at")
+        .only("food_ref")[:RECENT_SCAN]
+    )
+    for entry in latest:
         try:
             ref = UUID(entry.food_ref or "")
         except ValueError:

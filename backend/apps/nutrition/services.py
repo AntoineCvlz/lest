@@ -358,7 +358,9 @@ def put_entry(
             )
         entry = existing or JournalEntry(id=entry_id, owner=owner)
         if existing is None or existing.food_ref != str(food_id):
-            food = Food.objects.filter(Q(owner__isnull=True) | Q(owner=owner), pk=food_id).first()
+            food = Food.objects.filter(
+                Q(owner__isnull=True) | Q(owner=owner), pk=food_id, is_active=True
+            ).first()
             if food is None:
                 raise UnknownFoodError
             entry.food_ref = str(food.pk)
