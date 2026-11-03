@@ -113,6 +113,148 @@
         "title": "CustomFoodIn",
         "type": "object"
       },
+      "DayOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/EntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/TotalsOut"
+          },
+          "water_ml": {
+            "title": "Water Ml",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "entries",
+          "totals",
+          "water_ml"
+        ],
+        "title": "DayOut",
+        "type": "object"
+      },
+      "EntryIn": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "food_id": {
+            "format": "uuid",
+            "title": "Food Id",
+            "type": "string"
+          },
+          "grams": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 5000.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Grams"
+          },
+          "meal": {
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack"
+            ],
+            "title": "Meal",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "meal",
+          "food_id",
+          "grams"
+        ],
+        "title": "EntryIn",
+        "type": "object"
+      },
+      "EntryOut": {
+        "properties": {
+          "carbs": {
+            "title": "Carbs",
+            "type": "number"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "fat": {
+            "title": "Fat",
+            "type": "number"
+          },
+          "food_id": {
+            "title": "Food Id",
+            "type": "string"
+          },
+          "grams": {
+            "title": "Grams",
+            "type": "number"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kcal": {
+            "title": "Kcal",
+            "type": "number"
+          },
+          "meal": {
+            "enum": [
+              "breakfast",
+              "lunch",
+              "dinner",
+              "snack"
+            ],
+            "title": "Meal",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protein": {
+            "title": "Protein",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "meal",
+          "food_id",
+          "name",
+          "grams",
+          "kcal",
+          "protein",
+          "carbs",
+          "fat"
+        ],
+        "title": "EntryOut",
+        "type": "object"
+      },
       "ExerciseDetailOut": {
         "properties": {
           "category": {
@@ -1390,6 +1532,68 @@
         "title": "SetOut",
         "type": "object"
       },
+      "TotalsOut": {
+        "properties": {
+          "carbs": {
+            "title": "Carbs",
+            "type": "number"
+          },
+          "fat": {
+            "title": "Fat",
+            "type": "number"
+          },
+          "kcal": {
+            "title": "Kcal",
+            "type": "number"
+          },
+          "protein": {
+            "title": "Protein",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kcal",
+          "protein",
+          "carbs",
+          "fat"
+        ],
+        "title": "TotalsOut",
+        "type": "object"
+      },
+      "WaterIn": {
+        "properties": {
+          "ml": {
+            "maximum": 10000,
+            "minimum": 0,
+            "title": "Ml",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ml"
+        ],
+        "title": "WaterIn",
+        "type": "object"
+      },
+      "WaterOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "ml": {
+            "title": "Ml",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "ml"
+        ],
+        "title": "WaterOut",
+        "type": "object"
+      },
       "WeightIn": {
         "properties": {
           "weight_kg": {
@@ -2604,6 +2808,37 @@
         ]
       }
     },
+    "/api/v1/foods/recent/": {
+      "get": {
+        "operationId": "apps_nutrition_api_router_recent_foods",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FoodOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Aliments saisis récemment (journal)",
+        "tags": [
+          "nutrition"
+        ]
+      }
+    },
     "/api/v1/foods/{food_id}/": {
       "delete": {
         "operationId": "apps_nutrition_api_router_remove_custom_food",
@@ -2756,6 +2991,131 @@
         "summary": "État de l'API et de ses dépendances",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/journal-entries/{entry_id}/": {
+      "delete": {
+        "operationId": "apps_nutrition_api_router_remove_entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Retirer un aliment du journal",
+        "tags": [
+          "nutrition"
+        ]
+      },
+      "put": {
+        "operationId": "apps_nutrition_api_router_write_entry",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Ajouter ou modifier un aliment du journal",
+        "tags": [
+          "nutrition"
+        ]
+      }
+    },
+    "/api/v1/journal/{day}/": {
+      "get": {
+        "operationId": "apps_nutrition_api_router_day_journal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DayOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Journal d'un jour",
+        "tags": [
+          "nutrition"
         ]
       }
     },
@@ -3579,6 +3939,54 @@
         "summary": "Enregistrer une série",
         "tags": [
           "training"
+        ]
+      }
+    },
+    "/api/v1/water/{day}/": {
+      "put": {
+        "operationId": "apps_nutrition_api_router_write_water",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaterIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WaterOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Fixer l'eau bue un jour",
+        "tags": [
+          "nutrition"
         ]
       }
     },

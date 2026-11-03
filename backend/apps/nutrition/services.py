@@ -4,7 +4,7 @@ Facts gardés au scan, aliments perso (`PUT`/`DELETE` idempotents sous l'UUID du
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID, uuid4
 
@@ -12,17 +12,31 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.services import lock_account
 from apps.nutrition import openfoodfacts
 from apps.nutrition.ciqual import CiqualFood
-from apps.nutrition.models import Food, FoodSource
+from apps.nutrition.models import (
+    MAX_ENTRIES_PER_DAY,
+    MAX_ENTRY_GRAMS,
+    MAX_WATER_ML,
+    Food,
+    FoodSource,
+    JournalEntry,
+    Meal,
+    WaterIntake,
+)
 
 IMPORT_LOCK = "nutrition:ciqual-import"
 # Un import complet prend quelques secondes ; l'expiration ne sert que si le processus meurt.
 IMPORT_LOCK_SECONDS = 60 * 60
+
+
+def _too_many(field: str) -> ValidationError:
+    return ValidationError({field: ValidationError("Plafond atteint.", code="too_many")})
 
 
 class ImportRunningError(Exception):
@@ -276,7 +290,7 @@ def put_custom_food(*, owner: User, food_id: UUID, values: CustomFoodValues) -> 
         if existing is not None and existing.owner_id != owner.pk:
             raise NotFoundError
         if existing is None and Food.objects.filter(owner=owner).count() >= MAX_CUSTOM_FOODS:
-            raise ValidationError({"food_id": ValidationError("Plafond atteint.", code="too_many")})
+            raise _too_many("food_id")
         food = existing or Food(id=food_id, source=FoodSource.CUSTOM, owner=owner)
         for field, value in vars(values).items():
             setattr(food, field, value)
@@ -290,3 +304,87 @@ def delete_custom_food(*, owner: User, food_id: UUID) -> None:
     """Supprime l'aliment perso `food_id` de `owner` ; sans effet s'il n'existe pas, est commun
     ou appartient à un autre compte (idempotent)."""
     Food.objects.filter(pk=food_id, owner=owner, source=FoodSource.CUSTOM).delete()
+
+
+# --- Journal des repas et eau (ADR 0010) ----------------------------------------------------
+
+EARLIEST = date(2000, 1, 1)
+
+
+class UnknownFoodError(Exception):
+    """Aliment inconnu ou invisible du compte (aliment perso d'un autre) : 422."""
+
+
+def _check_day(day: date) -> None:
+    # Une horloge déréglée ne doit pas écrire une date absurde : de 2000 à demain au plus tard.
+    if not EARLIEST <= day <= timezone.localdate() + timedelta(days=1):
+        raise ValidationError({"date": ValidationError("Date hors plage.", code="out_of_range")})
+
+
+def _food_name(food: Food) -> str:
+    return f"{food.name} ({food.brand})" if food.brand else food.name
+
+
+def put_entry(
+    *, owner: User, entry_id: UUID, day: date, meal: str, food_id: UUID, grams: Decimal
+) -> tuple[JournalEntry, bool]:
+    """Crée ou remplace l'entrée `entry_id` du journal de `owner` ; renvoie l'entrée et `True`
+    si elle est créée.
+
+    L'aliment est recopié à la première saisie, et quand il change : modifier la quantité ou le
+    repas garde la copie (l'historique ne suit pas les corrections de l'aliment). Lève
+    `NotFoundError` (entrée d'un autre compte), `UnknownFoodError` (aliment invisible) ou
+    `ValidationError` (date, repas, quantité, plafond du jour).
+    """
+    _check_day(day)
+    if meal not in Meal.values:
+        raise ValidationError({"meal": ValidationError("Repas inconnu.", code="invalid_choice")})
+    if not Decimal(0) < grams <= MAX_ENTRY_GRAMS:
+        raise ValidationError(
+            {"grams": ValidationError("Quantité hors plage.", code="out_of_range")}
+        )
+    with transaction.atomic():
+        # Sérialise les saisies du compte : le plafond du jour ne peut pas être dépassé à deux.
+        lock_account(owner)
+        existing = JournalEntry.objects.select_for_update().filter(pk=entry_id).first()
+        if existing is not None and existing.owner_id != owner.pk:
+            raise NotFoundError
+        if (
+            existing is None
+            and JournalEntry.objects.filter(owner=owner, date=day).count() >= MAX_ENTRIES_PER_DAY
+        ):
+            raise ValidationError(
+                {"entry_id": ValidationError("Plafond atteint.", code="too_many")}
+            )
+        entry = existing or JournalEntry(id=entry_id, owner=owner)
+        if existing is None or existing.food_ref != str(food_id):
+            food = Food.objects.filter(Q(owner__isnull=True) | Q(owner=owner), pk=food_id).first()
+            if food is None:
+                raise UnknownFoodError
+            entry.food_ref = str(food.pk)
+            entry.name = _food_name(food)
+            entry.kcal_100g = food.kcal_100g
+            entry.protein_100g = food.protein_100g
+            entry.carbs_100g = food.carbs_100g
+            entry.fat_100g = food.fat_100g
+        entry.date, entry.meal, entry.grams = day, meal, grams
+        entry.save(force_insert=existing is None)
+    return entry, existing is None
+
+
+def delete_entry(*, owner: User, entry_id: UUID) -> None:
+    """Supprime l'entrée `entry_id` de `owner` ; sans effet si elle n'existe pas ou appartient à
+    un autre compte (idempotent)."""
+    JournalEntry.objects.filter(owner=owner, pk=entry_id).delete()
+
+
+def put_water(*, owner: User, day: date, ml: int) -> WaterIntake:
+    """Fixe l'eau bue le jour `day` par `owner` (total du jour, idempotent)."""
+    _check_day(day)
+    if not 0 <= ml <= MAX_WATER_ML:
+        raise ValidationError({"ml": ValidationError("Quantité hors plage.", code="out_of_range")})
+    with transaction.atomic():
+        water, _ = WaterIntake.objects.update_or_create(
+            owner=owner, date=day, defaults={"ml": Decimal(ml)}
+        )
+    return water

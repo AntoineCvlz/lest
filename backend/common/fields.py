@@ -59,3 +59,44 @@ class EncryptedDecimalField(_DecimalBase):
 
     def to_python(self, value: Any) -> Decimal | None:
         return None if value is None else Decimal(value)
+
+
+if TYPE_CHECKING:
+    _TextBase = models.Field[str | None, str | None]
+else:
+    _TextBase = models.Field
+
+# Bourrage du texte avant chiffrement : la longueur du jeton ne révèle la longueur du texte
+# qu'à ce bloc près.
+TEXT_BLOCK = 64
+_PAD = "\x00"
+
+
+class EncryptedTextField(_TextBase):
+    """Texte chiffré, complété par des NUL jusqu'à un multiple de `TEXT_BLOCK` octets (un texte
+    accepté n'en contient jamais : `common.text.printable`). Mêmes limites que
+    `EncryptedDecimalField` : ni filtre, ni tri, ni agrégat en base."""
+
+    description = "Texte chiffré (Fernet)"
+
+    def get_internal_type(self) -> str:
+        return "TextField"
+
+    def get_lookup(self, lookup_name: str) -> "type[Lookup[Any]] | None":
+        return IsNull if lookup_name == "isnull" else None
+
+    def get_prep_value(self, value: Any) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or _PAD in value:
+            msg = f"{type(self).__name__} attend un texte sans NUL."
+            raise TypeError(msg)
+        size = len(value.encode())
+        padded = value + _PAD * (-size % TEXT_BLOCK or (0 if size else TEXT_BLOCK))
+        return crypto.encrypt(padded)
+
+    def from_db_value(self, value: str | None, expression: Any, connection: Any) -> str | None:
+        return None if value is None else crypto.decrypt(value).rstrip(_PAD)
+
+    def to_python(self, value: Any) -> str | None:
+        return None if value is None else str(value)

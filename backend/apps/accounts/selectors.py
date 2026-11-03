@@ -7,7 +7,7 @@ from django.contrib.sessions.models import Session
 from django.utils import timezone
 
 from apps.body.selectors import export_measurements, export_photos, export_weights
-from apps.nutrition.selectors import export_custom_foods
+from apps.nutrition.selectors import export_custom_foods, export_journal, export_water
 from apps.training.selectors import export_programs, export_records, export_workouts
 
 from .models import OneRepMaxFormula, Profile, User
@@ -86,6 +86,9 @@ def export_account(user: User) -> dict[str, Any]:
         # Photos : métadonnées ici, images dans une archive dédiée (ADR 0008).
         "progress_photos": export_photos(owner=user),
         "custom_foods": export_custom_foods(owner=user),
+        # Journal des repas et eau, déchiffrés pour l'export (ADR 0010).
+        "food_journal": export_journal(owner=user),
+        "water": export_water(owner=user),
         "profile": (
             {
                 "height_m": float(profile.height_m),

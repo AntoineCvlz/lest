@@ -17,6 +17,8 @@ EXPORTED_MODELS = {
     "body.bodymeasurement",
     "body.progressphoto",
     "nutrition.food",  # aliments perso seulement
+    "nutrition.journalentry",
+    "nutrition.waterintake",
 }
 
 EXCLUDED_FROM_EXPORT = {

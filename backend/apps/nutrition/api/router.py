@@ -1,8 +1,10 @@
 """Aliments (ADR 0009) : recherche locale, fiche, scan d'un code-barres (Open Food Facts) et
-aliments perso (`PUT`/`DELETE` idempotents sous l'UUID du client, ADR 0003). Routers minces."""
+aliments perso (`PUT`/`DELETE` idempotents sous l'UUID du client, ADR 0003) ; journal des
+repas et eau, chiffrés (ADR 0010). Routers minces."""
 
+from datetime import date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from allauth.core import ratelimit
@@ -12,7 +14,13 @@ from pydantic import UUID4, AfterValidator, StringConstraints
 
 from apps.accounts.models import User
 from apps.nutrition import selectors, services
-from apps.nutrition.models import MAX_GRAMS_100G, MAX_KCAL_100G, Food
+from apps.nutrition.models import (
+    MAX_ENTRY_GRAMS,
+    MAX_GRAMS_100G,
+    MAX_KCAL_100G,
+    MAX_WATER_ML,
+    Food,
+)
 from common.auth import request_user
 from common.problems import ProblemError
 from common.text import printable
@@ -88,6 +96,12 @@ def _food_out(food: Food) -> FoodOut:
 def search_foods(request: HttpRequest, query: Query[FoodQuery]) -> list[FoodOut]:
     foods = selectors.search_foods(owner=request_user(request), query=query.q)
     return [_food_out(food) for food in foods]
+
+
+@router.get("/foods/recent/", response=list[FoodOut], summary="Aliments saisis récemment (journal)")
+def recent_foods(request: HttpRequest) -> list[FoodOut]:
+    # Déclarée avant `/foods/{food_id}/` : « recent » n'y est jamais pris pour un identifiant.
+    return [_food_out(food) for food in selectors.recent_foods(owner=request_user(request))]
 
 
 @router.get("/foods/{food_id}/", response=FoodOut, summary="Fiche d'un aliment")
@@ -167,3 +181,127 @@ def write_custom_food(
 def remove_custom_food(request: HttpRequest, food_id: UUID4) -> Status[None]:
     services.delete_custom_food(owner=_limited(request, WRITE_ACTION), food_id=food_id)
     return Status(204, None)
+
+
+# --- Journal des repas et eau (ADR 0010) ----------------------------------------------------
+
+UNKNOWN_TYPE = "urn:lest:problem:unknown-reference"
+# Valeurs de `Meal` (un test vérifie qu'elles restent alignées) : énumération dans l'OpenAPI.
+MealName = Literal["breakfast", "lunch", "dinner", "snack"]
+
+
+class EntryIn(Schema):
+    date: date
+    meal: MealName
+    food_id: UUID
+    grams: Decimal = Field(gt=0, le=MAX_ENTRY_GRAMS, max_digits=5, decimal_places=1)
+
+
+class EntryOut(Schema):
+    id: UUID
+    date: date
+    meal: MealName
+    food_id: str
+    name: str
+    grams: float
+    kcal: float
+    protein: float
+    carbs: float
+    fat: float
+
+
+class TotalsOut(Schema):
+    kcal: float
+    protein: float
+    carbs: float
+    fat: float
+
+
+class DayOut(Schema):
+    date: date
+    entries: list[EntryOut]
+    totals: TotalsOut
+    water_ml: int
+
+
+class WaterIn(Schema):
+    ml: int = Field(strict=True, ge=0, le=MAX_WATER_ML)
+
+
+class WaterOut(Schema):
+    date: date
+    ml: int
+
+
+def _entry_out(view: selectors.EntryView) -> EntryOut:
+    return EntryOut.model_validate(
+        {
+            "id": view.id,
+            "date": view.date,
+            "meal": view.meal,
+            "food_id": view.food_id,
+            "name": view.name,
+            "grams": float(view.grams),
+            "kcal": float(view.kcal),
+            "protein": float(view.protein),
+            "carbs": float(view.carbs),
+            "fat": float(view.fat),
+        }
+    )
+
+
+@router.get("/journal/{day}/", response=DayOut, summary="Journal d'un jour")
+def day_journal(request: HttpRequest, day: date) -> DayOut:
+    journal = selectors.day_journal(owner=request_user(request), day=day)
+    return DayOut(
+        date=journal.date,
+        entries=[_entry_out(entry) for entry in journal.entries],
+        totals=TotalsOut(
+            kcal=float(journal.totals.kcal),
+            protein=float(journal.totals.protein),
+            carbs=float(journal.totals.carbs),
+            fat=float(journal.totals.fat),
+        ),
+        water_ml=journal.water_ml,
+    )
+
+
+@router.put(
+    "/journal-entries/{entry_id}/",
+    response={200: EntryOut, 201: EntryOut},
+    summary="Ajouter ou modifier un aliment du journal",
+)
+def write_entry(request: HttpRequest, entry_id: UUID4, payload: EntryIn) -> Status[EntryOut]:
+    owner = _limited(request, WRITE_ACTION)
+    try:
+        entry, created = services.put_entry(
+            owner=owner,
+            entry_id=entry_id,
+            day=payload.date,
+            meal=payload.meal,
+            food_id=payload.food_id,
+            grams=payload.grams,
+        )
+    except services.NotFoundError as error:
+        raise Http404 from error
+    except services.UnknownFoodError as error:
+        raise ProblemError(422, "Aliment inconnu.", type_=UNKNOWN_TYPE) from error
+    view = selectors.day_journal(owner=owner, day=entry.date)
+    return Status(
+        201 if created else 200,
+        _entry_out(next(e for e in view.entries if e.id == entry.id)),
+    )
+
+
+@router.delete(
+    "/journal-entries/{entry_id}/", response={204: None}, summary="Retirer un aliment du journal"
+)
+def remove_entry(request: HttpRequest, entry_id: UUID4) -> Status[None]:
+    services.delete_entry(owner=_limited(request, WRITE_ACTION), entry_id=entry_id)
+    return Status(204, None)
+
+
+@router.put("/water/{day}/", response=WaterOut, summary="Fixer l'eau bue un jour")
+def write_water(request: HttpRequest, day: date, payload: WaterIn) -> WaterOut:
+    water = services.put_water(owner=_limited(request, WRITE_ACTION), day=day, ml=payload.ml)
+    return WaterOut(date=water.date, ml=int(water.ml or 0))
