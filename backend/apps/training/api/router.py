@@ -36,6 +36,7 @@ from apps.training.models import (
 from common.auth import request_user
 from common.pagination import DEFAULT_LIMIT, MAX_LIMIT, InvalidCursorError
 from common.problems import ProblemError
+from common.text import printable
 
 router = Router(tags=["training"])
 
@@ -97,7 +98,7 @@ MAX_QUERY_LENGTH = 100
 
 
 class ExerciseQuery(Schema):
-    q: str = Field("", max_length=MAX_QUERY_LENGTH)
+    q: Annotated[str, AfterValidator(printable)] = Field("", max_length=MAX_QUERY_LENGTH)
     category: CategoryName | None = None
     muscle: int | None = Field(None, ge=1)
     equipment: int | None = Field(None, ge=1)

@@ -5,6 +5,7 @@ from ninja import NinjaAPI
 
 from apps.accounts.api.router import router as accounts_router
 from apps.body.api.router import router as body_router
+from apps.nutrition.api.router import router as nutrition_router
 from apps.training.api.programs import router as programs_router
 from apps.training.api.router import router as training_router
 from common.auth import jwt_auth
@@ -27,3 +28,4 @@ api.add_router("/", accounts_router)
 api.add_router("/", training_router)
 api.add_router("/", programs_router)
 api.add_router("/", body_router)
+api.add_router("/", nutrition_router)

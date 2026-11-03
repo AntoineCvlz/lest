@@ -147,7 +147,9 @@ def test_deletion_cost_does_not_grow_with_other_sessions(
         login(Client(), make_verified_user().email)
     user = make_verified_user()
 
-    with django_assert_max_num_queries(20):
+    # Une requête de cascade par table liée au compte, plus un socle fixe : le coût suit le
+    # nombre de domaines, jamais le nombre de sessions des autres comptes.
+    with django_assert_max_num_queries(12 + len(related_to_user())):
         delete_account(user=user, password=TEST_PASSWORD)
 
 

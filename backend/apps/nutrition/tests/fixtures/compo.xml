@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Teneurs fictives au format Ciqual : virgule décimale, « - », « traces », « < x ». -->
+<TABLE>
+   <COMPO><alim_code> 90001 </alim_code><const_code> 328 </const_code><teneur> 151 </teneur></COMPO>
+   <COMPO><alim_code> 90001 </alim_code><const_code> 25000 </const_code><teneur> 5,3 </teneur></COMPO>
+   <COMPO><alim_code> 90001 </alim_code><const_code> 31000 </const_code><teneur> 30,1 </teneur></COMPO>
+   <COMPO><alim_code> 90001 </alim_code><const_code> 40000 </const_code><teneur> &lt; 0,5 </teneur></COMPO>
+   <COMPO><alim_code> 90001 </alim_code><const_code> 10004 </const_code><teneur> 0,02 </teneur></COMPO>
+   <COMPO><alim_code> 90002 </alim_code><const_code> 328 </const_code><teneur> 165 </teneur></COMPO>
+   <COMPO><alim_code> 90002 </alim_code><const_code> 25000 </const_code><teneur> 27,4 </teneur></COMPO>
+   <COMPO><alim_code> 90002 </alim_code><const_code> 31000 </const_code><teneur> traces </teneur></COMPO>
+   <COMPO><alim_code> 90002 </alim_code><const_code> 40000 </const_code><teneur> 6,2 </teneur></COMPO>
+   <COMPO><alim_code> 90003 </alim_code><const_code> 328 </const_code><teneur> 180 </teneur></COMPO>
+   <COMPO><alim_code> 90003 </alim_code><const_code> 25000 </const_code><teneur> - </teneur></COMPO>
+   <COMPO><alim_code> 90004 </alim_code><const_code> 328 </const_code><teneur> - </teneur></COMPO>
+</TABLE>

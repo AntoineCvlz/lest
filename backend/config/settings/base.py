@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.training",
     "apps.body",
+    "apps.nutrition",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
@@ -223,12 +224,23 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.body.tasks.clear_orphan_photos",
         "schedule": crontab(hour=4, minute=30),
     },
+    # Table Ciqual de l'Anses (ADR 0009), le 2 de chaque mois.
+    "import-foods": {
+        "task": "apps.nutrition.tasks.import_foods",
+        "schedule": crontab(day_of_month=2, hour=3, minute=30),
+    },
     # Catalogue d'exercices RepDB et ses images (ADR 0006), le 1er de chaque mois.
     "import-exercises": {
         "task": "apps.training.tasks.import_exercises",
         "schedule": crontab(day_of_month=1, hour=3, minute=30),
     },
 }
+# Table Ciqual 2025 de l'Anses (ADR 0009) : fichiers XML de l'entrepôt Recherche Data Gouv
+# (doi:10.57745/RDMHWY), identifiants épinglés : une nouvelle version se choisit à la main.
+CIQUAL_BASE_URL = env(
+    "CIQUAL_BASE_URL", default="https://entrepot.recherche.data.gouv.fr/api/access/datafile"
+)
+CIQUAL_FILES = {"alim": 666252, "compo": 666249}
 # Distribution officielle du jeu de données RepDB (catalogue d'exercices, ADR 0006).
 REPDB_BASE_URL = env(
     "REPDB_BASE_URL",

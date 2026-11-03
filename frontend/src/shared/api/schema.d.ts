@@ -159,6 +159,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/foods/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Chercher un aliment */
+        get: operations["apps_nutrition_api_router_search_foods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/foods/{food_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fiche d'un aliment */
+        get: operations["apps_nutrition_api_router_get_food"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/": {
         parameters: {
             query?: never;
@@ -555,6 +589,37 @@ export interface components {
         ExerciseRecordsOut: {
             /** History */
             history: components["schemas"]["RecordOut"][];
+        };
+        /** FoodOut */
+        FoodOut: {
+            /** Brand */
+            brand: string;
+            /** Carbs 100G */
+            carbs_100g: number | null;
+            /** Fat 100G */
+            fat_100g: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Custom */
+            is_custom: boolean;
+            /** Kcal 100G */
+            kcal_100g: number;
+            /** Name */
+            name: string;
+            /** Protein 100G */
+            protein_100g: number | null;
+            /** Serving G */
+            serving_g: number | null;
+            /** Source */
+            source: string;
+        };
+        /** FoodQuery */
+        FoodQuery: {
+            /** Q */
+            q: string;
         };
         /** HealthChecks */
         HealthChecks: {
@@ -1400,6 +1465,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExerciseRecordsOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_search_foods: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"][];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_get_food: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                food_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"];
                 };
             };
         };

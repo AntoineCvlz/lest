@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Aliments fictifs au format Ciqual (ADR 0009) : aucun aliment réel de la table. -->
+<TABLE>
+   <ALIM>
+      <alim_code> 90001 </alim_code>
+      <alim_nom_fr> Pâtes témoin, cuites </alim_nom_fr>
+      <alim_nom_eng> Test pasta, cooked </alim_nom_eng>
+      <alim_grp_code> 03 </alim_grp_code>
+   </ALIM>
+   <ALIM>
+      <alim_code> 90002 </alim_code>
+      <alim_nom_fr> Poulet témoin, rôti </alim_nom_fr>
+      <alim_nom_eng> Test chicken, roasted </alim_nom_eng>
+      <alim_grp_code> 04 </alim_grp_code>
+   </ALIM>
+   <ALIM>
+      <alim_code> 90003 </alim_code>
+      <alim_nom_fr> Salade de pâtes témoin </alim_nom_fr>
+      <alim_nom_eng> Test pasta salad </alim_nom_eng>
+      <alim_grp_code> 03 </alim_grp_code>
+   </ALIM>
+   <ALIM>
+      <alim_code> 90004 </alim_code>
+      <alim_nom_fr> Infusion témoin sans énergie connue </alim_nom_fr>
+      <alim_nom_eng> Test infusion </alim_nom_eng>
+      <alim_grp_code> 06 </alim_grp_code>
+   </ALIM>
+</TABLE>
