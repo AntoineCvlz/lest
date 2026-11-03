@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
+from uuid import UUID
 
 from apps.accounts.models import User
-from apps.body.models import BodyMeasurement, BodyWeight
+from apps.body import photos
+from apps.body.models import BodyMeasurement, BodyWeight, ProgressPhoto
 
 # Moyenne mobile : le jour et les 6 précédents.
 TREND_DAYS = 7
@@ -75,4 +77,40 @@ def export_weights(*, owner: User) -> list[dict[str, Any]]:
         {"date": row.date.isoformat(), "weight_kg": float(row.weight_kg)}
         for row in BodyWeight.objects.filter(owner=owner)
         if row.weight_kg is not None
+    ]
+
+
+class PhotoNotFoundError(Exception):
+    """Photo inconnue, d'un autre compte, ou fichier manquant : 404 dans tous les cas."""
+
+
+def list_photos(*, owner: User, start: date, end: date) -> list[ProgressPhoto]:
+    """Photos de `owner` du `start` au `end` inclus, les plus anciennes d'abord."""
+    return list(
+        ProgressPhoto.objects.filter(owner=owner, date__gte=start, date__lte=end).only(
+            "id", "date", "pose"
+        )
+    )
+
+
+def photo_image(*, owner: User, photo_id: UUID, size: photos.Size) -> bytes:
+    """Octets WebP déchiffrés d'une photo de `owner`, ou `PhotoNotFoundError`."""
+    key = (
+        ProgressPhoto.objects.filter(owner=owner, pk=photo_id)
+        .values_list("file_key", flat=True)
+        .first()
+    )
+    if key is None:
+        raise PhotoNotFoundError
+    try:
+        return photos.read(key, size)
+    except FileNotFoundError as error:
+        raise PhotoNotFoundError from error
+
+
+def export_photos(*, owner: User) -> list[dict[str, Any]]:
+    """Métadonnées des photos de `owner` pour l'export RGPD (images : archive dédiée, ADR 0008)."""
+    return [
+        {"id": str(row.id), "date": row.date.isoformat(), "pose": row.pose}
+        for row in ProgressPhoto.objects.filter(owner=owner)
     ]

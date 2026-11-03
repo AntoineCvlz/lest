@@ -52,3 +52,12 @@ def encrypt(text: str) -> str:
 
 def decrypt(token: str) -> str:
     return _fernet().decrypt(token.encode()).decode()
+
+
+def encrypt_bytes(data: bytes) -> bytes:
+    """Octets chiffrés (fichiers : photos de progression, ADR 0008)."""
+    return _fernet().encrypt(data)
+
+
+def decrypt_bytes(token: bytes) -> bytes:
+    return _fernet().decrypt(token)

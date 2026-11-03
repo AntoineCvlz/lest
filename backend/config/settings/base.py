@@ -112,6 +112,8 @@ USE_TZ = True
 # Fichiers produits par l'app (images d'exercices normalisées, ADR 0005) : volume Docker en
 # dev et E2E, stockage objet à décider pour la prod.
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+# Photos de progression chiffrées (ADR 0008) : hors de MEDIA_ROOT, jamais servies telles quelles.
+PRIVATE_MEDIA_ROOT = env("PRIVATE_MEDIA_ROOT", default=str(BASE_DIR / "private-media"))
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -164,6 +166,8 @@ ACCOUNT_RATE_LIMITS = {
     "training_write": "300/m/user",
     # Pesées et mesures : une par jour, une file hors ligne en rejoue au plus quelques dizaines.
     "body_write": "120/m/user",
+    # Envois de photos (réencodage coûteux) : 30 par heure et par compte.
+    "body_photo_write": "30/3600s/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
@@ -211,6 +215,11 @@ CELERY_BEAT_SCHEDULE = {
     "clear-expired-sessions": {
         "task": "common.tasks.clear_expired_sessions",
         "schedule": crontab(hour=4, minute=0),
+    },
+    # Fichiers de photos sans ligne en base (envoi ou suppression interrompus, ADR 0008).
+    "clear-orphan-photos": {
+        "task": "apps.body.tasks.clear_orphan_photos",
+        "schedule": crontab(hour=4, minute=30),
     },
     # Catalogue d'exercices RepDB et ses images (ADR 0006), le 1er de chaque mois.
     "import-exercises": {

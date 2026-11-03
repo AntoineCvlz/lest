@@ -78,3 +78,43 @@ class BodyMeasurement(models.Model):
     def __str__(self) -> str:
         # Jamais la valeur : `__str__` finit dans les journaux et l'admin.
         return f"Mensuration ({self.site}) du {self.date.isoformat()}"
+
+
+# Photos par compte : quelques par semaine pendant des années, pas une galerie.
+MAX_PHOTOS = 500
+
+
+class Pose(models.TextChoices):
+    FRONT = "front", "Face"
+    SIDE = "side", "Profil"
+    BACK = "back", "Dos"
+
+
+class ProgressPhoto(models.Model):
+    """Photo de progression (ADR 0008). Identifiant UUID du client (plusieurs photos par jour,
+    envoi rejouable, ADR 0003) ; les octets, chiffrés, vivent hors de la base sous `file_key`."""
+
+    id = models.UUIDField(primary_key=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="progress_photos"
+    )
+    date = models.DateField()
+    pose = models.CharField(max_length=8, choices=Pose.choices)
+    # Nom aléatoire des fichiers chiffrés (`apps.body.photos.store`), sans lien avec `id`.
+    file_key = models.CharField(max_length=32, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("date", "created_at")
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=("owner", "date"), name="body_photo_owner_date"),
+        ]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(pose__in=Pose.values), name="body_photo_pose_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Photo ({self.pose}) du {self.date.isoformat()}"

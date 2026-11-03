@@ -15,6 +15,7 @@ coverage.xml
 htmlcov/
 backend/staticfiles/
 backend/media/
+backend/private-media/
 
 # Node / Next.js
 node_modules/

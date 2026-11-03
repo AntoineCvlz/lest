@@ -10,6 +10,7 @@ import {
   SESSION_COOKIE,
   setCookie,
 } from "@/shared/bff/cookies";
+import { readBody } from "@/shared/bff/body";
 import { CLIENT_IP_HEADER, clientIp, hasValidCsrf, isSameOrigin } from "@/shared/bff/guards";
 import {
   extractTokens,
@@ -218,7 +219,8 @@ async function proxy(request: NextRequest): Promise<Response> {
   }
 
   const isAuthRoute = `${routed}/`.startsWith(AUTH_PREFIX);
-  const body = METHODS_WITHOUT_BODY.has(request.method) ? undefined : await request.arrayBuffer();
+  const body = METHODS_WITHOUT_BODY.has(request.method) ? undefined : await readBody(request);
+  if (body === null) return problem(413, "Content Too Large", pathname);
   const credentials: Credentials = {
     access: request.cookies.get(ACCESS_COOKIE)?.value,
     refresh: request.cookies.get(REFRESH_COOKIE)?.value,

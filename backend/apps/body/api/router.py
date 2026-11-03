@@ -1,5 +1,5 @@
-"""Pesées et mensurations (ADR 0007) : `PUT` et `DELETE` idempotents sur la date (et l'endroit
-mesuré), lecture par période bornée.
+"""Pesées, mensurations (ADR 0007) et photos (ADR 0008) : `PUT` et `DELETE` idempotents sur la
+date (et l'endroit mesuré) ou l'UUID du client pour les photos, lecture par période bornée.
 
 Routers minces : schémas Pydantic, appel du service ou du selector. Une erreur de validation ne
 renvoie jamais la valeur saisie (donnée de santé, `common.problems`).
@@ -10,13 +10,13 @@ from decimal import Decimal
 from typing import Literal, Self
 
 from allauth.core import ratelimit
-from django.http import HttpRequest
+from django.http import Http404, HttpRequest, HttpResponse
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
-from pydantic import model_validator
+from pydantic import UUID4, model_validator
 
 from apps.accounts.models import User
-from apps.body import selectors, services
+from apps.body import photos, selectors, services
 from apps.body.models import (
     MAX_LENGTH_M,
     MAX_WEIGHT_KG,
@@ -31,6 +31,12 @@ from common.problems import ProblemError
 router = Router(tags=["body"])
 
 RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
+WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
+# Envois de photos par compte (`ACCOUNT_RATE_LIMITS`) : réencodage coûteux.
+PHOTO_WRITE_ACTION = "body_photo_write"
+PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
+UNSUPPORTED_TYPE = "urn:lest:problem:unsupported-media-type"
+TOO_LARGE_TYPE = "urn:lest:problem:payload-too-large"
 # Écritures du domaine `body` par compte (`ACCOUNT_RATE_LIMITS`).
 WRITE_ACTION = "body_write"
 DEFAULT_PERIOD_DAYS = 90
@@ -67,6 +73,20 @@ class MeasurementOut(Schema):
     length_m: float
 
 
+PoseName = Literal["front", "side", "back"]
+
+
+class PhotoOut(Schema):
+    id: UUID4
+    date: date
+    pose: PoseName
+
+
+class PhotoQuery(Schema):
+    date: date
+    pose: PoseName
+
+
 class Period(Schema):
     # Par défaut, les 90 derniers jours ; jamais plus de 366 jours d'un coup.
     start: date | None = None
@@ -90,10 +110,10 @@ class Period(Schema):
         return self
 
 
-def _writer(request: HttpRequest) -> User:
+def _writer(request: HttpRequest, action: str = WRITE_ACTION) -> User:
     """Compte qui écrit, après la limite de débit des écritures (429 au-delà)."""
     user = request_user(request)
-    if not ratelimit.consume(request, action=WRITE_ACTION, user=user):
+    if not ratelimit.consume(request, action=action, user=user):
         raise ProblemError(
             429, "Trop d'écritures. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
         )
@@ -171,4 +191,104 @@ def write_measurement(
 )
 def remove_measurement(request: HttpRequest, day: date, site: SiteName) -> Status[None]:
     services.delete_measurement(owner=_writer(request), day=day, site=site)
+    return Status(204, None)
+
+
+def _photo_out(photo: object) -> PhotoOut:
+    return PhotoOut.model_validate(photo, from_attributes=True)
+
+
+def _upload(request: HttpRequest) -> bytes:
+    """Octets envoyés, bornés avant lecture (413) ; type annoncé sur liste blanche (415).
+
+    Le contenu réel est vérifié ensuite par Pillow : le type annoncé ne fait que refuser tôt.
+    """
+    content_type = request.content_type or ""
+    if content_type not in PHOTO_TYPES:
+        raise ProblemError(415, "Envoyez une photo JPEG, PNG ou WebP.", type_=UNSUPPORTED_TYPE)
+    try:
+        declared = int(request.META.get("CONTENT_LENGTH") or 0)
+    except ValueError:
+        declared = 0
+    if declared > photos.MAX_UPLOAD_BYTES:
+        raise ProblemError(413, "Photo trop lourde (15 Mo au plus).", type_=TOO_LARGE_TYPE)
+    data = request.read(photos.MAX_UPLOAD_BYTES + 1)
+    if len(data) > photos.MAX_UPLOAD_BYTES:
+        raise ProblemError(413, "Photo trop lourde (15 Mo au plus).", type_=TOO_LARGE_TYPE)
+    return data
+
+
+@router.get("/progress-photos/", response=list[PhotoOut], summary="Photos d'une période")
+def list_photos(request: HttpRequest, period: Query[Period]) -> list[PhotoOut]:
+    start, end = period.bounds()
+    return [
+        _photo_out(photo)
+        for photo in selectors.list_photos(owner=request_user(request), start=start, end=end)
+    ]
+
+
+@router.put(
+    "/progress-photos/{photo_id}/",
+    response={200: PhotoOut, 201: PhotoOut},
+    summary="Envoyer ou remplacer une photo de progression",
+    description=(
+        "Corps : l'image elle-même (JPEG, PNG ou WebP, 15 Mo au plus), en `Content-Type` "
+        "`image/*`. Réencodée en WebP sans métadonnées, puis chiffrée (ADR 0008)."
+    ),
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                kind: {"schema": {"type": "string", "format": "binary"}} for kind in PHOTO_TYPES
+            },
+        }
+    },
+)
+def write_photo(
+    request: HttpRequest, photo_id: UUID4, query: Query[PhotoQuery]
+) -> Status[PhotoOut]:
+    owner = _writer(request, PHOTO_WRITE_ACTION)
+    data = _upload(request)
+    try:
+        photo, created = services.put_photo(
+            owner=owner, photo_id=photo_id, day=query.date, pose=query.pose, data=data
+        )
+    except services.NotFoundError as error:
+        raise Http404 from error
+    except services.WriteConflictError as error:
+        raise ProblemError(
+            409, "Écriture refusée, réessayez.", type_=WRITE_CONFLICT_TYPE
+        ) from error
+    return Status(201 if created else 200, _photo_out(photo))
+
+
+@router.get(
+    "/progress-photos/{photo_id}/{size}/",
+    response={200: None},
+    summary="Image d'une photo de progression (WebP)",
+    openapi_extra={
+        # Clé entière comme celles de Ninja (sinon le tri des clés du schéma échoue).
+        "responses": {
+            200: {
+                "description": "Image WebP",
+                "content": {"image/webp": {"schema": {"type": "string", "format": "binary"}}},
+            }
+        }
+    },
+)
+def photo_image(request: HttpRequest, photo_id: UUID4, size: photos.Size) -> HttpResponse:
+    try:
+        content = selectors.photo_image(owner=request_user(request), photo_id=photo_id, size=size)
+    except selectors.PhotoNotFoundError as error:
+        raise Http404 from error
+    response = HttpResponse(content, content_type="image/webp")
+    # Donnée de santé : jamais en cache, ni partagé ni local.
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@router.delete("/progress-photos/{photo_id}/", response={204: None}, summary="Supprimer une photo")
+def remove_photo(request: HttpRequest, photo_id: UUID4) -> Status[None]:
+    services.delete_photo(owner=_writer(request), photo_id=photo_id)
     return Status(204, None)

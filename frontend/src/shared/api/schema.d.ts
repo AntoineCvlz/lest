@@ -301,6 +301,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/progress-photos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Photos d'une période */
+        get: operations["apps_body_api_router_list_photos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-photos/{photo_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Envoyer ou remplacer une photo de progression
+         * @description Corps : l'image elle-même (JPEG, PNG ou WebP, 15 Mo au plus), en `Content-Type` `image/*`. Réencodée en WebP sans métadonnées, puis chiffrée (ADR 0008).
+         */
+        put: operations["apps_body_api_router_write_photo"];
+        post?: never;
+        /** Supprimer une photo */
+        delete: operations["apps_body_api_router_remove_photo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/progress-photos/{photo_id}/{size}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Image d'une photo de progression (WebP) */
+        get: operations["apps_body_api_router_photo_image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sets/{set_id}/": {
         parameters: {
             query?: never;
@@ -563,6 +618,37 @@ export interface components {
             end?: string | null;
             /** Start */
             start?: string | null;
+        };
+        /** PhotoOut */
+        PhotoOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Id
+             * Format: uuid4
+             */
+            id: string;
+            /**
+             * Pose
+             * @enum {string}
+             */
+            pose: "front" | "side" | "back";
+        };
+        /** PhotoQuery */
+        PhotoQuery: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Pose
+             * @enum {string}
+             */
+            pose: "front" | "side" | "back";
         };
         /** ProfileIn */
         ProfileIn: {
@@ -1638,6 +1724,112 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_body_api_router_list_photos: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoOut"][];
+                };
+            };
+        };
+    };
+    apps_body_api_router_write_photo: {
+        parameters: {
+            query: {
+                date: string;
+                pose: "front" | "side" | "back";
+            };
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+                "image/png": string;
+                "image/webp": string;
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhotoOut"];
+                };
+            };
+        };
+    };
+    apps_body_api_router_remove_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_body_api_router_photo_image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                photo_id: string;
+                size: "thumb" | "large";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image WebP */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": string;
+                };
             };
         };
     };

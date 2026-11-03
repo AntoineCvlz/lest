@@ -9,6 +9,7 @@ coverage.xml
 htmlcov
 staticfiles
 media
+private-media
 .env
 .env.*
 # Clés (dont la clé JWT de dev, jwt-dev.pem) : jamais dans une image.
