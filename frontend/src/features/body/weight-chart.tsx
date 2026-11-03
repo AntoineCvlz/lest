@@ -1,5 +1,3 @@
-import { useId } from "react";
-
 import type { Schemas } from "@/shared/api/client";
 import { formatNumber } from "@/shared/lib/number";
 import { kilogramsToDisplay, WEIGHT_UNITS, type UnitSystem } from "@/shared/lib/units";
@@ -58,7 +56,6 @@ export interface WeightChartProps {
  * est l'alternative complète.
  */
 export function WeightChart({ points, start, end, system }: WeightChartProps) {
-  const captionId = useId();
   const values = points.flatMap((p) => [
     kilogramsToDisplay(p.weight_kg, system),
     kilogramsToDisplay(p.trend_kg, system),
@@ -81,9 +78,7 @@ export function WeightChart({ points, start, end, system }: WeightChartProps) {
 
   return (
     <figure className="flex flex-col gap-3">
-      <figcaption id={captionId} className="text-[17px] font-bold">
-        {trendSummary(points, system)}
-      </figcaption>
+      <figcaption className="text-[17px] font-bold">{trendSummary(points, system)}</figcaption>
       {points.length > 0 && (
         <>
           <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
@@ -96,10 +91,10 @@ export function WeightChart({ points, start, end, system }: WeightChartProps) {
             </div>
             <svg
               role="img"
-              aria-labelledby={captionId}
+              aria-label="Courbe du poids sur la période"
               viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
               preserveAspectRatio="none"
-              className="border-line-subtle h-44 w-full overflow-visible border-b border-l"
+              className="border-line h-44 w-full overflow-visible border-b border-l"
             >
               <path
                 d={dots}

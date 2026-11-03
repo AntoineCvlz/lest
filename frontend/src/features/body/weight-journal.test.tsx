@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -8,9 +8,11 @@ import { renderWithQuery } from "@/shared/test/render";
 import { localDay, longDay, shiftDay } from "./days";
 import { bodyWeightText, trendSummary } from "./weight-chart";
 import {
+  DATE_OUT_OF_RANGE,
   NO_WEIGHT,
   parseWeight,
   WEIGHT_NOT_SAVED,
+  WEIGHT_REFUSED,
   WeightJournal,
   WEIGHTS_UNAVAILABLE,
 } from "./weight-journal";
@@ -119,6 +121,7 @@ describe("WeightJournal", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer la pesée" }));
 
     expect(field).toHaveAccessibleDescription("Saisissez un poids entre 20 et 400 kg.");
+    expect(field).toHaveFocus();
     expect(called).toBe(false);
   });
 
@@ -141,10 +144,9 @@ describe("WeightJournal", () => {
     renderWithQuery(<WeightJournal />);
 
     expect(
-      await screen.findByRole("img", {
-        name: "Moyenne sur 7 jours : 80,7 kg. +0,7 kg sur la période.",
-      }),
+      await screen.findByText("Moyenne sur 7 jours : 80,7 kg. +0,7 kg sur la période."),
     ).toBeVisible();
+    expect(screen.getByRole("img", { name: "Courbe du poids sur la période" })).toBeVisible();
     const rows = within(screen.getByRole("table")).getAllByRole("row");
     expect(rows[1]).toHaveTextContent("81,4 kg80,7 kg");
     expect(rows[2]).toHaveTextContent("80 kg80 kg");
@@ -204,11 +206,66 @@ describe("WeightJournal", () => {
     expect(screen.getByRole("textbox", { name: "Poids (kg)" })).toHaveValue("80");
     expect(screen.getByLabelText("Date")).toHaveValue(shiftDay(TODAY, -2));
 
+    expect(screen.getByText(/^Modification de la pesée du /)).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Poids (kg)" })).toHaveAccessibleDescription(
+      "Pesée déjà notée ce jour : 80 kg, remplacée à l’enregistrement.",
+    );
+    expect(screen.getByRole("button", { name: "Remplacer la pesée" })).toBeVisible();
+
     await user.click(screen.getByRole("button", { name: /^Supprimer la pesée du / }));
-    await user.click(screen.getByRole("button", { name: "Confirmer la suppression" }));
+    // Le choix sans danger reçoit le focus ; « Garder » le rend au bouton de suppression.
+    expect(screen.getByRole("button", { name: "Garder" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Garder" }));
+    expect(screen.getByRole("button", { name: /^Supprimer la pesée du / })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: /^Supprimer la pesée du / }));
+    await user.click(
+      screen.getByRole("button", { name: /^Confirmer la suppression de la pesée du / }),
+    );
 
     expect(await screen.findByText(/^Pesée du .* supprimée\.$/)).toBeVisible();
     expect(deleted).toBe(shiftDay(TODAY, -2));
+    expect(screen.getByRole("textbox", { name: "Poids (kg)" })).toHaveFocus();
+  });
+
+  it("reprend la pesée d'un jour déjà pesé quand on le choisit", async () => {
+    api();
+    renderWithQuery(<WeightJournal />);
+
+    await screen.findByRole("table");
+    const date = screen.getByLabelText("Date");
+    fireEvent.change(date, { target: { value: FIRST.date } });
+
+    expect(screen.getByRole("textbox", { name: "Poids (kg)" })).toHaveValue("80");
+  });
+
+  it("refuse une date hors plage et met le focus sur le champ", async () => {
+    api();
+    const user = userEvent.setup();
+    renderWithQuery(<WeightJournal />);
+
+    await screen.findByRole("table");
+    const date = screen.getByLabelText("Date");
+    fireEvent.change(date, { target: { value: "1999-12-31" } });
+    await user.click(screen.getByRole("button", { name: "Enregistrer la pesée" }));
+
+    expect(date).toHaveAccessibleDescription(DATE_OUT_OF_RANGE);
+    expect(date).toHaveFocus();
+  });
+
+  it("distingue un refus de l'API d'une panne", async () => {
+    api();
+    server.use(
+      http.put("*/api/v1/body-weights/:day/", () =>
+        HttpResponse.json({ status: 422 }, { status: 422 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<WeightJournal />);
+
+    await screen.findByRole("table");
+    await user.click(screen.getByRole("button", { name: "Enregistrer la pesée" }));
+
+    expect(await screen.findByText(WEIGHT_REFUSED)).toBeVisible();
   });
 
   it("guide quand il n'y a aucune pesée", async () => {

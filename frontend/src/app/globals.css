@@ -49,6 +49,8 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Un élément atteint au clavier ne se cache jamais sous la barre d'onglets fixe (2.4.11). */
+    scroll-padding-bottom: calc(4rem + env(safe-area-inset-bottom));
   }
 
   body {
