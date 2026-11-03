@@ -14,6 +14,7 @@ EXPORTED_MODELS = {
     "training.personalrecord",
     "training.program",  # avec ses séances types et leurs exercices
     "body.bodyweight",
+    "body.bodymeasurement",
 }
 
 EXCLUDED_FROM_EXPORT = {

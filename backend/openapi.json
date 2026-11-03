@@ -455,6 +455,61 @@
         "title": "MeOut",
         "type": "object"
       },
+      "MeasurementIn": {
+        "properties": {
+          "length_m": {
+            "anyOf": [
+              {
+                "maximum": 2.5,
+                "minimum": 0.1,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Length M"
+          }
+        },
+        "required": [
+          "length_m"
+        ],
+        "title": "MeasurementIn",
+        "type": "object"
+      },
+      "MeasurementOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "length_m": {
+            "title": "Length M",
+            "type": "number"
+          },
+          "site": {
+            "enum": [
+              "neck",
+              "chest",
+              "waist",
+              "hips",
+              "arm",
+              "thigh",
+              "calf"
+            ],
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "site",
+          "length_m"
+        ],
+        "title": "MeasurementOut",
+        "type": "object"
+      },
       "NamedOut": {
         "properties": {
           "id": {
@@ -471,6 +526,36 @@
           "name"
         ],
         "title": "NamedOut",
+        "type": "object"
+      },
+      "Period": {
+        "properties": {
+          "end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
+          },
+          "start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
+          }
+        },
+        "title": "Period",
         "type": "object"
       },
       "ProfileIn": {
@@ -1091,36 +1176,6 @@
         "title": "WeightOut",
         "type": "object"
       },
-      "WeightPeriod": {
-        "properties": {
-          "end": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "End"
-          },
-          "start": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Start"
-          }
-        },
-        "title": "WeightPeriod",
-        "type": "object"
-      },
       "WeightPointOut": {
         "properties": {
           "date": {
@@ -1585,6 +1640,195 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/body-measurements/": {
+      "get": {
+        "operationId": "apps_body_api_router_list_measurements",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MeasurementOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Mensurations d'une période",
+        "tags": [
+          "body"
+        ]
+      }
+    },
+    "/api/v1/body-measurements/{day}/{site}/": {
+      "delete": {
+        "operationId": "apps_body_api_router_remove_measurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "enum": [
+                "neck",
+                "chest",
+                "waist",
+                "hips",
+                "arm",
+                "thigh",
+                "calf"
+              ],
+              "title": "Site",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer une mensuration",
+        "tags": [
+          "body"
+        ]
+      },
+      "put": {
+        "operationId": "apps_body_api_router_write_measurement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "day",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Day",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "site",
+            "required": true,
+            "schema": {
+              "enum": [
+                "neck",
+                "chest",
+                "waist",
+                "hips",
+                "arm",
+                "thigh",
+                "calf"
+              ],
+              "title": "Site",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeasurementIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Enregistrer ou remplacer une mensuration",
+        "tags": [
+          "body"
+        ]
+      }
+    },
     "/api/v1/body-weights/": {
       "get": {
         "operationId": "apps_body_api_router_list_weights",
