@@ -78,7 +78,9 @@ def require_second_factor_confirmation(request: HttpRequest) -> None:
     )
     if not factors:
         return
-    confirmations = [r for r in get_authentication_records(request) if r.get("reauthenticated")]
+    # Enregistrements de la session pour ce compte seulement (vide s'ils sont d'un autre).
+    records = get_authentication_records(request, request.user)
+    confirmations = [r for r in records if r.get("reauthenticated")]
     if not confirmations:
         raise ReauthenticationRequired
     last = confirmations[-1]

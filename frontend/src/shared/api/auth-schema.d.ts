@@ -201,7 +201,7 @@ export interface paths {
                 query?: {
                     /**
                      * @description When present (regardless of its value), enables passwordless sign-in via a WebAuthn credential (Passkey),
-                     *     but may enforce additional multi-factor authentication (MFA) requirements. Omit the parameter to disable.
+                     *     which requires PIN, biometric, or equivalent user verification. Omit the parameter to disable.
                      */
                     passwordless?: components["parameters"]["PasswordLess"];
                 };
@@ -1412,7 +1412,9 @@ export interface paths {
         /**
          * Get WebAuthn credential request options for 2FA
          * @description Returns the WebAuthn credential request options, that can be
-         *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         *     processed using `parseRequestOptionsFromJSON()` on the frontend. The
+         *     user verification requirement is controlled by
+         *     `MFA_WEBAUTHN_USER_VERIFICATION`.
          */
         get: {
             parameters: {
@@ -1475,6 +1477,7 @@ export interface paths {
          * Get WebAuthn credential request options for login
          * @description Returns the WebAuthn credential request options, that can be
          *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         *     Passkey login always requires user verification.
          */
         get: {
             parameters: {
@@ -1548,7 +1551,9 @@ export interface paths {
         /**
          * Get WebAuthn credential request options for reauthentication
          * @description Returns the WebAuthn credential request options, that can be
-         *     processed using `parseRequestOptionsFromJSON()` on the frontend.
+         *     processed using `parseRequestOptionsFromJSON()` on the frontend. The
+         *     user verification requirement is controlled by
+         *     `MFA_WEBAUTHN_USER_VERIFICATION`.
          */
         get: {
             parameters: {
@@ -2666,7 +2671,7 @@ export interface components {
         EmailVerificationKey: string;
         /**
          * @description When present (regardless of its value), enables passwordless sign-in via a WebAuthn credential (Passkey),
-         *     but may enforce additional multi-factor authentication (MFA) requirements. Omit the parameter to disable.
+         *     which requires PIN, biometric, or equivalent user verification. Omit the parameter to disable.
          */
         PasswordLess: boolean;
         /** @description The password reset key */
