@@ -2,7 +2,7 @@
 Open Food Facts gardés au scan d'un code-barres, aliments perso propres à chaque compte.
 
 La composition d'un aliment n'est pas une donnée personnelle : elle reste en clair. Le journal
-des repas, lui, en est une (PR suivante).
+des repas, lui, est chiffré (ADR 0010) : seuls la date et le repas restent en clair.
 """
 
 from typing import ClassVar
@@ -10,6 +10,8 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
+
+from common.fields import EncryptedDecimalField, EncryptedTextField
 
 # Valeurs pour 100 g : au-delà, une erreur de saisie ou de source (l'huile fait 900 kcal).
 MAX_KCAL_100G = 900
@@ -87,3 +89,73 @@ class Food(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+MAX_ENTRY_GRAMS = 5000
+MAX_ENTRIES_PER_DAY = 100
+MAX_WATER_ML = 10000
+
+
+class Meal(models.TextChoices):
+    BREAKFAST = "breakfast", "Petit-déjeuner"
+    LUNCH = "lunch", "Déjeuner"
+    DINNER = "dinner", "Dîner"
+    SNACK = "snack", "Collation"
+
+
+class JournalEntry(models.Model):
+    """Aliment mangé (ADR 0010). Identifiant UUID du client (saisie rejouable hors ligne, ADR
+    0003). L'aliment est **recopié** à la saisie (nom et valeurs pour 100 g) : l'historique ne
+    bouge pas si l'aliment change ou disparaît. Tout est chiffré, sauf la date et le repas."""
+
+    id = models.UUIDField(primary_key=True)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="journal_entries"
+    )
+    date = models.DateField()
+    meal = models.CharField(max_length=12, choices=Meal.choices)
+    # Référence de l'aliment d'origine (« aliments récents »), chiffrée : pas de clé étrangère.
+    food_ref = EncryptedTextField()
+    name = EncryptedTextField()
+    grams = EncryptedDecimalField(decimal_places=1)
+    kcal_100g = EncryptedDecimalField(decimal_places=1)
+    protein_100g = EncryptedDecimalField(decimal_places=1, null=True)
+    carbs_100g = EncryptedDecimalField(decimal_places=1, null=True)
+    fat_100g = EncryptedDecimalField(decimal_places=1, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("date", "created_at")
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=("owner", "date"), name="nutrition_entry_owner_date"),
+        ]
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(meal__in=Meal.values), name="nutrition_entry_meal_valid"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        # Jamais l'aliment ni la quantité : `__str__` finit dans les journaux.
+        return f"Entrée ({self.meal}) du {self.date.isoformat()}"
+
+
+class WaterIntake(models.Model):
+    """Eau bue dans la journée, un total par compte et par jour (chiffré)."""
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="water_intakes"
+    )
+    date = models.DateField()
+    ml = EncryptedDecimalField(decimal_places=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("date",)
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.UniqueConstraint(fields=("owner", "date"), name="nutrition_water_one_per_day"),
+        ]
+
+    def __str__(self) -> str:
+        return f"Eau du {self.date.isoformat()}"

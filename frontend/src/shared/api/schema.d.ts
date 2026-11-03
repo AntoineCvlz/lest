@@ -196,6 +196,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/foods/recent/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Aliments saisis récemment (journal) */
+        get: operations["apps_nutrition_api_router_recent_foods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/foods/{food_id}/": {
         parameters: {
             query?: never;
@@ -224,6 +241,41 @@ export interface paths {
         };
         /** État de l'API et de ses dépendances */
         get: operations["common_health_api_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/journal-entries/{entry_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajouter ou modifier un aliment du journal */
+        put: operations["apps_nutrition_api_router_write_entry"];
+        post?: never;
+        /** Retirer un aliment du journal */
+        delete: operations["apps_nutrition_api_router_remove_entry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/journal/{day}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Journal d'un jour */
+        get: operations["apps_nutrition_api_router_day_journal"];
         put?: never;
         post?: never;
         delete?: never;
@@ -447,6 +499,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/water/{day}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Fixer l'eau bue un jour */
+        put: operations["apps_nutrition_api_router_write_water"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/workout-exercises/{workout_exercise_id}/": {
         parameters: {
             query?: never;
@@ -529,6 +598,71 @@ export interface components {
             protein_100g?: number | string | null;
             /** Serving G */
             serving_g?: number | string | null;
+        };
+        /** DayOut */
+        DayOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Entries */
+            entries: components["schemas"]["EntryOut"][];
+            totals: components["schemas"]["TotalsOut"];
+            /** Water Ml */
+            water_ml: number;
+        };
+        /** EntryIn */
+        EntryIn: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Food Id
+             * Format: uuid
+             */
+            food_id: string;
+            /** Grams */
+            grams: number | string;
+            /**
+             * Meal
+             * @enum {string}
+             */
+            meal: "breakfast" | "lunch" | "dinner" | "snack";
+        };
+        /** EntryOut */
+        EntryOut: {
+            /** Carbs */
+            carbs: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Fat */
+            fat: number;
+            /** Food Id */
+            food_id: string;
+            /** Grams */
+            grams: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kcal */
+            kcal: number;
+            /**
+             * Meal
+             * @enum {string}
+             */
+            meal: "breakfast" | "lunch" | "dinner" | "snack";
+            /** Name */
+            name: string;
+            /** Protein */
+            protein: number;
         };
         /** ExerciseDetailOut */
         ExerciseDetailOut: {
@@ -1038,6 +1172,32 @@ export interface components {
              * Format: uuid
              */
             workout_exercise_id: string;
+        };
+        /** TotalsOut */
+        TotalsOut: {
+            /** Carbs */
+            carbs: number;
+            /** Fat */
+            fat: number;
+            /** Kcal */
+            kcal: number;
+            /** Protein */
+            protein: number;
+        };
+        /** WaterIn */
+        WaterIn: {
+            /** Ml */
+            ml: number;
+        };
+        /** WaterOut */
+        WaterOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Ml */
+            ml: number;
         };
         /** WeightIn */
         WeightIn: {
@@ -1555,6 +1715,26 @@ export interface operations {
             };
         };
     };
+    apps_nutrition_api_router_recent_foods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FoodOut"][];
+                };
+            };
+        };
+    };
     apps_nutrition_api_router_get_food: {
         parameters: {
             query?: never;
@@ -1657,6 +1837,83 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_write_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_remove_entry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_nutrition_api_router_day_journal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DayOut"];
                 };
             };
         };
@@ -2150,6 +2407,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_nutrition_api_router_write_water: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaterIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaterOut"];
+                };
             };
         };
     };

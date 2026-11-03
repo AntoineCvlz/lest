@@ -1,13 +1,16 @@
 """Lectures du domaine `nutrition` (ADR 0009). Un aliment perso n'est visible que de son
 propriétaire ; Ciqual et Open Food Facts le sont de tous."""
 
+from dataclasses import dataclass
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 from uuid import UUID
 
 from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 
 from apps.accounts.models import User
-from apps.nutrition.models import Food
+from apps.nutrition.models import Food, JournalEntry, WaterIntake
 
 MAX_RESULTS = 30
 MAX_SEARCH_TERMS = 5
@@ -59,4 +62,128 @@ def export_custom_foods(*, owner: User) -> list[dict[str, Any]]:
             "serving_g": number(food.serving_g),
         }
         for food in Food.objects.filter(owner=owner)
+    ]
+
+
+# --- Journal des repas et eau (ADR 0010) : déchiffrés et calculés ici ----------------------
+
+TENTH = Decimal("0.1")
+# Lignes relues pour « aliments récents » : quelques semaines de saisie.
+RECENT_SCAN = 300
+MAX_RECENT = 20
+
+
+@dataclass(frozen=True)
+class EntryView:
+    """Entrée du journal déchiffrée, valeurs calculées pour sa quantité (inconnue comptée 0)."""
+
+    id: UUID
+    date: date
+    meal: str
+    food_id: str
+    name: str
+    grams: Decimal
+    kcal: Decimal
+    protein: Decimal
+    carbs: Decimal
+    fat: Decimal
+
+
+@dataclass(frozen=True)
+class Totals:
+    kcal: Decimal
+    protein: Decimal
+    carbs: Decimal
+    fat: Decimal
+
+
+@dataclass(frozen=True)
+class DayJournal:
+    date: date
+    entries: list[EntryView]
+    totals: Totals
+    water_ml: int
+
+
+def _part(per_100g: Decimal | None, grams: Decimal) -> Decimal:
+    return ((per_100g or Decimal(0)) * grams / 100).quantize(TENTH, rounding=ROUND_HALF_UP)
+
+
+def _view(entry: JournalEntry) -> EntryView:
+    grams = entry.grams or Decimal(0)
+    return EntryView(
+        id=entry.id,
+        date=entry.date,
+        meal=entry.meal,
+        food_id=entry.food_ref or "",
+        name=entry.name or "",
+        grams=grams,
+        kcal=_part(entry.kcal_100g, grams),
+        protein=_part(entry.protein_100g, grams),
+        carbs=_part(entry.carbs_100g, grams),
+        fat=_part(entry.fat_100g, grams),
+    )
+
+
+def day_journal(*, owner: User, day: date) -> DayJournal:
+    """Journal de `owner` pour le jour `day` : entrées dans l'ordre de saisie, totaux, eau."""
+    entries = [_view(e) for e in JournalEntry.objects.filter(owner=owner, date=day)]
+    water = WaterIntake.objects.filter(owner=owner, date=day).first()
+    return DayJournal(
+        date=day,
+        entries=entries,
+        totals=Totals(
+            kcal=sum((e.kcal for e in entries), Decimal(0)),
+            protein=sum((e.protein for e in entries), Decimal(0)),
+            carbs=sum((e.carbs for e in entries), Decimal(0)),
+            fat=sum((e.fat for e in entries), Decimal(0)),
+        ),
+        water_ml=int(water.ml or 0) if water else 0,
+    )
+
+
+def recent_foods(*, owner: User) -> list[Food]:
+    """Aliments saisis récemment par `owner`, du plus récent au plus ancien, sans doublon ;
+    seulement ceux qui existent encore et lui sont visibles."""
+    refs: list[UUID] = []
+    # Seule la référence est lue (et déchiffrée) : 1 jeton par entrée au lieu de 7.
+    latest = (
+        JournalEntry.objects.filter(owner=owner)
+        .order_by("-date", "-created_at")
+        .only("food_ref")[:RECENT_SCAN]
+    )
+    for entry in latest:
+        try:
+            ref = UUID(entry.food_ref or "")
+        except ValueError:
+            continue
+        if ref not in refs:
+            refs.append(ref)
+        if len(refs) >= MAX_RECENT:
+            break
+    foods = {food.pk: food for food in _visible(owner).filter(pk__in=refs, is_active=True)}
+    return [foods[ref] for ref in refs if ref in foods]
+
+
+def export_journal(*, owner: User) -> list[dict[str, Any]]:
+    """Journal de `owner` en clair, pour l'export RGPD."""
+    return [
+        {
+            "date": view.date.isoformat(),
+            "meal": view.meal,
+            "food": view.name,
+            "grams": float(view.grams),
+            "kcal": float(view.kcal),
+            "protein_g": float(view.protein),
+            "carbs_g": float(view.carbs),
+            "fat_g": float(view.fat),
+        }
+        for view in (_view(e) for e in JournalEntry.objects.filter(owner=owner))
+    ]
+
+
+def export_water(*, owner: User) -> list[dict[str, Any]]:
+    return [
+        {"date": row.date.isoformat(), "ml": int(row.ml or 0)}
+        for row in WaterIntake.objects.filter(owner=owner)
     ]
