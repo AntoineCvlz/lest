@@ -28,23 +28,16 @@ from apps.training.models import (
     ProgramExercise,
 )
 from common.auth import request_user
+from common.text import printable
 
 router = Router(tags=["programs"])
-
-
-def _printable(name: str) -> str:
-    # Caractères de contrôle (dont NUL, refusé par Postgres) : jamais dans un nom affiché.
-    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in name):
-        msg = "Caractère non autorisé."
-        raise ValueError(msg)
-    return name
 
 
 # Nom saisi par l'utilisateur : espaces de bord retirés, puis 1 à 80 caractères imprimables.
 Name = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=80),
-    AfterValidator(_printable),
+    AfterValidator(printable),
 ]
 
 

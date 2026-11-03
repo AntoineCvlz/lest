@@ -350,6 +350,108 @@
         "title": "ExerciseRecordsOut",
         "type": "object"
       },
+      "FoodOut": {
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "carbs_100g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs 100G"
+          },
+          "fat_100g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat 100G"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_custom": {
+            "title": "Is Custom",
+            "type": "boolean"
+          },
+          "kcal_100g": {
+            "title": "Kcal 100G",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protein_100g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein 100G"
+          },
+          "serving_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serving G"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source",
+          "name",
+          "brand",
+          "kcal_100g",
+          "protein_100g",
+          "carbs_100g",
+          "fat_100g",
+          "serving_g",
+          "is_custom"
+        ],
+        "title": "FoodOut",
+        "type": "object"
+      },
+      "FoodQuery": {
+        "properties": {
+          "q": {
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Q",
+            "type": "string"
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "title": "FoodQuery",
+        "type": "object"
+      },
       "HealthChecks": {
         "properties": {
           "cache": {
@@ -2319,6 +2421,87 @@
         "summary": "Historique des records d'un exercice",
         "tags": [
           "training"
+        ]
+      }
+    },
+    "/api/v1/foods/": {
+      "get": {
+        "operationId": "apps_nutrition_api_router_search_foods",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FoodOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Chercher un aliment",
+        "tags": [
+          "nutrition"
+        ]
+      }
+    },
+    "/api/v1/foods/{food_id}/": {
+      "get": {
+        "operationId": "apps_nutrition_api_router_get_food",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "food_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Food Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Fiche d'un aliment",
+        "tags": [
+          "nutrition"
         ]
       }
     },
