@@ -11,7 +11,7 @@ import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { SelectField } from "@/shared/ui/select-field";
 import { TextField } from "@/shared/ui/text-field";
 
-import { localDay, longDay } from "./days";
+import { localDay, longDay } from "@/shared/lib/days";
 import {
   MAX_PHOTO_BYTES,
   PHOTO_TYPES,

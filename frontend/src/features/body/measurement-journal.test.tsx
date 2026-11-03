@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { localDay, longDay, shiftDay } from "./days";
+import { localDay, longDay, shiftDay } from "@/shared/lib/days";
 import {
   changeText,
   MeasurementJournal,

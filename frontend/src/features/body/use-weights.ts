@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
-import { localDay, shiftDay } from "./days";
+import { localDay, shiftDay } from "@/shared/lib/days";
 import { BODY_KEY } from "./query-keys";
 
 const WEIGHTS_KEY = [...BODY_KEY, "weights"] as const;

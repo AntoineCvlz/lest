@@ -7,10 +7,22 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   hint?: string;
   /** Message d'erreur : marque le champ invalide et lui est relié pour les lecteurs d'écran. */
   error?: string;
+  /**
+   * Annonce l'erreur dès qu'elle paraît (`role="alert"`) : pour une validation déclenchée depuis
+   * le champ lui-même (Entrée), où déplacer le focus ne ferait rien relire.
+   */
+  announceError?: boolean;
 }
 
 /** Champ de saisie « Fonte calibrée » : 56 px de haut, libellé au-dessus, erreur explicite. */
-export function TextField({ label, hint, error, className, ...props }: TextFieldProps) {
+export function TextField({
+  label,
+  hint,
+  error,
+  announceError = false,
+  className,
+  ...props
+}: TextFieldProps) {
   const id = useId();
   const hintId = hint ? `${id}-aide` : undefined;
   const errorId = error ? `${id}-erreur` : undefined;
@@ -38,7 +50,11 @@ export function TextField({ label, hint, error, className, ...props }: TextField
         </p>
       )}
       {error && (
-        <p id={errorId} className="text-danger text-sm font-semibold">
+        <p
+          id={errorId}
+          role={announceError ? "alert" : undefined}
+          className="text-danger text-sm font-semibold"
+        >
           {error}
         </p>
       )}
