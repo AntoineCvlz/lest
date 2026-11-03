@@ -19,6 +19,17 @@ export const TABS: readonly { href: string; label: string; icon: ReactNode }[] =
     ),
   },
   {
+    href: "/repas",
+    label: "Repas",
+    // Assiette vue de dessus, couverts de part et d'autre.
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={ICON}>
+        <circle cx="12" cy="12" r="6" />
+        <path d="M3 4v6M3 7h1M21 4v16" />
+      </svg>
+    ),
+  },
+  {
     href: "/exercices",
     label: "Exercices",
     icon: (
@@ -59,7 +70,7 @@ export function AppTabs() {
       aria-label="Navigation principale"
       className="border-line-subtle bg-ground fixed inset-x-0 bottom-0 border-t pb-[env(safe-area-inset-bottom)]"
     >
-      <ul className="mx-auto grid max-w-2xl grid-cols-4">
+      <ul className="mx-auto grid max-w-2xl grid-cols-5">
         {TABS.map((tab) => {
           const current = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
           return (

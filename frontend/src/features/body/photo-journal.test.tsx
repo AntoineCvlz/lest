@@ -6,7 +6,7 @@ import type { Schemas } from "@/shared/api/client";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { localDay, shiftDay } from "./days";
+import { localDay, shiftDay } from "@/shared/lib/days";
 import {
   DATE_OUT_OF_RANGE,
   fileProblem,

@@ -2,7 +2,7 @@ import type { Schemas } from "@/shared/api/client";
 import { formatNumber } from "@/shared/lib/number";
 import { kilogramsToDisplay, WEIGHT_UNITS, type UnitSystem } from "@/shared/lib/units";
 
-import { dayToDate, shortDay } from "./days";
+import { dayToDate, shortDay } from "@/shared/lib/days";
 
 type Point = Schemas["WeightPointOut"];
 

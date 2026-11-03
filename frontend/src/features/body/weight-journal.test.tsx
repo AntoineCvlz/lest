@@ -6,7 +6,7 @@ import { parseDecimal } from "@/shared/lib/number";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { localDay, longDay, shiftDay } from "./days";
+import { localDay, longDay, shiftDay } from "@/shared/lib/days";
 import { bodyWeightText, trendSummary } from "./weight-chart";
 import {
   DATE_OUT_OF_RANGE,

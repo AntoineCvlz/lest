@@ -50,6 +50,10 @@ jobs:
         run: |
           docker compose -f compose.yaml -f compose.e2e.yaml exec -T api \
             python manage.py import_exercises --file apps/training/tests/fixtures/repdb_exercises.json
+      # Aliments de test (aliments fictifs au format Ciqual, aucun appel réseau).
+      - name: Aliments E2E
+        run: |
+          docker compose -f compose.yaml -f compose.e2e.yaml exec -T api             python manage.py import_foods               --alim apps/nutrition/tests/fixtures/alim.xml               --compo apps/nutrition/tests/fixtures/compo.xml
       - uses: ./.github/actions/setup-frontend
       # Image officielle (navigateurs et dépendances système préinstallés) : évite
       # `playwright install --with-deps`, dont l'apt-get a pris plus de 10 min sur le runner.

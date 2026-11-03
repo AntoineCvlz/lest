@@ -11,7 +11,7 @@ import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
-import { localDay, longDay, shortDay } from "./days";
+import { localDay, longDay, shortDay } from "@/shared/lib/days";
 import {
   type MeasurementChange,
   MeasurementSaveFailed,

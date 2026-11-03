@@ -14,6 +14,7 @@ describe("AppTabs", () => {
     const links = within(nav).getAllByRole("link");
     expect(links.map((link) => link.textContent)).toEqual([
       "Séance",
+      "Repas",
       "Exercices",
       "Corps",
       "Profil",

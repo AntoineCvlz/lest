@@ -11,7 +11,7 @@ import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { TextField } from "@/shared/ui/text-field";
 
-import { localDay, longDay, shiftDay, shortDay } from "./days";
+import { localDay, longDay, shiftDay, shortDay } from "@/shared/lib/days";
 import {
   PERIODS,
   type PeriodDays,
