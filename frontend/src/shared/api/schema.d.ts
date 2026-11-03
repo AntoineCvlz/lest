@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/api/v1/body-measurements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mensurations d'une période */
+        get: operations["apps_body_api_router_list_measurements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/body-measurements/{day}/{site}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistrer ou remplacer une mensuration */
+        put: operations["apps_body_api_router_write_measurement"];
+        post?: never;
+        /** Supprimer une mensuration */
+        delete: operations["apps_body_api_router_remove_measurement"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/body-weights/": {
         parameters: {
             query?: never;
@@ -495,12 +530,39 @@ export interface components {
              */
             id: string;
         };
+        /** MeasurementIn */
+        MeasurementIn: {
+            /** Length M */
+            length_m: number | string;
+        };
+        /** MeasurementOut */
+        MeasurementOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Length M */
+            length_m: number;
+            /**
+             * Site
+             * @enum {string}
+             */
+            site: "neck" | "chest" | "waist" | "hips" | "arm" | "thigh" | "calf";
+        };
         /** NamedOut */
         NamedOut: {
             /** Id */
             id: number;
             /** Name */
             name: string;
+        };
+        /** Period */
+        Period: {
+            /** End */
+            end?: string | null;
+            /** Start */
+            start?: string | null;
         };
         /** ProfileIn */
         ProfileIn: {
@@ -782,13 +844,6 @@ export interface components {
             /** Weight Kg */
             weight_kg: number;
         };
-        /** WeightPeriod */
-        WeightPeriod: {
-            /** End */
-            end?: string | null;
-            /** Start */
-            start?: string | null;
-        };
         /** WeightPointOut */
         WeightPointOut: {
             /**
@@ -973,6 +1028,86 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    apps_body_api_router_list_measurements: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementOut"][];
+                };
+            };
+        };
+    };
+    apps_body_api_router_write_measurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+                site: "neck" | "chest" | "waist" | "hips" | "arm" | "thigh" | "calf";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeasurementIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasurementOut"];
+                };
+            };
+        };
+    };
+    apps_body_api_router_remove_measurement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                day: string;
+                site: "neck" | "chest" | "waist" | "hips" | "arm" | "thigh" | "calf";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_body_api_router_list_weights: {
         parameters: {
             query?: {
