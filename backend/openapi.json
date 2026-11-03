@@ -558,6 +558,60 @@
         "title": "Period",
         "type": "object"
       },
+      "PhotoOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid4",
+            "title": "Id",
+            "type": "string"
+          },
+          "pose": {
+            "enum": [
+              "front",
+              "side",
+              "back"
+            ],
+            "title": "Pose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "pose"
+        ],
+        "title": "PhotoOut",
+        "type": "object"
+      },
+      "PhotoQuery": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "pose": {
+            "enum": [
+              "front",
+              "side",
+              "back"
+            ],
+            "title": "Pose",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "pose"
+        ],
+        "title": "PhotoQuery",
+        "type": "object"
+      },
       "ProfileIn": {
         "properties": {
           "goal": {
@@ -2762,6 +2816,249 @@
         "summary": "Créer ou renommer un programme",
         "tags": [
           "programs"
+        ]
+      }
+    },
+    "/api/v1/progress-photos/": {
+      "get": {
+        "operationId": "apps_body_api_router_list_photos",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PhotoOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Photos d'une période",
+        "tags": [
+          "body"
+        ]
+      }
+    },
+    "/api/v1/progress-photos/{photo_id}/": {
+      "delete": {
+        "operationId": "apps_body_api_router_remove_photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer une photo",
+        "tags": [
+          "body"
+        ]
+      },
+      "put": {
+        "description": "Corps : l'image elle-même (JPEG, PNG ou WebP, 15 Mo au plus), en `Content-Type` `image/*`. Réencodée en WebP sans métadonnées, puis chiffrée (ADR 0008).",
+        "operationId": "apps_body_api_router_write_photo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pose",
+            "required": true,
+            "schema": {
+              "enum": [
+                "front",
+                "side",
+                "back"
+              ],
+              "title": "Pose",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "image/png": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Envoyer ou remplacer une photo de progression",
+        "tags": [
+          "body"
+        ]
+      }
+    },
+    "/api/v1/progress-photos/{photo_id}/{size}/": {
+      "get": {
+        "operationId": "apps_body_api_router_photo_image",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "photo_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Photo Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "size",
+            "required": true,
+            "schema": {
+              "enum": [
+                "thumb",
+                "large"
+              ],
+              "title": "Size",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Image WebP"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Image d'une photo de progression (WebP)",
+        "tags": [
+          "body"
         ]
       }
     },

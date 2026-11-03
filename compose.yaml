@@ -25,9 +25,12 @@ x-backend: &backend
     # Images d'exercices normalisées (ADR 0005), partagées par api (qui les sert) et worker
     # (qui les importe).
     MEDIA_ROOT: /var/lib/lest-media
+    # Photos de progression chiffrées (ADR 0008) : volume privé, jamais servi tel quel.
+    PRIVATE_MEDIA_ROOT: /var/lib/lest-private-media
   volumes:
     - devkeys:/var/lib/lest-keys
     - media:/var/lib/lest-media
+    - private-media:/var/lib/lest-private-media
   depends_on:
     db:
       condition: service_healthy
@@ -147,3 +150,4 @@ volumes:
   pgdata:
   devkeys:
   media:
+  private-media:

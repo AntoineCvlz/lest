@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
 
-import { buildUpstreamUrl, DELETE, GET, POST } from "./route";
+import { buildUpstreamUrl, DELETE, GET, POST, PUT } from "./route";
 
 const fetchMock = vi.fn<typeof fetch>();
 const ORIGIN = "http://localhost:3000";
@@ -178,6 +178,20 @@ describe("relais", () => {
     const { init } = lastCall();
     expect(init.method).toBe("POST");
     expect(new TextDecoder().decode(init.body as ArrayBuffer)).toBe('{"kg":82.4}');
+  });
+
+  it("refuse un corps trop gros en 413 sans appeler Django", async () => {
+    const response = await PUT(
+      request("/api/v1/progress-photos/x/", {
+        method: "PUT",
+        body: "x",
+        headers: { "content-type": "image/jpeg", "content-length": String(17 * 1024 * 1024) },
+      }),
+    );
+
+    expect(response.status).toBe(413);
+    expect(response.headers.get("content-type")).toBe("application/problem+json");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("répond 404 problem+json hors périmètre sans appeler Django", async () => {

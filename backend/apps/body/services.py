@@ -1,25 +1,39 @@
-"""Écritures du domaine `body` (ADR 0007) : idempotentes, une pesée par compte et par jour, une
-mensuration par compte, jour et endroit."""
+"""Écritures du domaine `body` (ADR 0007, ADR 0008) : idempotentes, une pesée par compte et par
+jour, une mensuration par compte, jour et endroit, des photos sous l'UUID du client."""
 
 from datetime import date, timedelta
 from decimal import Decimal
+from uuid import UUID
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.accounts.services import lock_account
+from apps.body import photos
 from apps.body.models import (
     MAX_LENGTH_M,
+    MAX_PHOTOS,
     MAX_WEIGHT_KG,
     MIN_LENGTH_M,
     MIN_WEIGHT_KG,
     BodyMeasurement,
     BodyWeight,
+    Pose,
+    ProgressPhoto,
     Site,
 )
 
 EARLIEST = date(2000, 1, 1)
+
+
+class NotFoundError(Exception):
+    """Identifiant d'un autre compte : répondu comme un identifiant inconnu (404)."""
+
+
+class WriteConflictError(Exception):
+    """Deux premiers envois simultanés du même identifiant : le second est à rejouer."""
 
 
 def _check_day(day: date) -> None:
@@ -76,3 +90,55 @@ def put_measurement(
 def delete_measurement(*, owner: User, day: date, site: str) -> None:
     """Supprime la mensuration `site` du jour `day` de `owner` ; sans effet si elle n'existe pas."""
     BodyMeasurement.objects.filter(owner=owner, date=day, site=site).delete()
+
+
+def put_photo(
+    *, owner: User, photo_id: UUID, day: date, pose: str, data: bytes
+) -> tuple[ProgressPhoto, bool]:
+    """Enregistre la photo `photo_id` de `owner`, ou la remplace (date, pose et image).
+
+    L'image est vérifiée et réencodée sans métadonnées, puis chiffrée sur le disque avant
+    l'écriture en base ; les fichiers remplacés ou d'une écriture annulée sont effacés. Lève
+    `ValidationError` (date, pose, image refusée, plafond), `NotFoundError` (photo d'un autre
+    compte) ou `WriteConflictError`.
+    """
+    _check_day(day)
+    if pose not in Pose.values:
+        raise ValidationError({"pose": ValidationError("Pose inconnue.", code="invalid_choice")})
+    try:
+        images = photos.process(data)
+    except photos.PhotoRejectedError as error:
+        raise ValidationError(
+            {"file": ValidationError("Image refusée.", code="invalid_image")}
+        ) from error
+    key = photos.store(images)
+    try:
+        with transaction.atomic():
+            # Sérialise les envois du compte : le plafond ne peut pas être dépassé à deux.
+            lock_account(owner)
+            existing = ProgressPhoto.objects.select_for_update().filter(pk=photo_id).first()
+            if existing is not None and existing.owner_id != owner.pk:
+                raise NotFoundError
+            if existing is None and ProgressPhoto.objects.filter(owner=owner).count() >= MAX_PHOTOS:
+                raise ValidationError(
+                    {"photo_id": ValidationError("Plafond atteint.", code="too_many")}
+                )
+            photo = existing or ProgressPhoto(id=photo_id, owner=owner)
+            if existing is not None:
+                replaced = existing.file_key
+                transaction.on_commit(lambda: photos.remove(replaced))
+            photo.date, photo.pose, photo.file_key = day, pose, key
+            photo.save(force_insert=existing is None)
+    except IntegrityError as error:
+        photos.remove(key)
+        raise WriteConflictError from error
+    except BaseException:
+        photos.remove(key)
+        raise
+    return photo, existing is None
+
+
+def delete_photo(*, owner: User, photo_id: UUID) -> None:
+    """Supprime la photo `photo_id` de `owner` ; sans effet si elle n'existe pas ou appartient
+    à un autre compte. Les fichiers sont effacés après validation (`receivers`)."""
+    ProgressPhoto.objects.filter(owner=owner, pk=photo_id).delete()

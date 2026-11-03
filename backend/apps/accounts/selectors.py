@@ -6,7 +6,7 @@ from allauth.usersessions.models import UserSession
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 
-from apps.body.selectors import export_measurements, export_weights
+from apps.body.selectors import export_measurements, export_photos, export_weights
 from apps.training.selectors import export_programs, export_records, export_workouts
 
 from .models import OneRepMaxFormula, Profile, User
@@ -82,6 +82,8 @@ def export_account(user: User) -> dict[str, Any]:
         # Pesées et mensurations (domaine `body`), déchiffrées pour l'export.
         "body_weights": export_weights(owner=user),
         "body_measurements": export_measurements(owner=user),
+        # Photos : métadonnées ici, images dans une archive dédiée (ADR 0008).
+        "progress_photos": export_photos(owner=user),
         "profile": (
             {
                 "height_m": float(profile.height_m),
