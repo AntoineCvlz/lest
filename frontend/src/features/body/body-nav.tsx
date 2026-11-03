@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const SECTIONS = [
   { href: "/corps", label: "Poids" },
   { href: "/corps/mensurations", label: "Mensurations" },
+  { href: "/corps/photos", label: "Photos" },
 ] as const;
 
 /** Sous-navigation de Corps : la section courante porte `aria-current` (pas la couleur seule). */
@@ -14,7 +15,7 @@ export function BodyNav() {
 
   return (
     <nav aria-label="Sections de Corps">
-      <ul className="flex gap-2">
+      <ul className="flex flex-wrap gap-2">
         {SECTIONS.map((section) => {
           const current = pathname === section.href;
           return (
