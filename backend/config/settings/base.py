@@ -168,6 +168,8 @@ ACCOUNT_RATE_LIMITS = {
     "body_write": "120/m/user",
     # Envois de photos (réencodage coûteux) : 30 par heure et par compte.
     "body_photo_write": "30/3600s/user",
+    # Archives des photos (export RGPD) : toutes les photos déchiffrées à chaque fois.
+    "body_photo_export": "10/3600s/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.

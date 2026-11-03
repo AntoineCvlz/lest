@@ -108,6 +108,19 @@ def photo_image(*, owner: User, photo_id: UUID, size: photos.Size) -> bytes:
         raise PhotoNotFoundError from error
 
 
+def photo_archive_entries(*, owner: User) -> list[tuple[str, str]]:
+    """Noms de fichier et clés des photos de `owner`, pour l'archive RGPD
+    (`2026-10-01-face-1.webp`). Lus d'un coup : l'archive est ensuite écrite en flux."""
+    labels = {"front": "face", "side": "profil", "back": "dos"}
+    entries = []
+    for index, (day, pose, key) in enumerate(
+        ProgressPhoto.objects.filter(owner=owner).values_list("date", "pose", "file_key"),
+        start=1,
+    ):
+        entries.append((f"{day.isoformat()}-{labels.get(pose, pose)}-{index}.webp", key))
+    return entries
+
+
 def export_photos(*, owner: User) -> list[dict[str, Any]]:
     """Métadonnées des photos de `owner` pour l'export RGPD (images : archive dédiée, ADR 0008)."""
     return [

@@ -5,7 +5,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { EXPORT_FAILED, MyData, WRONG_PASSWORD } from "./my-data";
+import { EXPORT_FAILED, MyData, PHOTOS_EXPORT_FAILED, WRONG_PASSWORD } from "./my-data";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -35,6 +35,33 @@ describe("MyData", () => {
     await waitFor(() => {
       expect(createObjectURL).toHaveBeenCalledOnce();
     });
+    vi.unstubAllGlobals();
+  });
+
+  it("télécharge l'archive des photos, ou annonce qu'elle n'a pas pu être préparée", async () => {
+    let status = 200;
+    server.use(
+      http.get("*/api/v1/progress-photos/archive/", () =>
+        status === 200
+          ? new HttpResponse(new Uint8Array([0x50, 0x4b, 5, 6]), {
+              headers: { "content-type": "application/zip" },
+            })
+          : HttpResponse.json({ status }, { status }),
+      ),
+    );
+    const createObjectURL = vi.fn(() => "blob:photos");
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+    renderWithQuery(<MyData />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Télécharger mes photos (ZIP)" }));
+    await waitFor(() => {
+      expect(createObjectURL).toHaveBeenCalledOnce();
+    });
+
+    status = 429;
+    await userEvent.click(screen.getByRole("button", { name: "Télécharger mes photos (ZIP)" }));
+    expect(await screen.findByText(PHOTOS_EXPORT_FAILED)).toBeInTheDocument();
+    expect(createObjectURL).toHaveBeenCalledOnce();
     vi.unstubAllGlobals();
   });
 
