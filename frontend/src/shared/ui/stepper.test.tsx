@@ -53,6 +53,9 @@ describe("Stepper", () => {
     await user.click(screen.getByRole("button", { name: "−2,5 kilos" }));
 
     expect(screen.getByRole("status")).toHaveTextContent("20");
-    expect(screen.getByRole("button", { name: "−2,5 kilos" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "−2,5 kilos" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 });

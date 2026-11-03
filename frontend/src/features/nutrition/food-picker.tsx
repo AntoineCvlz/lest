@@ -87,8 +87,24 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
     focus("input[name=grams]");
   }
 
-  const searching = settled.length >= 2;
+  const searching = query.trim().length >= 2;
+  const stale = searching && (settled !== query.trim() || search.isPlaceholderData);
   const foods = searching ? (search.data ?? []) : (recent.data ?? []);
+  const status = searching
+    ? search.isError
+      ? SEARCH_UNAVAILABLE
+      : stale || search.isPending
+        ? "Recherche…"
+        : foods.length === 0
+          ? NO_RESULT
+          : `${String(foods.length)} aliment${foods.length > 1 ? "s" : ""} trouvé${foods.length > 1 ? "s" : ""}.`
+    : recent.isError
+      ? "Aliments récents indisponibles : cherchez par nom ou par code-barres."
+      : recent.isPending
+        ? "Chargement des aliments récents…"
+        : foods.length === 0
+          ? "Cherchez un aliment par son nom, ou par son code-barres."
+          : "";
   const amount = parseDecimal(grams);
 
   if (chosen) {
@@ -125,6 +141,7 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
             value={grams}
             hint={amount !== null && amount > 0 ? kcalFor(chosen, amount) : undefined}
             error={invalid ? "Saisissez une quantité entre 0 et 5 000 g." : undefined}
+            announceError
             onChange={(event) => {
               setGrams(event.target.value);
               setInvalid(false);
@@ -168,30 +185,21 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
           setQuery(event.target.value);
         }}
       />
-      <section
-        aria-label={searching ? "Résultats" : "Aliments récents"}
-        className="flex flex-col gap-2"
-      >
+      <div className="flex flex-col gap-2">
         <h3 className="text-ink-muted text-sm font-semibold">
           {searching ? "Résultats" : "Aliments récents"}
         </h3>
-        {searching && search.isError && <p className="text-danger">{SEARCH_UNAVAILABLE}</p>}
-        {searching && search.isSuccess && foods.length === 0 && (
-          <p className="text-ink-muted">{NO_RESULT}</p>
-        )}
-        {!searching && recent.isSuccess && foods.length === 0 && (
-          <p className="text-ink-muted">Cherchez un aliment par son nom, ou par son code-barres.</p>
-        )}
+        {/* Toujours présent : l'état de la recherche est annoncé sans quitter le champ. */}
+        <p role="status" className="text-ink-muted empty:sr-only">
+          {status}
+        </p>
         {foods.length > 0 && (
-          <ul
-            aria-busy={searching && search.isPlaceholderData}
-            className="border-line-subtle border-t"
-          >
+          <ul aria-busy={stale} className="border-line-subtle border-t">
             {foods.map((food) => (
               <li key={food.id} className="border-line-subtle border-b">
                 <button
                   type="button"
-                  disabled={searching && search.isPlaceholderData}
+                  disabled={stale}
                   className="hover:bg-surface flex min-h-14 w-full flex-col items-start justify-center px-1 py-2 text-left"
                   onClick={() => {
                     choose(food);
@@ -206,7 +214,7 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
             ))}
           </ul>
         )}
-      </section>
+      </div>
       <form
         method="post"
         noValidate
@@ -224,7 +232,9 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
           inputMode="numeric"
           autoComplete="off"
           value={barcode}
+          hint="8 à 14 chiffres, sous les barres."
           error={lookup.isError ? barcodeError(lookup.error) : undefined}
+          announceError
           onChange={(event) => {
             setBarcode(event.target.value);
             lookup.reset();

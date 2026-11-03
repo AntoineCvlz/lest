@@ -45,7 +45,9 @@ export function Stepper({
   const canIncrement = max === undefined || value < max;
   const button = [
     "rounded-control border-line bg-surface text-ink border text-xl font-bold",
-    "disabled:cursor-not-allowed disabled:opacity-50",
+    // `aria-disabled` plutôt que `disabled` : atteindre une borne ne fait pas perdre le focus
+    // au bouton que l'on vient d'activer (il retomberait au début de la page).
+    "aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
     BUTTON_SIZES[size],
   ].join(" ");
   const amount = formatNumber(step);
@@ -62,9 +64,9 @@ export function Stepper({
           type="button"
           className={button}
           aria-label={`${decrementText} ${stepUnit}`}
-          disabled={!canDecrement}
+          aria-disabled={!canDecrement}
           onClick={() => {
-            onChange(stepValue(value, -1, { step, min, max }));
+            if (canDecrement) onChange(stepValue(value, -1, { step, min, max }));
           }}
         >
           {decrementText}
@@ -81,9 +83,9 @@ export function Stepper({
           type="button"
           className={button}
           aria-label={`${incrementText} ${stepUnit}`}
-          disabled={!canIncrement}
+          aria-disabled={!canIncrement}
           onClick={() => {
-            onChange(stepValue(value, 1, { step, min, max }));
+            if (canIncrement) onChange(stepValue(value, 1, { step, min, max }));
           }}
         >
           {incrementText}

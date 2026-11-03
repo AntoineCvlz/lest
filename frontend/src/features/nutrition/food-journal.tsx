@@ -60,6 +60,8 @@ export function FoodJournal() {
   const [adding, setAdding] = useState<Meal | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editGrams, setEditGrams] = useState("");
+  // Erreur de quantité montrée à la validation seulement, champ vide compris.
+  const [editInvalid, setEditInvalid] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState("");
   // Eau saisie à l'instant : deux appuis rapides partent de la dernière valeur, pas du serveur.
@@ -92,7 +94,14 @@ export function FoodJournal() {
         className="flex flex-col gap-3 py-3"
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending || invalid) return;
+          if (save.isPending) return;
+          if (invalid) {
+            flushSync(() => {
+              setEditInvalid(true);
+            });
+            focus("input[name=edit-grams]");
+            return;
+          }
           save.mutate(
             {
               id: entry.id,
@@ -115,9 +124,11 @@ export function FoodJournal() {
           inputMode="decimal"
           autoComplete="off"
           value={editGrams}
-          error={invalid && editGrams.trim() !== "" ? "Entre 0 et 5 000 g." : undefined}
+          error={editInvalid ? "Saisissez une quantité entre 0 et 5 000 g." : undefined}
+          announceError
           onChange={(event) => {
             setEditGrams(event.target.value);
+            setEditInvalid(false);
           }}
         />
         <div className="grid grid-cols-2 gap-3">
@@ -206,8 +217,10 @@ export function FoodJournal() {
         </h2>
         <Button
           aria-label="Jour suivant"
-          disabled={day >= today}
+          // Pas `disabled` : arriver à aujourd'hui ne doit pas faire perdre le focus au bouton.
+          aria-disabled={day >= today}
           onClick={() => {
+            if (day >= today) return;
             setDay(shiftDay(day, 1));
             setAdding(null);
             setEditing(null);
@@ -217,7 +230,9 @@ export function FoodJournal() {
         </Button>
       </nav>
 
-      {journal.isPending && <p className="text-ink-muted">Chargement du journal…</p>}
+      <p role="status" className="text-ink-muted empty:sr-only">
+        {journal.isFetching && !data ? "Chargement du journal…" : ""}
+      </p>
       {journal.isError && (
         <div role="alert" className="flex flex-col items-start gap-3">
           <p className="text-danger font-semibold">{JOURNAL_UNAVAILABLE}</p>
@@ -237,10 +252,13 @@ export function FoodJournal() {
             <h2 id="totals-title" className="sr-only">
               Totaux du jour
             </h2>
-            <p className="text-[40px] leading-none font-extrabold tabular-nums [font-stretch:112%]">
-              {kcal(data.totals.kcal)}
-            </p>
             <dl className="grid grid-cols-3 gap-3 tabular-nums">
+              <div className="col-span-3">
+                <dt className="sr-only">Énergie</dt>
+                <dd className="text-[40px] leading-none font-extrabold [font-stretch:112%]">
+                  {kcal(data.totals.kcal)}
+                </dd>
+              </div>
               {(
                 [
                   ["Protéines", data.totals.protein],
@@ -266,6 +284,8 @@ export function FoodJournal() {
             max={10000}
             size="md"
             onChange={(ml) => {
+              save.reset();
+              remove.reset();
               setWaterDraft({ day, ml });
               water.mutate(
                 { day, ml },
@@ -315,6 +335,9 @@ export function FoodJournal() {
                               flushSync(() => {
                                 setAdding(null);
                                 setEditing(entry.id);
+                                setEditInvalid(false);
+                                water.reset();
+                                remove.reset();
                                 setEditGrams(formatNumber(entry.grams));
                                 setConfirming(false);
                                 setNotice("");
@@ -378,6 +401,8 @@ export function FoodJournal() {
                       flushSync(() => {
                         setEditing(null);
                         setAdding(meal);
+                        water.reset();
+                        remove.reset();
                         setNotice("");
                         save.reset();
                       });

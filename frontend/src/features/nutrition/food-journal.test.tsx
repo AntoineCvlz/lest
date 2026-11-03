@@ -83,13 +83,16 @@ describe("FoodJournal", () => {
     api();
     renderWithQuery(<FoodJournal />);
 
-    expect(await screen.findByText("300 kcal", { selector: "p" })).toBeVisible();
+    expect(await screen.findByText("300 kcal", { selector: "dd" })).toBeVisible();
     const lunch = screen.getByRole("list", { name: "Déjeuner" });
     expect(
       within(lunch).getByRole("button", { name: /^Modifier Riz témoin, cuit, 200/ }),
     ).toBeVisible();
     expect(screen.getByRole("heading", { name: "Aujourd’hui" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Jour suivant" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Jour suivant" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("ajoute un aliment récent au repas, sous un UUID v4, et rend le focus", async () => {
@@ -135,6 +138,40 @@ describe("FoodJournal", () => {
     expect(screen.getByRole("textbox", { name: "Quantité (g)" })).toHaveAccessibleDescription(
       "60 kcal",
     );
+  });
+
+  it("annonce l'état de la recherche sans quitter le champ", async () => {
+    api({ journal: day([]) });
+    const user = userEvent.setup();
+    renderWithQuery(<FoodJournal />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajouter à la collation" }));
+    await user.type(screen.getByRole("searchbox", { name: "Rechercher un aliment" }), "barre");
+    await waitFor(() => {
+      expect(screen.getByText("1 aliment trouvé.")).toHaveAttribute("role", "status");
+    });
+    await user.clear(screen.getByRole("searchbox", { name: "Rechercher un aliment" }));
+    await user.type(screen.getByRole("searchbox", { name: "Rechercher un aliment" }), "zzz");
+    await waitFor(() => {
+      expect(screen.getByText(/^Aucun aliment trouvé/)).toBeVisible();
+    });
+  });
+
+  it("signale une quantité vide dans l'éditeur au lieu de ne rien faire", async () => {
+    api();
+    const user = userEvent.setup();
+    renderWithQuery(<FoodJournal />);
+
+    await user.click(await screen.findByRole("button", { name: /^Modifier Riz témoin, cuit/ }));
+    const quantity = screen.getByRole("textbox", { name: "Quantité de Riz témoin, cuit (g)" });
+    await user.clear(quantity);
+    await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    expect(screen.getByText("Saisissez une quantité entre 0 et 5 000 g.")).toHaveAttribute(
+      "role",
+      "alert",
+    );
+    expect(quantity).toHaveFocus();
   });
 
   it("explique un code-barres inconnu sur son champ", async () => {
@@ -223,7 +260,12 @@ describe("FoodJournal", () => {
     await waitFor(() => {
       expect(seen).toContain(shiftDay(TODAY, -1));
     });
-    expect(screen.getByRole("button", { name: "Jour suivant" })).toBeEnabled();
+    const next = screen.getByRole("button", { name: "Jour suivant" });
+    expect(next).toHaveAttribute("aria-disabled", "false");
+    // Revenir à aujourd'hui garde le focus sur le bouton (il n'est pas `disabled`).
+    await user.click(next);
+    expect(next).toHaveFocus();
+    expect(next).toHaveAttribute("aria-disabled", "true");
   });
 
   it("annonce une panne et permet de réessayer", async () => {

@@ -56,6 +56,9 @@ export const BarreSeule: Story = {
   name: "Barre seule (minimum)",
   args: { value: 20 },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByRole("button", { name: "−2,5 kilos" })).toBeDisabled();
+    await expect(within(canvasElement).getByRole("button", { name: "−2,5 kilos" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   },
 };
