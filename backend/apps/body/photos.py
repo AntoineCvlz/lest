@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Final, Literal
 from uuid import uuid4
 
+from cryptography.fernet import InvalidToken
 from django.conf import settings
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -155,15 +156,24 @@ def archive(entries: Iterable[tuple[str, str]]) -> Iterator[bytes]:
     """Archive ZIP, en morceaux, des grandes images déchiffrées : `(nom, clé)` par photo.
 
     Une photo à la fois en mémoire, rien en clair sur le disque. Sans compression : le WebP
-    l'est déjà. Un fichier manquant (orphelin de ligne) est sauté.
+    l'est déjà. Un fichier manquant ou indéchiffrable (clé retirée trop tôt, fichier abîmé) est
+    sauté et signalé dans `LISEZMOI.txt` : une photo illisible ne bloque pas les autres.
     """
     sink = _Chunks()
+    skipped = 0
     with zipfile.ZipFile(sink, mode="w", compression=zipfile.ZIP_STORED) as bundle:
         for name, key in entries:
             try:
                 content = read(key, "large")
-            except FileNotFoundError:
+            except (FileNotFoundError, InvalidToken):
+                skipped += 1
                 continue
             bundle.writestr(name, content)
             yield sink.drain()
+        if skipped:
+            bundle.writestr(
+                "LISEZMOI.txt",
+                f"{skipped} photo(s) n'ont pas pu être lues et manquent dans cette archive.\n"
+                "Contactez le support pour les récupérer.\n",
+            )
     yield sink.drain()

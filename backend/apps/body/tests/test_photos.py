@@ -11,6 +11,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from cryptography.fernet import Fernet
 from django.test import Client, override_settings
 from PIL import ExifTags, Image
 
@@ -346,13 +347,46 @@ def test_an_empty_archive_is_valid_and_missing_files_are_skipped() -> None:
     me.put(photo_id, jpeg())
     photos.remove(ProgressPhoto.objects.get(pk=photo_id).file_key)
 
-    assert archive_of(me.get("archive/")).namelist() == []
+    assert archive_of(me.get("archive/")).namelist() == ["LISEZMOI.txt"]
+
+
+def test_an_unreadable_photo_is_skipped_and_reported(
+    private_media: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    me = Athlete()
+    me.put(uuid4(), jpeg(), query="?date=2026-10-01&pose=front")
+    broken = uuid4()
+    me.put(broken, jpeg(), query="?date=2026-10-02&pose=front")
+    # Fichier chiffré avec une clé qui n'est plus dans les réglages.
+    key = ProgressPhoto.objects.get(pk=broken).file_key
+    (private_media / f"{key}-large{photos.SUFFIX}").write_bytes(
+        Fernet(Fernet.generate_key()).encrypt(b"autre cle")
+    )
+
+    bundle = archive_of(me.get("archive/"))
+
+    assert bundle.namelist() == ["2026-10-01-face-1.webp", "LISEZMOI.txt"]
+    assert bundle.read("LISEZMOI.txt").decode().startswith("1 photo(s) n'ont pas pu être lues")
+
+
+def test_only_one_archive_at_a_time_per_account() -> None:
+    me, other = Athlete(), Athlete()
+    me.put(uuid4(), jpeg())
+    first = me.get("archive/")
+
+    assert me.get("archive/").status_code == 429
+    assert other.get("archive/").status_code == 200
+    # Flux lu jusqu'au bout (ou abandonné) : le verrou est rendu.
+    archive_of(first)
+    assert me.get("archive/").status_code == 200
 
 
 @override_settings(ACCOUNT_RATE_LIMITS={"body_photo_export": "1/3600s/user"})
 def test_archives_are_rate_limited_and_require_authentication(client: Client) -> None:
     me = Athlete()
 
-    assert me.get("archive/").status_code == 200
-    assert me.get("archive/").status_code == 429
+    archive_of(me.get("archive/"))
+    limited = me.get("archive/")
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "Trop d'archives demandées. Réessayez dans une heure."
     assert client.get(f"{API}/archive/").status_code == 401

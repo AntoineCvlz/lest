@@ -5,11 +5,13 @@ Routers minces : schémas Pydantic, appel du service ou du selector. Une erreur 
 renvoie jamais la valeur saisie (donnée de santé, `common.problems`).
 """
 
+from collections.abc import Iterator
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Literal, Self
 
 from allauth.core import ratelimit
+from django.core.cache import cache
 from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
@@ -36,6 +38,9 @@ WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
 PHOTO_WRITE_ACTION = "body_photo_write"
 # Archives de photos par compte : chaque archive déchiffre toutes les photos.
 PHOTO_EXPORT_ACTION = "body_photo_export"
+ARCHIVE_LOCK_PREFIX = "body:photo-archive:"
+# Rendu à la fin du flux ; l'expiration ne sert que si le processus meurt en route.
+ARCHIVE_LOCK_SECONDS = 15 * 60
 PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 UNSUPPORTED_TYPE = "urn:lest:problem:unsupported-media-type"
 TOO_LARGE_TYPE = "urn:lest:problem:payload-too-large"
@@ -112,15 +117,17 @@ class Period(Schema):
         return self
 
 
-def _writer(request: HttpRequest, action: str = WRITE_ACTION) -> User:
+def _writer(
+    request: HttpRequest,
+    action: str = WRITE_ACTION,
+    message: str = "Trop d'écritures. Réessayez dans un instant.",
+) -> User:
     """Compte qui écrit (ou exporte), après sa limite de débit (429 au-delà). `limit_get` :
     allauth ne compte pas les GET par défaut, or l'archive des photos en est un ; seul
     `consume_or_429` le transmet (la réponse 429 d'allauth est remplacée par la nôtre)."""
     user = request_user(request)
     if ratelimit.consume_or_429(request, action=action, user=user, limit_get=True) is not None:
-        raise ProblemError(
-            429, "Trop d'écritures. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
-        )
+        raise ProblemError(429, message, type_=RATE_LIMITED_TYPE)
     return user
 
 
@@ -247,9 +254,23 @@ def list_photos(request: HttpRequest, period: Query[Period]) -> list[PhotoOut]:
     },
 )
 def photo_archive(request: HttpRequest) -> StreamingHttpResponse:
-    owner = _writer(request, PHOTO_EXPORT_ACTION)
+    owner = _writer(
+        request, PHOTO_EXPORT_ACTION, "Trop d'archives demandées. Réessayez dans une heure."
+    )
+    # Une archive à la fois par compte : un client lent ne bloque pas plusieurs workers.
+    lock = f"{ARCHIVE_LOCK_PREFIX}{owner.pk}"
+    if not cache.add(lock, 1, timeout=ARCHIVE_LOCK_SECONDS):
+        raise ProblemError(429, "Une archive est déjà en préparation.", type_=RATE_LIMITED_TYPE)
     entries = selectors.photo_archive_entries(owner=owner)
-    response = StreamingHttpResponse(photos.archive(entries), content_type="application/zip")
+
+    def stream() -> Iterator[bytes]:
+        try:
+            yield from photos.archive(entries)
+        finally:
+            # Fin du flux ou client parti (`close` du générateur) : le verrou est rendu.
+            cache.delete(lock)
+
+    response = StreamingHttpResponse(stream(), content_type="application/zip")
     filename = f"lest-photos-{timezone.localdate():%Y-%m-%d}.zip"
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     # Données de santé : jamais en cache.
