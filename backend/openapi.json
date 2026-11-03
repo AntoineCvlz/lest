@@ -2885,6 +2885,34 @@
         ]
       }
     },
+    "/api/v1/progress-photos/archive/": {
+      "get": {
+        "operationId": "apps_body_api_router_photo_archive",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Archive ZIP des grandes images WebP"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Télécharger toutes ses photos (archive ZIP, RGPD)",
+        "tags": [
+          "body"
+        ]
+      }
+    },
     "/api/v1/progress-photos/{photo_id}/": {
       "delete": {
         "operationId": "apps_body_api_router_remove_photo",

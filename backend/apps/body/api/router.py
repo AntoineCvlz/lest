@@ -10,7 +10,7 @@ from decimal import Decimal
 from typing import Literal, Self
 
 from allauth.core import ratelimit
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
 from pydantic import UUID4, model_validator
@@ -34,6 +34,8 @@ RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
 WRITE_CONFLICT_TYPE = "urn:lest:problem:write-conflict"
 # Envois de photos par compte (`ACCOUNT_RATE_LIMITS`) : réencodage coûteux.
 PHOTO_WRITE_ACTION = "body_photo_write"
+# Archives de photos par compte : chaque archive déchiffre toutes les photos.
+PHOTO_EXPORT_ACTION = "body_photo_export"
 PHOTO_TYPES = ("image/jpeg", "image/png", "image/webp")
 UNSUPPORTED_TYPE = "urn:lest:problem:unsupported-media-type"
 TOO_LARGE_TYPE = "urn:lest:problem:payload-too-large"
@@ -111,9 +113,11 @@ class Period(Schema):
 
 
 def _writer(request: HttpRequest, action: str = WRITE_ACTION) -> User:
-    """Compte qui écrit, après la limite de débit des écritures (429 au-delà)."""
+    """Compte qui écrit (ou exporte), après sa limite de débit (429 au-delà). `limit_get` :
+    allauth ne compte pas les GET par défaut, or l'archive des photos en est un ; seul
+    `consume_or_429` le transmet (la réponse 429 d'allauth est remplacée par la nôtre)."""
     user = request_user(request)
-    if not ratelimit.consume(request, action=action, user=user):
+    if ratelimit.consume_or_429(request, action=action, user=user, limit_get=True) is not None:
         raise ProblemError(
             429, "Trop d'écritures. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
         )
@@ -225,6 +229,33 @@ def list_photos(request: HttpRequest, period: Query[Period]) -> list[PhotoOut]:
         _photo_out(photo)
         for photo in selectors.list_photos(owner=request_user(request), start=start, end=end)
     ]
+
+
+# Déclarée avant `/progress-photos/{photo_id}/` : sinon « archive » y serait pris pour un id.
+@router.get(
+    "/progress-photos/archive/",
+    response={200: None},
+    summary="Télécharger toutes ses photos (archive ZIP, RGPD)",
+    openapi_extra={
+        # Clé entière comme celles de Ninja (sinon le tri des clés du schéma échoue).
+        "responses": {
+            200: {
+                "description": "Archive ZIP des grandes images WebP",
+                "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}},
+            }
+        }
+    },
+)
+def photo_archive(request: HttpRequest) -> StreamingHttpResponse:
+    owner = _writer(request, PHOTO_EXPORT_ACTION)
+    entries = selectors.photo_archive_entries(owner=owner)
+    response = StreamingHttpResponse(photos.archive(entries), content_type="application/zip")
+    filename = f"lest-photos-{timezone.localdate():%Y-%m-%d}.zip"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    # Données de santé : jamais en cache.
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @router.put(

@@ -53,7 +53,7 @@ aléatoire sur un volume dédié, distinct des images publiques du catalogue.
 | Lecture | `GET /api/v1/progress-photos/{id}/{thumb|large}/` : JWT, propriétaire vérifié (404 sinon, fichier manquant compris), déchiffrement, `Cache-Control: private, no-store`, `X-Content-Type-Options: nosniff` |
 | Suppression | ligne et fichiers ; fichiers effacés après validation de la transaction par un récepteur `post_delete` (suppression directe, remplacement, cascade du compte) |
 | Plafonds | 500 photos par compte, limite `body_photo_write` de 30 envois par heure et par compte |
-| Export RGPD | métadonnées dans le JSON ; images dans une archive ZIP téléchargeable (PR dédiée de la Phase 3) |
+| Export RGPD | métadonnées dans le JSON ; images dans une archive ZIP (`GET /api/v1/progress-photos/archive/`), écrite **en flux** (une photo déchiffrée à la fois, rien en clair sur le disque), limite `body_photo_export` de 10 par heure |
 
 ### Écart assumé : pas d'URL signées (CLAUDE.md, uploads)
 

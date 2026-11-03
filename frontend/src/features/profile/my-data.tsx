@@ -11,6 +11,8 @@ import { TextField } from "@/shared/ui/text-field";
 
 export const WRONG_PASSWORD = "Mot de passe incorrect.";
 export const EXPORT_FAILED = "L’export n’a pas pu être préparé. Réessayez dans un instant.";
+export const PHOTOS_EXPORT_FAILED =
+  "L’archive des photos n’a pas pu être préparée. Réessayez dans un moment.";
 const TOO_MANY = "Trop de tentatives. Réessayez plus tard.";
 const NOT_DELETED = "Le compte n’a pas pu être supprimé. Réessayez dans un instant.";
 // Type RFC 9457 du mauvais mot de passe (backend/apps/accounts/api/router.py) : les autres 403
@@ -33,18 +35,38 @@ async function deleteAccount(password: string): Promise<Outcome> {
   return "failed";
 }
 
+/** Enregistre `data` sous `filename` ; statut vérifié avant (un lien `download` enregistrerait
+ * aussi une page d'erreur). */
+function save(data: Blob, type: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([data], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 /** Télécharge l'export ; `false` si la session a expiré (401). Lève une erreur sinon. */
 async function downloadExport(): Promise<boolean> {
   const { data, response } = await fetchClient.GET("/api/v1/me/export/", { parseAs: "blob" });
   if (response.status === 401) return false;
   if (!data) throw new Error(EXPORT_FAILED);
-  // Statut vérifié avant d'enregistrer : un lien `download` enregistrerait aussi une erreur.
-  const url = URL.createObjectURL(new Blob([data], { type: "application/json" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `lest-export-${new Date().toISOString().slice(0, 10)}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  save(data, "application/json", `lest-export-${today()}.json`);
+  return true;
+}
+
+/** Télécharge l'archive des photos de progression (ADR 0008) ; `false` si la session a expiré. */
+async function downloadPhotos(): Promise<boolean> {
+  const { data, response } = await fetchClient.GET("/api/v1/progress-photos/archive/", {
+    parseAs: "blob",
+  });
+  if (response.status === 401) return false;
+  if (!data) throw new Error(PHOTOS_EXPORT_FAILED);
+  save(data, "application/zip", `lest-photos-${today()}.zip`);
   return true;
 }
 
@@ -62,6 +84,12 @@ export function MyData() {
   const password = useRef("");
   const exporting = useMutation({
     mutationFn: downloadExport,
+    onSuccess: (downloaded) => {
+      if (!downloaded) router.push("/connexion?suivant=/profil");
+    },
+  });
+  const exportingPhotos = useMutation({
+    mutationFn: downloadPhotos,
     onSuccess: (downloaded) => {
       if (!downloaded) router.push("/connexion?suivant=/profil");
     },
@@ -102,7 +130,8 @@ export function MyData() {
         Mes données
       </h2>
       <p className="text-ink-muted">
-        Vos données vous appartiennent : téléchargez-les à tout moment, ou supprimez votre compte.
+        Vos données vous appartiennent : téléchargez-les à tout moment (photos à part, dans une
+        archive), ou supprimez votre compte.
       </p>
       <Button
         onClick={() => {
@@ -112,10 +141,23 @@ export function MyData() {
       >
         {exporting.isPending ? "Préparation de l’export…" : "Télécharger mes données (JSON)"}
       </Button>
+      <Button
+        onClick={() => {
+          exportingPhotos.mutate();
+        }}
+        disabled={!hydrated || exportingPhotos.isPending}
+      >
+        {exportingPhotos.isPending ? "Préparation de l’archive…" : "Télécharger mes photos (ZIP)"}
+      </Button>
       <div role="alert" className="empty:hidden">
         {exporting.isError && (
           <p className="rounded-control border-danger text-danger border p-4 font-semibold">
             {EXPORT_FAILED}
+          </p>
+        )}
+        {exportingPhotos.isError && (
+          <p className="rounded-control border-danger text-danger border p-4 font-semibold">
+            {PHOTOS_EXPORT_FAILED}
           </p>
         )}
       </div>

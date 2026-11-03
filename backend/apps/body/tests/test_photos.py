@@ -4,6 +4,7 @@ effacés avec leur ligne, isolés par compte."""
 import io
 import os
 import time
+import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -314,3 +315,44 @@ def test_a_missing_file_answers_404() -> None:
     photos.remove(ProgressPhoto.objects.get(pk=photo_id).file_key)
 
     assert me.get(f"{photo_id}/large/").status_code == 404
+
+
+def archive_of(response: Any) -> zipfile.ZipFile:
+    return zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content)))
+
+
+def test_the_archive_holds_my_decrypted_photos_only() -> None:
+    me, other = Athlete(), Athlete()
+    me.put(uuid4(), jpeg(), query="?date=2026-10-01&pose=front")
+    me.put(uuid4(), jpeg(), query="?date=2026-10-08&pose=side")
+    other.put(uuid4(), jpeg())
+
+    response = me.get("archive/")
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/zip"
+    assert response["Cache-Control"] == "private, no-store"
+    assert response["Content-Disposition"].startswith('attachment; filename="lest-photos-')
+    bundle = archive_of(response)
+    assert bundle.namelist() == ["2026-10-01-face-1.webp", "2026-10-08-profil-2.webp"]
+    for name in bundle.namelist():
+        assert Image.open(io.BytesIO(bundle.read(name))).format == "WEBP"
+
+
+def test_an_empty_archive_is_valid_and_missing_files_are_skipped() -> None:
+    me = Athlete()
+    assert archive_of(me.get("archive/")).namelist() == []
+    photo_id = uuid4()
+    me.put(photo_id, jpeg())
+    photos.remove(ProgressPhoto.objects.get(pk=photo_id).file_key)
+
+    assert archive_of(me.get("archive/")).namelist() == []
+
+
+@override_settings(ACCOUNT_RATE_LIMITS={"body_photo_export": "1/3600s/user"})
+def test_archives_are_rate_limited_and_require_authentication(client: Client) -> None:
+    me = Athlete()
+
+    assert me.get("archive/").status_code == 200
+    assert me.get("archive/").status_code == 429
+    assert client.get(f"{API}/archive/").status_code == 401

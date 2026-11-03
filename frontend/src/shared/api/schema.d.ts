@@ -318,6 +318,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/progress-photos/archive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Télécharger toutes ses photos (archive ZIP, RGPD) */
+        get: operations["apps_body_api_router_photo_archive"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/progress-photos/{photo_id}/": {
         parameters: {
             query?: never;
@@ -1746,6 +1763,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PhotoOut"][];
+                };
+            };
+        };
+    };
+    apps_body_api_router_photo_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archive ZIP des grandes images WebP */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
                 };
             };
         };

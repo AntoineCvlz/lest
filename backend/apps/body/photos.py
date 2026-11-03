@@ -9,7 +9,8 @@ sous un nom aléatoire dans `PRIVATE_MEDIA_ROOT`.
 import io
 import os
 import threading
-from collections.abc import Iterator
+import zipfile
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Final, Literal
 from uuid import uuid4
@@ -127,3 +128,42 @@ def stored_keys() -> Iterator[tuple[str, float]]:
         if key not in seen:
             seen.add(key)
             yield key, path.stat().st_mtime
+
+
+class _Chunks(io.RawIOBase):
+    """Flux d'écriture sans retour en arrière : `zipfile` y écrit, le générateur en vide les
+    octets au fur et à mesure (archive envoyée sans fichier temporaire)."""
+
+    def __init__(self) -> None:
+        self._buffer = bytearray()
+
+    def writable(self) -> bool:
+        return True
+
+    def write(self, data: object) -> int:
+        chunk = bytes(data)  # type: ignore[call-overload]
+        self._buffer += chunk
+        return len(chunk)
+
+    def drain(self) -> bytes:
+        chunk = bytes(self._buffer)
+        self._buffer.clear()
+        return chunk
+
+
+def archive(entries: Iterable[tuple[str, str]]) -> Iterator[bytes]:
+    """Archive ZIP, en morceaux, des grandes images déchiffrées : `(nom, clé)` par photo.
+
+    Une photo à la fois en mémoire, rien en clair sur le disque. Sans compression : le WebP
+    l'est déjà. Un fichier manquant (orphelin de ligne) est sauté.
+    """
+    sink = _Chunks()
+    with zipfile.ZipFile(sink, mode="w", compression=zipfile.ZIP_STORED) as bundle:
+        for name, key in entries:
+            try:
+                content = read(key, "large")
+            except FileNotFoundError:
+                continue
+            bundle.writestr(name, content)
+            yield sink.drain()
+    yield sink.drain()
