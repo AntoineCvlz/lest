@@ -12,7 +12,12 @@ describe("AppTabs", () => {
 
     const nav = screen.getByRole("navigation", { name: "Navigation principale" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["Séance", "Exercices", "Profil"]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Séance",
+      "Exercices",
+      "Corps",
+      "Profil",
+    ]);
     expect(within(nav).getByRole("link", { name: "Exercices" })).toHaveAttribute(
       "aria-current",
       "page",

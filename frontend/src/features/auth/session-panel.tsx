@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect } from "react";
 
+import { BODY_KEY } from "@/features/body/query-keys";
 import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
 import { DEVICE_SESSIONS_KEY, MFA_QUERY_KEY } from "@/features/security/query-keys";
 import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
@@ -22,6 +23,7 @@ const PRIVATE_QUERY_KEYS = [
   MFA_QUERY_KEY,
   WORKOUTS_KEY,
   PROGRAMS_KEY,
+  BODY_KEY,
 ];
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
 
@@ -74,6 +76,9 @@ export function SessionPanel() {
           )}
           <Link href="/seance" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
             Séance
+          </Link>
+          <Link href="/corps" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
+            Corps
           </Link>
           {profile.data && (
             <Link
