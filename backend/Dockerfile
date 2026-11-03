@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Étapes : base → dev (Compose) → build → prod (image finale minimale, sans outils de build).
 
-FROM ghcr.io/astral-sh/uv:0.13.5 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.6 AS uv
 
 FROM python:3.13.17-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
