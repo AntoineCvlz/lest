@@ -12,7 +12,12 @@ import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
 import { localDay, longDay, shortDay } from "./days";
-import { type MeasurementChange, useMeasurements, useSaveMeasurements } from "./use-measurements";
+import {
+  type MeasurementChange,
+  MeasurementSaveFailed,
+  useMeasurements,
+  useSaveMeasurements,
+} from "./use-measurements";
 import { type Site, SITES } from "./sites";
 
 type Row = Schemas["MeasurementOut"];
@@ -56,9 +61,29 @@ export function changeText(first: Row, last: Row, system: UnitSystem): string | 
   return `${amount} depuis le ${shortDay(first.date)}`;
 }
 
+/** « Taille et Cuisse », « Cou, Bras et Mollet » : endroits nommés dans un message. */
+export function sitesText(sites: readonly Site[]): string {
+  const labels = SITES.filter((s) => sites.includes(s.value)).map((s) => s.label);
+  const last = labels.pop() ?? "";
+  return labels.length > 0 ? `${labels.join(", ")} et ${last}` : last;
+}
+
+/** « Mesures non enregistrées : Cou et Taille. Les autres le sont ; réessayez. » */
+export function failureText({ failed, refused }: MeasurementSaveFailed): string {
+  const plural = failed.length > 1;
+  const what = refused
+    ? `${plural ? "Mesures refusées" : "Mesure refusée"} par le serveur`
+    : plural
+      ? "Mesures non enregistrées"
+      : "Mesure non enregistrée";
+  return `${what} : ${sitesText(failed)}. Les autres le sont ; ${refused ? "vérifiez les valeurs" : "réessayez"}.`;
+}
+
 /**
- * Mensurations : saisie du jour (seulement les endroits mesurés, un champ vidé supprime la mesure),
- * dernière valeur et évolution par endroit, historique par date avec correction.
+ * Mensurations : saisie du jour (seulement les endroits mesurés ; vider un champ retire sa mesure,
+ * après confirmation), dernière valeur et évolution par endroit, historique par date.
+ *
+ * Le focus suit chaque étape (champ fautif, confirmation, retour au formulaire), comme pour le poids.
  */
 export function MeasurementJournal() {
   const hydrated = useHydrated();
@@ -74,6 +99,8 @@ export function MeasurementJournal() {
   const [texts, setTexts] = useState<Texts | null>(null);
   const [invalid, setInvalid] = useState<Site[]>([]);
   const [invalidDate, setInvalidDate] = useState(false);
+  // Envoi qui retire des mesures, en attente de confirmation.
+  const [pending, setPending] = useState<MeasurementChange[] | null>(null);
   const [notice, setNotice] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -82,6 +109,8 @@ export function MeasurementJournal() {
   const bySite = new Map<Site, Row[]>(SITES.map((s) => [s.value, []]));
   for (const row of rows) bySite.get(row.site)?.push(row);
   const dates = [...new Set(rows.map((r) => r.date))].toSorted().toReversed();
+  const failure = save.error instanceof MeasurementSaveFailed ? save.error : null;
+  const removals = (pending ?? []).filter((c) => c.metres === null).map((c) => c.site);
 
   function shown(site: Site): string {
     const typed = texts?.[site];
@@ -90,8 +119,45 @@ export function MeasurementJournal() {
     return existing ? formatNumber(metresToLength(existing.length_m, system)) : "";
   }
 
+  function hint(site: Site): string | undefined {
+    const existing = ofDay.get(site);
+    if (existing) {
+      return `Notée ce jour : ${lengthText(existing.length_m, system)}. Videz le champ pour la retirer.`;
+    }
+    const last = bySite.get(site)?.at(-1);
+    return last
+      ? `Plus récente : ${lengthText(last.length_m, system)}, le ${shortDay(last.date)}`
+      : undefined;
+  }
+
   function focus(selector: string) {
     formRef.current?.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  function send(changes: MeasurementChange[]) {
+    const removed = changes.filter((c) => c.metres === null).map((c) => c.site);
+    save.mutate(
+      { day, changes },
+      {
+        onSuccess: () => {
+          flushSync(() => {
+            setPending(null);
+            setTexts(null);
+            setDay(today);
+            setNotice(
+              `Mensurations du ${longDay(day)} enregistrées${
+                removed.length === 0
+                  ? ""
+                  : ` ; ${removed.length > 1 ? "mesures retirées" : "mesure retirée"} : ${sitesText(removed)}`
+              }.`,
+            );
+          });
+        },
+        onError: () => {
+          setPending(null);
+        },
+      },
+    );
   }
 
   function edit(date: string) {
@@ -101,6 +167,7 @@ export function MeasurementJournal() {
       setTexts(null);
       setInvalid([]);
       setInvalidDate(false);
+      setPending(null);
       setNotice(`Modification des mensurations du ${longDay(date)}.`);
     });
     focus("input[name=neck]");
@@ -116,6 +183,8 @@ export function MeasurementJournal() {
         className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
+          // Pas de `disabled` pendant l'envoi (le focus serait perdu) : un second envoi est ignoré.
+          if (save.isPending) return;
           save.reset();
           setNotice("");
           const changes: MeasurementChange[] = [];
@@ -142,33 +211,34 @@ export function MeasurementJournal() {
           flushSync(() => {
             setInvalid(faults);
             setInvalidDate(dateFault);
+            setPending(null);
           });
           const [firstFault] = faults;
-          if (firstFault || dateFault) {
-            focus(firstFault ? `input[name=${firstFault}]` : "input[name=day]");
+          if (dateFault || firstFault) {
+            // Dans l'ordre de la page : la date d'abord.
+            focus(dateFault ? "input[name=day]" : `input[name=${firstFault ?? ""}]`);
             return;
           }
           if (changes.length === 0) {
             setNotice(NOTHING_CHANGED);
             return;
           }
-          save.mutate(
-            { day, changes },
-            {
-              onSuccess: () => {
-                setTexts(null);
-                setDay(today);
-                setNotice(`Mensurations du ${longDay(day)} enregistrées.`);
-              },
-            },
-          );
+          if (changes.some((c) => c.metres === null)) {
+            // Retirer une mesure se confirme ; le choix sans danger reçoit le focus.
+            flushSync(() => {
+              setPending(changes);
+            });
+            focus("[data-focus=keep]");
+            return;
+          }
+          send(changes);
         }}
       >
         <h2 id="measure-title" className="text-xl font-extrabold [font-stretch:112%]">
           {day === today ? "Mensurations du jour" : `Mensurations du ${longDay(day)}`}
         </h2>
         <p className="text-ink-muted text-sm">
-          {`En ${unit.name}. Remplissez seulement ce que vous avez mesuré ; videz un champ pour retirer sa mesure.`}
+          {`En ${unit.name}. Remplissez seulement ce que vous avez mesuré.`}
         </p>
         <TextField
           label="Date"
@@ -185,58 +255,91 @@ export function MeasurementJournal() {
           onChange={(event) => {
             if (event.target.value) setDay(event.target.value);
             setTexts(null);
+            setPending(null);
             setNotice("");
           }}
         />
         <div className="grid grid-cols-2 gap-3">
-          {SITES.map(({ value: site, label }) => {
-            const last = bySite.get(site)?.at(-1);
-            return (
-              <TextField
-                key={site}
-                label={`${label} (${unit.symbol})`}
-                name={site}
-                inputMode="decimal"
-                autoComplete="off"
-                value={shown(site)}
-                hint={
-                  last && last.date !== day
-                    ? `Dernière : ${lengthText(last.length_m, system)}, le ${shortDay(last.date)}`
-                    : undefined
-                }
-                error={
-                  invalid.includes(site)
-                    ? `Entre ${String(limits.min)} et ${String(limits.max)} ${unit.symbol}.`
-                    : undefined
-                }
-                onChange={(event) => {
-                  const text = event.target.value;
-                  setTexts((current) => ({ ...current, [site]: text }));
-                  setNotice("");
-                }}
-              />
-            );
-          })}
+          {SITES.map(({ value: site, label }) => (
+            <TextField
+              key={site}
+              label={`${label} (${unit.symbol})`}
+              name={site}
+              inputMode="decimal"
+              autoComplete="off"
+              value={shown(site)}
+              hint={hint(site)}
+              error={
+                invalid.includes(site)
+                  ? `Saisissez une mesure entre ${String(limits.min)} et ${String(limits.max)} ${unit.symbol}.`
+                  : undefined
+              }
+              onChange={(event) => {
+                const text = event.target.value;
+                setTexts((current) => ({ ...current, [site]: text }));
+                setPending(null);
+                setNotice("");
+              }}
+            />
+          ))}
         </div>
         <div role="alert" className="empty:hidden">
+          {invalid.length > 1 && (
+            <p className="text-danger font-semibold">
+              {`${String(invalid.length)} mesures à corriger : ${sitesText(invalid)}.`}
+            </p>
+          )}
           {save.isError && (
             <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-              {MEASUREMENTS_NOT_SAVED}
+              {failure ? failureText(failure) : MEASUREMENTS_NOT_SAVED}
             </p>
           )}
         </div>
-        <p aria-live="polite" className="text-ink-muted empty:hidden">
+        <p aria-live="polite" className="text-ink-muted empty:sr-only">
           {notice}
         </p>
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          block
-          disabled={!hydrated || save.isPending}
-        >
-          Enregistrer les mesures
-        </Button>
+        {pending ? (
+          <div className="flex flex-col gap-3">
+            <p className="font-semibold">
+              {`Retirer ${sitesText(removals)} du ${shortDay(day)} ?`}
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="danger"
+                aria-disabled={save.isPending}
+                onClick={() => {
+                  if (!save.isPending) send(pending);
+                }}
+              >
+                Retirer
+              </Button>
+              <Button
+                variant="secondary"
+                data-focus="keep"
+                onClick={() => {
+                  flushSync(() => {
+                    setPending(null);
+                    setTexts(null);
+                  });
+                  focus(`input[name=${removals[0] ?? "neck"}]`);
+                }}
+              >
+                Garder
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            block
+            disabled={!hydrated}
+            aria-disabled={save.isPending}
+          >
+            Enregistrer les mesures
+          </Button>
+        )}
       </form>
 
       <section

@@ -39,7 +39,10 @@ export function Button({
   const classes = [
     "rounded-control inline-flex items-center justify-center gap-2",
     "transition-colors duration-[var(--lest-duration-fast)] ease-out",
+    // `aria-disabled` : indisponible un instant (envoi en cours) sans perdre le focus, que
+    // `disabled` renverrait au début de la page.
     "disabled:cursor-not-allowed disabled:opacity-50",
+    "aria-disabled:cursor-not-allowed aria-disabled:opacity-50",
     VARIANTS[variant],
     SIZES[size],
     block ? "w-full" : "",

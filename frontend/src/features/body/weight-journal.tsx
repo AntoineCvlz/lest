@@ -114,6 +114,8 @@ export function WeightJournal() {
         aria-labelledby="weigh-in-title"
         onSubmit={(event) => {
           event.preventDefault();
+          // Pas de `disabled` pendant l'envoi (le focus serait perdu) : un second envoi est ignoré.
+          if (save.isPending) return;
           clearMessages();
           const value = parseDecimal(shown);
           const fault =
@@ -190,7 +192,7 @@ export function WeightJournal() {
             </p>
           )}
         </div>
-        <p aria-live="polite" className="text-ink-muted empty:hidden">
+        <p aria-live="polite" className="text-ink-muted empty:sr-only">
           {notice}
         </p>
         <Button
@@ -198,7 +200,8 @@ export function WeightJournal() {
           variant="primary"
           size="lg"
           block
-          disabled={!hydrated || save.isPending || shown.trim() === ""}
+          disabled={!hydrated || shown.trim() === ""}
+          aria-disabled={save.isPending}
         >
           {existing ? "Remplacer la pesée" : "Enregistrer la pesée"}
         </Button>
@@ -207,8 +210,9 @@ export function WeightJournal() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="danger"
-                disabled={remove.isPending}
+                aria-disabled={remove.isPending}
                 onClick={() => {
+                  if (remove.isPending) return;
                   remove.mutate(day, {
                     onSuccess: () => {
                       flushSync(() => {

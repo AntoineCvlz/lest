@@ -33,6 +33,16 @@ export function useMeasurements() {
   });
 }
 
+/** Envoi incomplet : endroits non enregistrés, et s'ils ont été refusés (422) plutôt que perdus. */
+export class MeasurementSaveFailed extends Error {
+  constructor(
+    readonly failed: Site[],
+    readonly refused: boolean,
+  ) {
+    super(`Mensurations : ${String(failed.length)} écriture(s) en échec`);
+  }
+}
+
 /** Changement d'une mesure : nouvelle longueur en mètres, ou `null` pour la supprimer. */
 export interface MeasurementChange {
   site: Site;
@@ -60,8 +70,19 @@ export function useSaveMeasurements() {
   return useMutation({
     mutationFn: async ({ day, changes }: { day: string; changes: MeasurementChange[] }) => {
       const results = await Promise.allSettled(changes.map((change) => apply(day, change)));
-      const failed = results.find((result) => result.status === "rejected");
-      if (failed) throw failed.reason;
+      const failed = changes.filter((_, i) => results[i]?.status === "rejected");
+      if (failed.length > 0) {
+        const refused = results.some(
+          (result) =>
+            result.status === "rejected" &&
+            result.reason instanceof MeasurementRequestFailed &&
+            result.reason.status === 422,
+        );
+        throw new MeasurementSaveFailed(
+          failed.map((change) => change.site),
+          refused,
+        );
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: MEASUREMENTS_KEY }),
   });

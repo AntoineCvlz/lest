@@ -8,7 +8,6 @@ import { renderWithQuery } from "@/shared/test/render";
 import { localDay, longDay, shiftDay } from "./days";
 import {
   changeText,
-  MEASUREMENTS_NOT_SAVED,
   MeasurementJournal,
   NO_MEASUREMENT,
   NOTHING_CHANGED,
@@ -76,7 +75,7 @@ describe("MeasurementJournal", () => {
     const history = screen.getByRole("list", { name: "Mensurations par date" });
     expect(within(history).getAllByRole("listitem")[0]).toHaveTextContent("Bras 38,5 cm");
     expect(screen.getByRole("textbox", { name: "Bras (cm)" })).toHaveAccessibleDescription(
-      expect.stringMatching(/^Dernière : 38,5\scm, le /) as string,
+      expect.stringMatching(/^Plus récente : 38,5\scm, le /) as string,
     );
   });
 
@@ -95,7 +94,7 @@ describe("MeasurementJournal", () => {
     expect(writes.toSorted()).toEqual([`PUT ${TODAY} arm 0.39`, `PUT ${TODAY} waist 0.815`]);
   });
 
-  it("corrige une date : un champ vidé supprime sa mesure, une valeur inchangée n'est pas renvoyée", async () => {
+  it("corrige une date : un champ vidé retire sa mesure après confirmation, une valeur inchangée n'est pas renvoyée", async () => {
     api();
     const writes = recordWrites();
     const user = userEvent.setup();
@@ -108,12 +107,29 @@ describe("MeasurementJournal", () => {
     );
     expect(screen.getByRole("textbox", { name: "Cou (cm)" })).toHaveFocus();
     expect(screen.getByRole("textbox", { name: "Bras (cm)" })).toHaveValue("37");
-    await user.clear(screen.getByRole("textbox", { name: "Taille (cm)" }));
+    const waist = screen.getByRole("textbox", { name: "Taille (cm)" });
+    expect(waist).toHaveAccessibleDescription(
+      "Notée ce jour : 82\u00a0cm. Videz le champ pour la retirer.",
+    );
+    await user.clear(waist);
     await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
 
-    await waitFor(() => {
-      expect(writes).toEqual([`DELETE ${EARLIER} waist`]);
-    });
+    // Rien n'est retiré sans confirmation ; « Garder » a le focus et rend la valeur.
+    expect(screen.getByText(/^Retirer Taille du /)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Garder" })).toHaveFocus();
+    await user.click(screen.getByRole("button", { name: "Garder" }));
+    expect(waist).toHaveValue("82");
+    expect(waist).toHaveFocus();
+    expect(writes).toEqual([]);
+
+    await user.clear(waist);
+    await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
+    await user.click(screen.getByRole("button", { name: "Retirer" }));
+
+    expect(
+      await screen.findByText(/^Mensurations du .* enregistrées ; mesure retirée : Taille\.$/),
+    ).toBeVisible();
+    expect(writes).toEqual([`DELETE ${EARLIER} waist`]);
   });
 
   it("refuse une mesure hors plage et met le focus sur le champ", async () => {
@@ -128,8 +144,46 @@ describe("MeasurementJournal", () => {
     await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
 
     expect(calf).toHaveFocus();
-    expect(calf).toHaveAccessibleDescription("Entre 10 et 250 cm.");
+    expect(calf).toHaveAccessibleDescription("Saisissez une mesure entre 10 et 250 cm.");
     expect(writes).toEqual([]);
+  });
+
+  it("résume plusieurs erreurs, la date d'abord", async () => {
+    api();
+    const user = userEvent.setup();
+    renderWithQuery(<MeasurementJournal />);
+
+    await screen.findByRole("list", { name: "Mensurations par date" });
+    // La date d'abord : la changer remet les champs à ce jour-là.
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "1999-12-31" } });
+    await user.type(screen.getByRole("textbox", { name: "Cou (cm)" }), "2");
+    await user.type(screen.getByRole("textbox", { name: "Mollet (cm)" }), "x");
+    await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
+
+    expect(screen.getByText("2 mesures à corriger : Cou et Mollet.")).toBeVisible();
+    expect(screen.getByLabelText("Date")).toHaveFocus();
+  });
+
+  it("nomme les mesures non enregistrées après un échec partiel", async () => {
+    api();
+    server.use(
+      http.put("*/api/v1/body-measurements/:day/:site/", ({ params }) =>
+        params.site === "waist"
+          ? new HttpResponse(null, { status: 503 })
+          : HttpResponse.json({ date: params.day, site: params.site, length_m: 0.4 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<MeasurementJournal />);
+
+    await screen.findByRole("list", { name: "Mensurations par date" });
+    await user.type(screen.getByRole("textbox", { name: "Cou (cm)" }), "40");
+    await user.type(screen.getByRole("textbox", { name: "Taille (cm)" }), "81");
+    await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
+
+    expect(
+      await screen.findByText("Mesure non enregistrée : Taille. Les autres le sont ; réessayez."),
+    ).toBeVisible();
   });
 
   it("dit quand rien n'a changé", async () => {
@@ -153,7 +207,9 @@ describe("MeasurementJournal", () => {
     await user.type(screen.getByRole("textbox", { name: "Cou (cm)" }), "40");
     await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
 
-    expect(await screen.findByText(MEASUREMENTS_NOT_SAVED)).toBeVisible();
+    expect(
+      await screen.findByText("Mesure non enregistrée : Cou. Les autres le sont ; réessayez."),
+    ).toBeVisible();
   });
 
   it("affiche en pouces pour un profil impérial et envoie des mètres", async () => {

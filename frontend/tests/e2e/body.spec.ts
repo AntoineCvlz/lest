@@ -71,6 +71,11 @@ test("note des mensurations partielles puis en retire une", async ({
   await history.getByRole("button", { name: /^Modifier les mensurations du / }).click();
   await page.getByRole("textbox", { name: "Taille (cm)" }).fill("");
   await page.getByRole("button", { name: "Enregistrer les mesures" }).click();
+  // Retirer une mesure se confirme.
+  await expect(page.getByRole("button", { name: "Garder" })).toBeFocused();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await page.getByRole("button", { name: "Retirer" }).click();
+  await expect(page.getByText(/mesure retirée : Taille\.$/)).toBeVisible();
   await expect(history).toContainText("Bras 38,5 cm");
   await expect(history).not.toContainText("Taille");
   expect(cspViolations).toEqual([]);
