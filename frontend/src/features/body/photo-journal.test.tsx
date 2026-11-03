@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -8,6 +8,7 @@ import { renderWithQuery } from "@/shared/test/render";
 
 import { localDay, shiftDay } from "./days";
 import {
+  DATE_OUT_OF_RANGE,
   fileProblem,
   NO_PHOTO,
   PHOTO_NOT_SENT,
@@ -86,7 +87,8 @@ describe("PhotoJournal", () => {
     await screen.findByText(NO_PHOTO);
     await user.click(screen.getByRole("radio", { name: "Profil" }));
     await user.upload(screen.getByLabelText("Choisir une photo"), picture());
-    expect(screen.getByRole("img", { name: "Aperçu avant envoi" })).toBeVisible();
+    expect(screen.getByRole("img", { name: "Aperçu avant envoi (profil)" })).toBeVisible();
+    expect(screen.getByText("Photo choisie : corps.jpg, 0,1 Mo.")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Envoyer la photo" }));
 
     expect(await screen.findByText(/^Photo \(profil\) du .* enregistrée\.$/)).toBeVisible();
@@ -109,9 +111,30 @@ describe("PhotoJournal", () => {
     const input = screen.getByLabelText("Choisir une photo");
     await user.upload(input, picture("image/heic"));
 
-    expect(input).toHaveAccessibleDescription("Choisissez une photo JPEG, PNG ou WebP.");
+    expect(input).toHaveAccessibleDescription(
+      expect.stringMatching(
+        /^Choisissez une photo JPEG, PNG ou WebP\. Vos photos sont chiffrées/,
+      ) as string,
+    );
     await user.click(screen.getByRole("button", { name: "Envoyer la photo" }));
+    // Le message précis reste (il dit pourquoi aucun fichier n'est retenu).
     expect(input).toHaveFocus();
+    expect(screen.getByText("Choisissez une photo JPEG, PNG ou WebP.")).toBeVisible();
+  });
+
+  it("signale une date hors plage sur son champ", async () => {
+    api([]);
+    const user = userEvent.setup();
+    renderWithQuery(<PhotoJournal />);
+
+    await screen.findByText(NO_PHOTO);
+    const date = screen.getByLabelText("Date");
+    fireEvent.change(date, { target: { value: "1999-12-31" } });
+    await user.upload(screen.getByLabelText("Choisir une photo"), picture());
+    await user.click(screen.getByRole("button", { name: "Envoyer la photo" }));
+
+    expect(date).toHaveFocus();
+    expect(date).toHaveAccessibleDescription(DATE_OUT_OF_RANGE);
   });
 
   it("distingue une photo refusée d'une panne", async () => {
@@ -180,5 +203,32 @@ describe("PhotoJournal", () => {
       expect(deleted).toBe(OLD.id);
     });
     expect(await screen.findByText(/^Photo du .* supprimée\.$/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Toutes les photos" })).toHaveFocus();
+  });
+
+  it("remonte le focus à « Comparer » quand la dernière photo est supprimée", async () => {
+    let list: Photo[] = [OLD];
+    server.use(
+      http.get("*/api/v1/progress-photos/", () => HttpResponse.json(list)),
+      http.delete("*/api/v1/progress-photos/:id/", () => {
+        list = [];
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<PhotoJournal />);
+
+    const gallery = await screen.findByRole("list", { name: "Photos, les plus récentes d’abord" });
+    await user.click(within(gallery).getByRole("button", { name: /^Supprimer la photo / }));
+    expect(
+      within(gallery).getByRole("group", {
+        name: "Supprimer cette photo ? Elle sera effacée définitivement.",
+      }),
+    ).toBeVisible();
+    await user.click(within(gallery).getByRole("button", { name: "Supprimer" }));
+
+    expect(await screen.findByText(NO_PHOTO)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Comparer" })).toHaveFocus();
+    expect(screen.getByText(/^Photo du .* supprimée\.$/)).toBeVisible();
   });
 });

@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import type { Schemas } from "@/shared/api/client";
+import { formatNumber } from "@/shared/lib/number";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { SelectField } from "@/shared/ui/select-field";
 import { TextField } from "@/shared/ui/text-field";
 
-import { localDay, longDay, shortDay } from "./days";
+import { localDay, longDay } from "./days";
 import {
   MAX_PHOTO_BYTES,
   PHOTO_TYPES,
@@ -30,6 +31,7 @@ export const PHOTO_NOT_SENT = "Photo non envoyée. Vérifiez la connexion, puis 
 export const PHOTO_REFUSED = "Photo refusée : choisissez une image JPEG, PNG ou WebP lisible.";
 export const PHOTO_TOO_MANY = "Trop d’envois pour le moment : réessayez dans une heure.";
 export const PHOTO_NOT_DELETED = "Photo non supprimée. Réessayez dans un instant.";
+export const DATE_OUT_OF_RANGE = "Choisissez une date entre le 1er janvier 2000 et aujourd’hui.";
 export const NO_PHOTO =
   "Aucune photo pour l’instant. Même lumière, même tenue, même distance : la comparaison sera parlante.";
 export const PRIVACY =
@@ -63,10 +65,18 @@ function sendError(error: unknown): string {
   return PHOTO_NOT_SENT;
 }
 
+/** « Photo choisie : corps.jpg, 2,3 Mo » : confirmation du fichier, lue au lecteur d'écran. */
+export function chosenText(file: File): string {
+  const megabytes = Math.max(0.1, Math.round((file.size / 1024 / 1024) * 10) / 10);
+  return `Photo choisie : ${file.name}, ${formatNumber(megabytes)} Mo.`;
+}
+
 /**
  * Photos de progression : envoi (pose, date, fichier avec aperçu local), comparaison avant /
  * après d'une même pose, galerie avec suppression confirmée. Les images passent par l'API
  * (session, jamais en cache, ADR 0008) ; l'aperçu reste dans le navigateur (`blob:`).
+ *
+ * Le focus suit chaque étape (champ fautif, confirmation, après suppression), comme pour le poids.
  */
 export function PhotoJournal() {
   const hydrated = useHydrated();
@@ -76,9 +86,11 @@ export function PhotoJournal() {
   const today = localDay();
   const [pose, setPose] = useState<Pose>("front");
   const [day, setDay] = useState(today);
+  const [invalidDate, setInvalidDate] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [galleryNotice, setGalleryNotice] = useState("");
   const [comparedPose, setComparedPose] = useState<Pose>("front");
   const [before, setBefore] = useState<string | null>(null);
   const [after, setAfter] = useState<string | null>(null);
@@ -100,9 +112,20 @@ export function PhotoJournal() {
   const first = ofPose.find((p) => p.id === before) ?? ofPose[0];
   const last = ofPose.find((p) => p.id === after) ?? ofPose.at(-1);
   const newestFirst = all.toReversed();
+  const fileDescription = [
+    fileError ? "photo-file-error" : "photo-file-chosen",
+    "photo-privacy",
+  ].join(" ");
 
   function focus(selector: string) {
     rootRef.current?.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  function comparisonWarning(): string | null {
+    if (!first || !last) return null;
+    if (first.id === last.id) return "« Avant » et « Après » sont la même photo.";
+    if (first.date > last.date) return "« Avant » est plus récente que « Après ».";
+    return null;
   }
 
   return (
@@ -117,17 +140,21 @@ export function PhotoJournal() {
           if (upload.isPending) return;
           upload.reset();
           setNotice("");
-          if (!file) {
-            flushSync(() => {
-              setFileError("Choisissez une photo.");
-            });
-            inputRef.current?.focus();
-            return;
-          }
-          if (day < EARLIEST || day > today) {
+          const dateFault = day < EARLIEST || day > today;
+          flushSync(() => {
+            setInvalidDate(dateFault);
+            // Le message précis (type, poids) reste : il dit pourquoi aucun fichier n'est retenu.
+            if (!file && !fileError) setFileError("Choisissez une photo.");
+          });
+          if (dateFault) {
             focus("input[name=day]");
             return;
           }
+          if (!file) {
+            inputRef.current?.focus();
+            return;
+          }
+          setNotice("Envoi en cours…");
           upload.mutate(
             { file, day, pose },
             {
@@ -138,6 +165,9 @@ export function PhotoJournal() {
                   `Photo (${poseLabel(pose).toLowerCase()}) du ${longDay(day)} enregistrée.`,
                 );
               },
+              onError: () => {
+                setNotice("");
+              },
             },
           );
         }}
@@ -145,7 +175,9 @@ export function PhotoJournal() {
         <h2 id="photo-title" className="text-xl font-extrabold [font-stretch:112%]">
           Nouvelle photo
         </h2>
-        <p className="text-ink-muted text-sm">{PRIVACY}</p>
+        <p id="photo-privacy" className="text-ink-muted text-sm">
+          {PRIVACY}
+        </p>
         <ChoiceGroup legend="Pose" options={POSES} value={pose} onChange={setPose} layout="row" />
         <TextField
           label="Date"
@@ -154,8 +186,10 @@ export function PhotoJournal() {
           min={EARLIEST}
           max={today}
           value={day}
+          error={invalidDate ? DATE_OUT_OF_RANGE : undefined}
           onChange={(event) => {
             if (event.target.value) setDay(event.target.value);
+            setInvalidDate(false);
           }}
         />
         <div className="flex flex-col gap-2">
@@ -165,11 +199,13 @@ export function PhotoJournal() {
             type="file"
             accept={PHOTO_TYPES.join(",")}
             className="peer sr-only"
-            aria-describedby={fileError ? "photo-file-error" : undefined}
+            aria-describedby={fileDescription}
             aria-invalid={fileError ? true : undefined}
             onChange={(event) => {
               const chosen = event.target.files?.[0] ?? null;
               const problem = chosen ? fileProblem(chosen) : null;
+              // Un fichier refusé n'est pas gardé dans le champ (son nom serait encore lu).
+              if (problem) event.target.value = "";
               setFileError(problem);
               setFile(problem ? null : chosen);
               setNotice("");
@@ -181,17 +217,27 @@ export function PhotoJournal() {
           >
             {file ? "Choisir une autre photo" : "Choisir une photo"}
           </label>
-          {fileError && (
-            <p id="photo-file-error" className="text-danger text-sm font-semibold">
-              {fileError}
-            </p>
-          )}
+          {/* Toujours présentes : le choix et le refus d'un fichier sont annoncés dès qu'ils changent. */}
+          <p
+            id="photo-file-error"
+            aria-live="polite"
+            className="text-danger text-sm font-semibold empty:sr-only"
+          >
+            {fileError ?? ""}
+          </p>
+          <p
+            id="photo-file-chosen"
+            aria-live="polite"
+            className="text-ink-muted text-sm empty:sr-only"
+          >
+            {file ? chosenText(file) : ""}
+          </p>
           {preview && (
             // `<picture>`/`<img>`, jamais `next/image` : son style en ligne est refusé par la CSP.
             <picture>
               <img
                 src={preview}
-                alt="Aperçu avant envoi"
+                alt={`Aperçu avant envoi (${poseLabel(pose).toLowerCase()})`}
                 className="rounded-control border-line-subtle aspect-[3/4] w-40 border object-cover"
               />
             </picture>
@@ -219,12 +265,8 @@ export function PhotoJournal() {
         </Button>
       </form>
 
-      <section
-        aria-labelledby="compare-title"
-        aria-busy={photos.isFetching}
-        className="flex flex-col gap-5"
-      >
-        <h2 id="compare-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <section aria-labelledby="compare-title" className="flex flex-col gap-5">
+        <h2 id="compare-title" tabIndex={-1} className="text-xl font-extrabold [font-stretch:112%]">
           Comparer
         </h2>
         {photos.isPending && <p className="text-ink-muted">Chargement des photos…</p>}
@@ -264,34 +306,35 @@ export function PhotoJournal() {
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectField
-                      label="Avant"
-                      value={first.id}
-                      onChange={(event) => {
-                        setBefore(event.target.value);
-                      }}
-                    >
-                      {ofPose.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {shortDay(p.date)}
-                        </option>
-                      ))}
-                    </SelectField>
-                    <SelectField
-                      label="Après"
-                      value={last.id}
-                      onChange={(event) => {
-                        setAfter(event.target.value);
-                      }}
-                    >
-                      {ofPose.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {shortDay(p.date)}
-                        </option>
-                      ))}
-                    </SelectField>
+                    {(
+                      [
+                        ["Avant", first, setBefore],
+                        ["Après", last, setAfter],
+                      ] as const
+                    ).map(([label, chosen, choose]) => (
+                      <SelectField
+                        key={label}
+                        label={label}
+                        value={chosen.id}
+                        onChange={(event) => {
+                          choose(event.target.value);
+                        }}
+                      >
+                        {ofPose.map((p, index) => (
+                          <option key={p.id} value={p.id}>
+                            {/* Date complète (une année de photos) ; rang si deux le même jour. */}
+                            {ofPose.some((o) => o.id !== p.id && o.date === p.date)
+                              ? `${longDay(p.date)} (${String(index + 1)})`
+                              : longDay(p.date)}
+                          </option>
+                        ))}
+                      </SelectField>
+                    ))}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  {comparisonWarning() && (
+                    <p className="text-ink-muted text-sm">{comparisonWarning()}</p>
+                  )}
+                  <div aria-busy={photos.isFetching} className="grid grid-cols-2 gap-3">
                     {[first, last].map((photo, index) => (
                       <figure key={`${photo.id}-${String(index)}`} className="flex flex-col gap-2">
                         <picture>
@@ -302,7 +345,7 @@ export function PhotoJournal() {
                           />
                         </picture>
                         <figcaption className="text-ink-muted text-sm">
-                          {`${index === 0 ? "Avant" : "Après"} : ${shortDay(photo.date)}`}
+                          {`${index === 0 ? "Avant" : "Après"} : ${longDay(photo.date)}`}
                         </figcaption>
                       </figure>
                     ))}
@@ -315,7 +358,11 @@ export function PhotoJournal() {
 
       {photos.isSuccess && all.length > 0 && (
         <section aria-labelledby="gallery-title" className="flex flex-col gap-4">
-          <h2 id="gallery-title" className="text-xl font-extrabold [font-stretch:112%]">
+          <h2
+            id="gallery-title"
+            tabIndex={-1}
+            className="text-xl font-extrabold [font-stretch:112%]"
+          >
             Toutes les photos
           </h2>
           <div role="alert" className="empty:hidden">
@@ -325,71 +372,86 @@ export function PhotoJournal() {
             aria-label="Photos, les plus récentes d’abord"
             className="grid grid-cols-2 gap-4 sm:grid-cols-3"
           >
-            {newestFirst.map((photo) => (
-              <li key={photo.id} className="flex flex-col gap-2">
-                <picture>
-                  <img
-                    src={photoSrc(photo.id, "thumb")}
-                    alt={photoAlt(photo)}
-                    loading="lazy"
-                    className="rounded-control bg-surface-raised aspect-[3/4] w-full object-cover"
-                  />
-                </picture>
-                <span className="text-sm">{`${poseLabel(photo.pose)}, ${shortDay(photo.date)}`}</span>
-                {confirming === photo.id ? (
-                  <div className="flex flex-col gap-2">
+            {newestFirst.map((photo) => {
+              const name = photoAlt(photo);
+              const questionId = `delete-${photo.id}`;
+              return (
+                <li key={photo.id} className="flex flex-col gap-2">
+                  {/* Texte de remplacement vide : la légende juste dessous nomme déjà la photo. */}
+                  <picture>
+                    <img
+                      src={photoSrc(photo.id, "thumb")}
+                      alt=""
+                      loading="lazy"
+                      className="rounded-control bg-surface-raised aspect-[3/4] w-full object-cover"
+                    />
+                  </picture>
+                  <span className="text-sm">{name}</span>
+                  {confirming === photo.id ? (
+                    <div role="group" aria-labelledby={questionId} className="flex flex-col gap-2">
+                      <p id={questionId} className="text-sm font-semibold">
+                        Supprimer cette photo ? Elle sera effacée définitivement.
+                      </p>
+                      <Button
+                        variant="danger"
+                        aria-disabled={remove.isPending}
+                        onClick={() => {
+                          if (remove.isPending) return;
+                          const remaining = all.length - 1;
+                          remove.mutate(photo.id, {
+                            onSuccess: () => {
+                              flushSync(() => {
+                                setConfirming(null);
+                                setGalleryNotice(`Photo du ${longDay(photo.date)} supprimée.`);
+                              });
+                              // La galerie disparaît avec sa dernière photo : on remonte à « Comparer ».
+                              focus(remaining > 0 ? "#gallery-title" : "#compare-title");
+                            },
+                          });
+                        }}
+                      >
+                        Supprimer
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        data-focus="keep"
+                        onClick={() => {
+                          flushSync(() => {
+                            setConfirming(null);
+                          });
+                          focus(`[data-photo="${photo.id}"]`);
+                        }}
+                      >
+                        Garder
+                      </Button>
+                    </div>
+                  ) : (
                     <Button
-                      variant="danger"
-                      aria-disabled={remove.isPending}
+                      variant="ghost"
+                      data-photo={photo.id}
+                      aria-label={`Supprimer la photo ${name}`}
                       onClick={() => {
-                        if (remove.isPending) return;
-                        remove.mutate(photo.id, {
-                          onSuccess: () => {
-                            flushSync(() => {
-                              setConfirming(null);
-                              setNotice(`Photo du ${longDay(photo.date)} supprimée.`);
-                            });
-                            focus("#gallery-title");
-                          },
+                        flushSync(() => {
+                          remove.reset();
+                          setGalleryNotice("");
+                          setConfirming(photo.id);
                         });
+                        focus("[data-focus=keep]");
                       }}
                     >
                       Supprimer
                     </Button>
-                    <Button
-                      variant="secondary"
-                      data-focus="keep"
-                      onClick={() => {
-                        flushSync(() => {
-                          setConfirming(null);
-                        });
-                        focus(`[data-photo="${photo.id}"]`);
-                      }}
-                    >
-                      Garder
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    data-photo={photo.id}
-                    aria-label={`Supprimer la photo ${photoAlt(photo)}`}
-                    onClick={() => {
-                      flushSync(() => {
-                        remove.reset();
-                        setConfirming(photo.id);
-                      });
-                      focus("[data-focus=keep]");
-                    }}
-                  >
-                    Supprimer
-                  </Button>
-                )}
-              </li>
-            ))}
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}
+      {/* Hors de la galerie : l'annonce reste même quand la dernière photo disparaît. */}
+      <p aria-live="polite" className="text-ink-muted empty:sr-only">
+        {galleryNotice}
+      </p>
     </div>
   );
 }
