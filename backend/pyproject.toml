@@ -7,6 +7,7 @@ license = { text = "Proprietary" }
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "argon2-cffi>=25.1.0",
+    "basicfit==1.0.0",
     "celery[redis]>=5.6.3",
     "defusedxml==0.7.1",
     "django>=5.2,<5.3",
@@ -76,6 +77,12 @@ ignore_missing_imports = true
 # django-allauth ne publie ni stubs ni py.typed.
 module = ["allauth", "allauth.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# basicfit (ADR 0014) est annoté mais sans py.typed : mypy lit son code source plutôt que de
+# l'ignorer (vérification plus stricte qu'`ignore_missing_imports`).
+module = ["basicfit", "basicfit.*"]
+follow_untyped_imports = true
 
 [[tool.mypy.overrides]]
 # Seuls modules qui héritent d'une classe allauth (non typée, donc `Any`).

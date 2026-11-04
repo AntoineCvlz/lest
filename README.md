@@ -66,6 +66,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0011 — objectifs nutritionnels calculés et modifiables, données chiffrées](docs/adr/0011-objectifs-nutritionnels.md)
 - [ADR 0012 — activités : catalogue de sports fixe, métriques validées, valeurs chiffrées](docs/adr/0012-activites-catalogue-de-sports.md)
 - [ADR 0013 — tableau de bord : lectures agrégées par les sélecteurs des domaines, en une route](docs/adr/0013-tableau-de-bord.md)
+- [ADR 0014 — Basic-Fit : les données du membre seulement, par un adaptateur isolé et désactivable](docs/adr/0014-integration-basic-fit.md)
 
 ## Qualité et sécurité
 

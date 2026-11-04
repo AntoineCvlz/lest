@@ -20,10 +20,13 @@ EXPORTED_MODELS = {
     "nutrition.journalentry",
     "nutrition.waterintake",
     "activities.activity",
+    "basicfit.connection",  # état et dates seulement, jamais les jetons
     "nutrition.nutritiontarget",
 }
 
 EXCLUDED_FROM_EXPORT = {
+    # Secrets PKCE d'une connexion commencée, valables 10 minutes, sans donnée du membre.
+    "basicfit.pendinglogin": "connexion Basic-Fit en cours (secrets éphémères)",
     # Auteur des actions d'administration (compte du personnel). Les entrées qui *visent* un
     # membre n'ont pas de clé étrangère vers lui : `delete_account` les purge explicitement.
     "admin.logentry": "journal des actions d'administration, dont l'auteur est le personnel",
