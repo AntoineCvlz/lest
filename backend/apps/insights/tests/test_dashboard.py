@@ -7,7 +7,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from django.test import Client
+from django.test import Client, override_settings
 from django.utils import timezone
 
 from apps.accounts.models import Goal, UnitSystem, User
@@ -27,6 +27,15 @@ pytestmark = pytest.mark.django_db
 
 TODAY = date(2026, 11, 4)  # un mercredi
 MONDAY = date(2026, 11, 2)
+TARGETS = nutrition.TargetValues(
+    sex="male",
+    birth_date=date(1996, 5, 12),
+    activity="moderate",
+    kcal=2000,
+    protein_g=100,
+    carbs_g=None,
+    fat_g=None,
+)
 
 
 def athlete(goal: str = Goal.GAIN) -> User:
@@ -177,18 +186,7 @@ def test_adherence_counts_logged_days_before_today() -> None:
     user = athlete()
     # Une pesée : sans elle, des objectifs partiellement saisis ne se calculent pas.
     weigh(user, TODAY, "80")
-    nutrition.put_targets(
-        owner=user,
-        values=nutrition.TargetValues(
-            sex="male",
-            birth_date=date(1996, 5, 12),
-            activity="moderate",
-            kcal=2000,
-            protein_g=100,
-            carbs_g=None,
-            fat_g=None,
-        ),
-    )
+    nutrition.put_targets(owner=user, values=TARGETS)
     # 400 kcal et 20 g de protéines pour 100 g.
     food = Food.objects.create(
         source=FoodSource.CIQUAL,
@@ -219,18 +217,68 @@ def test_without_targets_the_block_says_so() -> None:
 # --- API et isolation ------------------------------------------------------------------------
 
 
+def give_a_full_account(user: User, exercise: Any) -> None:
+    """Pesée, séance, activité, objectifs et repas d'hier : de quoi remplir chaque bloc."""
+    today = timezone.localdate()
+    weigh(user, today, "80")
+    workout(user, today, [("60", 10, False)], exercise)
+    activities.put_activity(
+        owner=user,
+        activity_id=uuid4(),
+        values=activities.ActivityValues(
+            day=today, sport="running", duration_s=1800, distance_m=Decimal(5000)
+        ),
+    )
+    nutrition.put_targets(owner=user, values=TARGETS)
+    food = Food.objects.create(
+        source=FoodSource.CIQUAL,
+        source_code=str(uuid4().int)[:8],
+        name="Aliment témoin",
+        kcal_100g=Decimal(400),
+        protein_100g=Decimal(20),
+    )
+    eat(user, today - timedelta(days=1), "500", food)
+
+
 def test_b_never_sees_as_figures(client: Client, bench: Any) -> None:
-    me, other = athlete(), make_verified_user()
-    weigh(me, timezone.localdate(), "80")
-    workout(me, timezone.localdate(), [("60", 10, False)], bench)
+    me, other = athlete(), athlete()
+    give_a_full_account(me, bench)
+    # B a ses propres objectifs : aucun jour noté ne doit venir de A.
+    weigh(other, timezone.localdate() - timedelta(days=40), "70")
+    nutrition.put_targets(owner=other, values=TARGETS)
     headers = bearer(login(client, other.email)["access_token"])
 
-    body_json = client.get("/api/v1/insights/dashboard/", headers=headers).json()
+    data = client.get("/api/v1/insights/dashboard/", headers=headers).json()
 
-    assert body_json["weight"]["trend_kg"] is None
-    assert body_json["muscles"] == []
-    assert sum(w["workouts"] for w in body_json["weeks"]) == 0
-    assert body_json["nutrition"]["configured"] is False
+    assert data["weight"]["trend_kg"] == 70.0
+    assert data["muscles"] == []
+    assert sum(w["workouts"] + w["activities"] for w in data["weeks"]) == 0
+    assert sum(w["distance_m"] for w in data["weeks"]) == 0
+    assert data["nutrition"]["last_28"]["logged_days"] == 0
+
+
+def test_the_query_count_does_not_grow_with_the_data(
+    bench: Any, django_assert_max_num_queries: Any
+) -> None:
+    user = athlete()
+    workout(user, MONDAY, [("60", 10, False)], bench)
+    with django_assert_max_num_queries(20) as small:
+        selectors.dashboard(owner=user, today=TODAY)
+    for offset in range(1, 30):
+        workout(user, MONDAY - timedelta(days=offset), [("60", 10, False)] * 5, bench)
+
+    with django_assert_max_num_queries(len(small.captured_queries)):
+        selectors.dashboard(owner=user, today=TODAY)
+
+
+@override_settings(ACCOUNT_RATE_LIMITS={"insights_read": "2/m/user"})
+def test_reads_are_rate_limited(client: Client) -> None:
+    headers = bearer(login(client, athlete().email)["access_token"])
+    statuses = [
+        client.get("/api/v1/insights/dashboard/", headers=headers).status_code for _ in range(3)
+    ]
+
+    assert statuses == [200, 200, 429]
 
 
 def test_the_api_serves_the_dashboard(client: Client, bench: Any) -> None:

@@ -6,14 +6,19 @@ dates ISO)."""
 from datetime import date
 from typing import Literal
 
+from allauth.core import ratelimit
 from django.http import HttpRequest
 from django.utils import timezone
 from ninja import Router, Schema
 
 from apps.insights import selectors
 from common.auth import request_user
+from common.problems import ProblemError
 
 router = Router(tags=["insights"])
+
+RATE_LIMITED_TYPE = "urn:lest:problem:rate-limited"
+READ_ACTION = "insights_read"
 
 
 class PaceRangeOut(Schema):
@@ -75,7 +80,16 @@ def _float(value: object) -> float | None:
 
 @router.get("/insights/dashboard/", response=DashboardOut, summary="Tableau de bord")
 def dashboard(request: HttpRequest) -> DashboardOut:
-    data = selectors.dashboard(owner=request_user(request), today=timezone.localdate())
+    owner = request_user(request)
+    # GET compté aussi (`limit_get`) : chaque lecture agrège tout le compte sur 12 semaines.
+    if (
+        ratelimit.consume_or_429(request, action=READ_ACTION, user=owner, limit_get=True)
+        is not None
+    ):
+        raise ProblemError(
+            429, "Trop de demandes. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
+        )
+    data = selectors.dashboard(owner=owner, today=timezone.localdate())
     w = data.weight
     return DashboardOut.model_validate(
         {

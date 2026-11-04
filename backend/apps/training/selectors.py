@@ -7,6 +7,7 @@ from uuid import UUID
 from django.db.models import (
     Count,
     DecimalField,
+    DurationField,
     ExpressionWrapper,
     F,
     Prefetch,
@@ -15,7 +16,7 @@ from django.db.models import (
     Sum,
     Value,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncWeek
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -333,8 +334,9 @@ class MuscleWeek:
     volume_kg: Decimal
 
 
-def _monday(day: date) -> date:
-    return day - timedelta(days=day.weekday())
+def _week(value: datetime | date) -> date:
+    """Lundi de la semaine renvoyé par `TruncWeek` (heure locale)."""
+    return timezone.localtime(value).date() if isinstance(value, datetime) else value
 
 
 def _local_bounds(start: date, end: date) -> tuple[datetime, datetime]:
@@ -355,34 +357,51 @@ def weekly_training(
     finished = Workout.objects.filter(
         owner=owner, ended_at__isnull=False, started_at__gte=since, started_at__lt=until
     )
-    weeks: dict[date, list[int]] = {}
-    for started, ended in finished.values_list("started_at", "ended_at"):
-        bucket = weeks.setdefault(_monday(timezone.localtime(started).date()), [0, 0])
-        bucket[0] += 1
-        bucket[1] += int((ended - started).total_seconds()) if ended else 0
-    rows = Set.objects.filter(workout_exercise__workout__in=finished, is_warmup=False).values_list(
-        "workout_exercise__workout__started_at",
-        "workout_exercise__exercise_id",
-        "weight_kg",
-        "reps",
+    zone = timezone.get_current_timezone()
+    # Agrégé en base (séries en clair) : mémoire et requêtes constantes, quel que soit le volume.
+    workout_rows = (
+        finished.annotate(week=TruncWeek("started_at", tzinfo=zone))
+        .values("week")
+        .annotate(
+            count=Count("id"),
+            duration=Sum(
+                ExpressionWrapper(F("ended_at") - F("started_at"), output_field=DurationField())
+            ),
+        )
     )
-    sets = list(rows)
-    muscles: dict[UUID, list[str]] = {}
-    for exercise_id, name in Exercise.muscles.through.objects.filter(
-        exercise_id__in={exercise_id for _, exercise_id, _, _ in sets}
-    ).values_list("exercise_id", "muscle__name"):
-        muscles.setdefault(exercise_id, []).append(name)
-    volume: dict[tuple[date, str], list[Decimal]] = {}
-    for started, exercise_id, weight, reps in sets:
-        week = _monday(timezone.localtime(started).date())
-        for name in muscles.get(exercise_id, []):
-            totals = volume.setdefault((week, name), [Decimal(0), Decimal(0)])
-            totals[0] += 1
-            totals[1] += weight * reps
+    weeks = {
+        _week(row["week"]): (int(row["count"]), int(row["duration"].total_seconds()))
+        for row in workout_rows
+    }
+    set_rows = (
+        Set.objects.filter(
+            workout_exercise__workout__in=finished,
+            is_warmup=False,
+            workout_exercise__exercise__muscles__isnull=False,
+        )
+        .annotate(week=TruncWeek("workout_exercise__workout__started_at", tzinfo=zone))
+        .values("week", "workout_exercise__exercise__muscles__name")
+        .annotate(
+            sets=Count("id"),
+            volume=Sum(
+                ExpressionWrapper(
+                    F("weight_kg") * F("reps"),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            ),
+        )
+    )
+    volume = {
+        (_week(row["week"]), str(row["workout_exercise__exercise__muscles__name"])): (
+            int(row["sets"]),
+            Decimal(row["volume"]),
+        )
+        for row in set_rows
+    }
     return (
         [WorkoutWeek(week=w, workouts=c, duration_s=d) for w, (c, d) in sorted(weeks.items())],
         [
-            MuscleWeek(week=w, muscle=m, sets=int(s), volume_kg=v)
-            for (w, m), (s, v) in sorted(volume.items())
+            MuscleWeek(week=w, muscle=m, sets=n, volume_kg=v)
+            for (w, m), (n, v) in sorted(volume.items())
         ],
     )
