@@ -94,11 +94,10 @@ def put_activity(
         existing = Activity.objects.select_for_update().filter(pk=activity_id).first()
         if existing is not None and existing.owner_id != owner.pk:
             raise NotFoundError
-        if (
-            existing is None
-            and Activity.objects.filter(owner=owner, date=values.day).count()
-            >= MAX_ACTIVITIES_PER_DAY
-        ):
+        # Création ou changement de jour : une activité déplacée compte aussi pour son nouveau jour.
+        if (existing is None or existing.date != values.day) and Activity.objects.filter(
+            owner=owner, date=values.day
+        ).exclude(pk=activity_id).count() >= MAX_ACTIVITIES_PER_DAY:
             raise _invalid("activity_id", "too_many")
         activity = existing or Activity(id=activity_id, owner=owner)
         activity.date = values.day

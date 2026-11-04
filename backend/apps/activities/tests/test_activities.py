@@ -134,7 +134,10 @@ def test_a_day_holds_at_most_twenty_activities_but_existing_ones_stay_editable()
 
     assert rejected(user) == {"activity_id": ["too_many"]}
     record(user, activity_id=ids[0], duration_s=600)
-    record(user, day=DAY + timedelta(days=1))
+    moved = record(user, day=DAY + timedelta(days=1))
+    # Déplacer une activité vers un jour plein est refusé aussi.
+    assert rejected(user, activity_id=moved.pk, day=DAY) == {"activity_id": ["too_many"]}
+    assert Activity.objects.get(pk=moved.pk).date == DAY + timedelta(days=1)
 
 
 def test_another_accounts_id_is_not_found_and_untouched() -> None:
@@ -335,7 +338,7 @@ def test_activities_are_exported_in_clear_and_deleted_with_the_account() -> None
             "sport": "running",
             "duration_s": 1800,
             "distance_m": None,
-            "avg_heart_rate": 140.0,
+            "avg_heart_rate": 140,
             "feeling": None,
             "metrics": {"elevation_gain_m": 50},
         }
