@@ -14,6 +14,186 @@
         "title": "AccountDeletionIn",
         "type": "object"
       },
+      "ActivityIn": {
+        "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "maximum": 230,
+                "minimum": 30,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "maximum": 86400,
+            "minimum": 60,
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "feeling": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "maxProperties": 10,
+            "title": "Metrics",
+            "type": "object"
+          },
+          "sport": {
+            "enum": [
+              "running",
+              "cycling",
+              "swimming",
+              "walking",
+              "hiking",
+              "rowing",
+              "cardio",
+              "team_sport",
+              "racket",
+              "combat",
+              "climbing",
+              "yoga",
+              "other"
+            ],
+            "title": "Sport",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "sport",
+          "duration_s"
+        ],
+        "title": "ActivityIn",
+        "type": "object"
+      },
+      "ActivityOut": {
+        "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "feeling": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
+          "id": {
+            "format": "uuid4",
+            "title": "Id",
+            "type": "string"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "sport": {
+            "enum": [
+              "running",
+              "cycling",
+              "swimming",
+              "walking",
+              "hiking",
+              "rowing",
+              "cardio",
+              "team_sport",
+              "racket",
+              "combat",
+              "climbing",
+              "yoga",
+              "other"
+            ],
+            "title": "Sport",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "sport",
+          "duration_s",
+          "distance_m",
+          "avg_heart_rate",
+          "feeling",
+          "metrics"
+        ],
+        "title": "ActivityOut",
+        "type": "object"
+      },
       "CustomFoodIn": {
         "properties": {
           "brand": {
@@ -893,6 +1073,39 @@
         "title": "MeasurementOut",
         "type": "object"
       },
+      "MetricOut": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "max": {
+            "title": "Max",
+            "type": "integer"
+          },
+          "min": {
+            "title": "Min",
+            "type": "integer"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "unit",
+          "min",
+          "max"
+        ],
+        "title": "MetricOut",
+        "type": "object"
+      },
       "NamedOut": {
         "properties": {
           "id": {
@@ -1570,6 +1783,52 @@
           "records"
         ],
         "title": "SetOut",
+        "type": "object"
+      },
+      "SportOut": {
+        "properties": {
+          "has_distance": {
+            "title": "Has Distance",
+            "type": "boolean"
+          },
+          "key": {
+            "enum": [
+              "running",
+              "cycling",
+              "swimming",
+              "walking",
+              "hiking",
+              "rowing",
+              "cardio",
+              "team_sport",
+              "racket",
+              "combat",
+              "climbing",
+              "yoga",
+              "other"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricOut"
+            },
+            "title": "Metrics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "has_distance",
+          "metrics"
+        ],
+        "title": "SportOut",
         "type": "object"
       },
       "TargetsIn": {
@@ -2367,6 +2626,159 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/activities/": {
+      "get": {
+        "operationId": "apps_activities_api_router_list_activities",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ActivityOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Activités d'une période",
+        "tags": [
+          "activities"
+        ]
+      }
+    },
+    "/api/v1/activities/{activity_id}/": {
+      "delete": {
+        "operationId": "apps_activities_api_router_remove_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "activity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Activity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer une activité",
+        "tags": [
+          "activities"
+        ]
+      },
+      "put": {
+        "operationId": "apps_activities_api_router_write_activity",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "activity_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Activity Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActivityOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Enregistrer ou remplacer une activité",
+        "tags": [
+          "activities"
+        ]
+      }
+    },
     "/api/v1/body-measurements/": {
       "get": {
         "operationId": "apps_body_api_router_list_measurements",
@@ -4269,6 +4681,37 @@
         "summary": "Enregistrer une série",
         "tags": [
           "training"
+        ]
+      }
+    },
+    "/api/v1/sports/": {
+      "get": {
+        "operationId": "apps_activities_api_router_list_sports",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SportOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Catalogue des sports",
+        "tags": [
+          "activities"
         ]
       }
     },

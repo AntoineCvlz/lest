@@ -6,16 +6,16 @@ renvoie jamais la valeur saisie (donnée de santé, `common.problems`).
 """
 
 from collections.abc import Iterator
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
-from typing import Literal, Self
+from typing import Literal
 
 from allauth.core import ratelimit
 from django.core.cache import cache
 from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
-from pydantic import UUID4, model_validator
+from pydantic import UUID4
 
 from apps.accounts.models import User
 from apps.body import photos, selectors, services
@@ -28,6 +28,7 @@ from apps.body.models import (
     BodyWeight,
 )
 from common.auth import request_user
+from common.period import Period
 from common.problems import ProblemError
 
 router = Router(tags=["body"])
@@ -46,8 +47,6 @@ UNSUPPORTED_TYPE = "urn:lest:problem:unsupported-media-type"
 TOO_LARGE_TYPE = "urn:lest:problem:payload-too-large"
 # Écritures du domaine `body` par compte (`ACCOUNT_RATE_LIMITS`).
 WRITE_ACTION = "body_write"
-DEFAULT_PERIOD_DAYS = 90
-MAX_PERIOD_DAYS = 366
 
 
 class WeightIn(Schema):
@@ -92,29 +91,6 @@ class PhotoOut(Schema):
 class PhotoQuery(Schema):
     date: date
     pose: PoseName
-
-
-class Period(Schema):
-    # Par défaut, les 90 derniers jours ; jamais plus de 366 jours d'un coup.
-    start: date | None = None
-    end: date | None = None
-
-    def bounds(self) -> tuple[date, date]:
-        end = self.end or timezone.localdate()
-        return self.start or end - timedelta(days=DEFAULT_PERIOD_DAYS - 1), end
-
-    @model_validator(mode="after")
-    def _bounded(self) -> Self:
-        start, end = self.bounds()
-        # Mêmes bornes qu'à l'écriture : une date extrême ferait déborder la fenêtre de la moyenne.
-        latest = timezone.localdate() + timedelta(days=1)
-        if not (
-            services.EARLIEST <= start <= end <= latest
-            and end - start < timedelta(days=MAX_PERIOD_DAYS)
-        ):
-            msg = "Période invalide : de 2000 à demain, début avant fin, 366 jours au plus."
-            raise ValueError(msg)
-        return self
 
 
 def _writer(
