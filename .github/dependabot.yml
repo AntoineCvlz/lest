@@ -17,6 +17,9 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: redis # contraint par kombu (Celery)
         update-types: [version-update:semver-major]
+      # ADR 0014 : paquet sans provenance, un seul mainteneur ; toute version est relue avant
+      # d'être montée, dans une PR manuelle (un test fige les empreintes relues).
+      - dependency-name: basicfit
     groups:
       python:
         patterns: ["*"]

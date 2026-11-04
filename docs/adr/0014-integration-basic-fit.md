@@ -50,8 +50,10 @@ prime sur celle de la balance ; **le poids seulement**, sans la composition corp
 | Données gardées | nom du club principal, visites (date, club), poids de la balance (jours sans pesée manuelle), badges ; **rien d'autre** du profil membre (nom, carte, numéro d'adhérent, dette ignorés) |
 | Synchronisation | tâche Celery, au plus une fois par heure et par compte, backoff exponentiel, déclenchable à la main |
 | Tests | passerelle simulée, réponses enregistrées **fictives** (aucune vraie réponse Basic-Fit dans le dépôt public), aucun appel réseau en CI |
-| Dépendances | `basicfit==1.0.0` et `aiohttp` épinglés par hash (`uv.lock`) ; code de `basicfit` relu avant toute mise à jour |
+| Dépendances | `basicfit==1.0.0` épinglé par hash (`uv.lock` : archive source `sha256:98a29fbc7d7edac4bfe2ff376d3e838ce52203fe352fb8b14d2e22ce797d83c4`, roue `sha256:164b4d8f60f1c00ad29801d18110313e0a021e1a336c1ca3e02e38ece5c22e83`, identiques au code relu) ; exclu de Dependabot, monté seulement par une PR manuelle après relecture ; un test échoue si ces empreintes changent ; `aiohttp>=3.14.5` déclaré en dépendance directe (la passerelle l'importe) |
 | RGPD | état de la connexion et données importées exportés ; jetons exclus de l'export ; tout supprimé avec le compte ou à la déconnexion de Basic-Fit (jetons) |
+| Révocation | le paquet n'expose aucune révocation : après une déconnexion, la session reste valable chez Basic-Fit jusqu'à son expiration ; l'écran invite à la fermer depuis l'application Basic-Fit |
+| Suivi d'erreurs | toute erreur du paquet devient une erreur à nous, sans son message ; un futur outil de suivi d'erreurs ne capture pas les variables locales de la passerelle (jetons, code, vérificateur) |
 
 ## Conséquences
 
@@ -61,7 +63,9 @@ prime sur celle de la balance ; **le poids seulement**, sans la composition corp
   conditions d'utilisation de Basic-Fit ; l'écran le dit, l'intégration reste désactivable et
   réservée au compte personnel de l'utilisateur.
 - ⚠️ Paquet d'un seul mainteneur, sans provenance : version figée, relue, mise à jour à la main.
-- ⚠️ Le collage d'une URL de redirection est inhabituel : l'écran le guide pas à pas.
+- ⚠️ Le collage d'une URL de redirection est inhabituel : l'écran le guide pas à pas, et
+  avertit de ne jamais transmettre cette adresse à quelqu'un (elle relierait son compte
+  Basic-Fit au compte Lest de cette personne).
 - 📋 PR `feat(basicfit)` : (1) cet ADR, dépendances, passerelle, connexion ; (2) synchronisation
   des visites et du club ; (3) pesées de la balance dans `body` (source de la pesée) ;
   (4) écrans.

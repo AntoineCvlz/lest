@@ -4,6 +4,8 @@ réseau : la passerelle est simulée."""
 
 import ast
 import json
+import tomllib
+import traceback
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -181,6 +183,42 @@ def test_the_gateway_maps_package_errors_without_their_message(
     monkeypatch.setattr(AuthManager, "async_exchange_code", broken)
     with pytest.raises(gw.GatewayError):
         gw.BasicFitGateway().exchange_code(code="code", verifier="verificateur")
+
+
+@pytest.mark.parametrize(
+    "unexpected",
+    [AttributeError("secret-fictif"), UnicodeDecodeError("utf-8", b"secret-fictif", 0, 1, "x")],
+)
+def test_unexpected_package_failures_become_gateway_errors(
+    monkeypatch: pytest.MonkeyPatch, unexpected: Exception
+) -> None:
+    from basicfit.auth import AuthManager
+
+    async def odd(*_args: Any, **_kwargs: Any) -> Any:
+        raise unexpected
+
+    monkeypatch.setattr(AuthManager, "async_exchange_code", odd)
+    with pytest.raises(gw.GatewayError) as caught:
+        gw.BasicFitGateway().exchange_code(code="code", verifier="verificateur")
+    assert "secret-fictif" not in "".join(traceback.format_exception(caught.value))
+
+
+def test_the_locked_basicfit_is_the_reviewed_one() -> None:
+    """Toute montée de version de `basicfit` passe par une relecture et la mise à jour de
+    l'ADR 0014 : ce test fige les empreintes du code relu."""
+    lock = tomllib.loads((Path(settings.BASE_DIR) / "uv.lock").read_text(encoding="utf-8"))
+    package = next(p for p in lock["package"] if p["name"] == "basicfit")
+    project = next(p for p in lock["package"] if p["name"] == "lest-backend")
+
+    assert package["version"] == "1.0.0"
+    assert (
+        package["sdist"]["hash"]
+        == "sha256:98a29fbc7d7edac4bfe2ff376d3e838ce52203fe352fb8b14d2e22ce797d83c4"
+    )
+    assert [w["hash"] for w in package["wheels"]] == [
+        "sha256:164b4d8f60f1c00ad29801d18110313e0a021e1a336c1ca3e02e38ece5c22e83"
+    ]
+    assert "aiohttp" in {d["name"] for d in project["dependencies"]}
 
 
 def test_the_gateway_builds_a_pkce_login() -> None:

@@ -61,3 +61,7 @@ class BasicFitGateway:
             raise GatewayAuthError from None
         except (BasicFitError, aiohttp.ClientError, TimeoutError):
             raise GatewayError from None
+        # Réponse inattendue (JSON qui n'est pas un objet, encodage invalide…) : jamais un 500
+        # dont la trace citerait la réponse ou les jetons.
+        except Exception:
+            raise GatewayError from None
