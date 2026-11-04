@@ -121,7 +121,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
 - Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
-- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records). Poids et mensurations avec la Phase 3.
+- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records), 8 semaines de pesées et de mensurations (`seed_body`), table Ciqual si elle est vide (`import_foods`), 2 semaines de repas et les objectifs (`seed_nutrition`, sur des aliments perso).
 - Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
 - E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 
@@ -261,7 +261,7 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 0. **Socle** ✅ (2026-10-27) : monorepo, Compose + hot reload, Django + Next.js « hello » reliés, pre-commit, CI complète (16 checks requis sur `main`), `CLAUDE.md`, ADR 0001 (auth).
 1. **Comptes & design system** ✅ (2026-10-29) : direction « Fonte calibrée », tokens, Storybook ; auth allauth + JWT + BFF, inscription, connexion, mot de passe oublié ; profil, onboarding, pages privées ; `seed` de démo ; export et suppression RGPD ; double authentification (TOTP, codes de secours) et passkeys, connexion sans mot de passe ; appareils connectés ; ADR 0002 (chiffrement au repos).
 2. **Musculation** ✅ (2026-11-02) : catalogue RepDB illustré (ADR 0006), séance en cours (saisie d'une série en un appui, charge pré-remplie, minuteur de repos, écran allumé), modification des séries, historique et détail des séances, fiches d'exercice et records (formule du 1RM au choix), programmes avec cibles et charge suggérée ; ADR 0003 (écritures idempotentes) et 0006 ; seed de démo.
-3. **Corps & nutrition** : poids + moyenne mobile, mensurations, photos, journal alimentaire, Open Food Facts, objectifs macros.
+3. **Corps & nutrition** ✅ (2026-11-04) : pesées et moyenne mobile sur 7 jours, mensurations, photos de progression chiffrées et leur archive ZIP ; aliments Ciqual et code-barres Open Food Facts (scan par la caméra si le navigateur le permet), aliments perso, journal des repas et eau, objectifs calculés et modifiables ; données de santé chiffrées ; ADR 0007 à 0011 ; seed de démo.
 4. **Autres sports & insights** : activités génériques, Basic-Fit (visites, pesées, clubs, recettes), tableau de bord, graphiques accessibles.
 5. **Mobile** : PWA installable, hors ligne + synchronisation, notifications. Option : app native Expo réutilisant le client API typé.
 
@@ -317,5 +317,43 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 - **E2E** : les parcours de séance et de programme créent leur compte par projet (`tests/e2e/accounts.ts`) : une seule séance en cours par compte.
 - **Poste Windows et conteneurs** : sous Git Bash, `MSYS_NO_PATHCONV=1` pour tout `docker compose run -v …` (sinon le montage est ignoré et les outils tournent sur le code de l'image) ; `docker compose cp` ne supprime pas les fichiers retirés : reconstruire l'image après une suppression ou une refonte de migrations ; après un ajout de route ou de token CSS, redémarrer `web` (et vider `.next/cache`).
 - **Reporté** : interblocage possible entre un `PUT` et une suppression en cascade (verrouiller le parent avant la cascade, séances et programmes) ; durcissement de `X-Lest-Client-IP` avant le premier déploiement ; traduction des noms d'exercices (hors dépôt, licence RepDB) ; animations fluides (offre payante RepDB).
+
+## Décisions et constats de la Phase 3 (à respecter)
+
+- **Données de santé chiffrées** (ADR 0007, 0010, 0011) :
+  - pesées, mensurations, journal des repas, eau, objectifs et leurs données (sexe retenu pour la formule, date de naissance, activité) sont en Fernet : `EncryptedDecimalField` à précision fixe, `EncryptedTextField` complété par blocs de 64 octets (la longueur ne trahit pas la valeur) ;
+  - une seule recherche en base, `isnull` : `order_by`, `Max` ou un filtre sur ces champs donnent un résultat faux **sans erreur**. Tri, totaux et moyennes se calculent en Python, sur une période bornée.
+- **Clés naturelles** : une pesée par jour, une mensuration par jour et par endroit, l'eau par jour. `PUT` idempotent, comme l'ADR 0003. Périodes de lecture de 2000 à demain, 366 jours au plus.
+- **Photos de progression** (ADR 0008) :
+  - `PUT` en corps brut avec `?date&pose` (Django ne lit pas le multipart d'un `PUT`), 15 Mo au plus, corps limité aussi par le BFF (`shared/bff/body.ts`) ;
+  - réencodées par Pillow (JPEG, PNG, WebP seulement ; plafond de pixels par format ; orientation EXIF appliquée ; WebP 480 et 1600 px sans métadonnées), 2 réencodages à la fois ;
+  - fichiers chiffrés, 0600, dans le volume `private-media` (700) ; 500 photos par compte ; fichiers supprimés après le commit ; tâche nocturne des orphelins ;
+  - archive ZIP en flux, une à la fois par compte, photo illisible remplacée par une note dans le LISEZMOI ;
+  - aperçu avant envoi dessiné sur un canvas (jamais une URL `blob:` dans le DOM, alerte CodeQL).
+- **Aliments** (ADR 0009) :
+  - table Ciqual 2025 importée par `import_foods` (XML lu par defusedxml, le 2 de chaque mois), source malformée refusée en entier ; recherche locale sans accents, « commence par » d'abord, 30 résultats ;
+  - Open Food Facts **par code-barres seulement** : GTIN vérifié, 12 appels/min pour l'appli, 4/min et 100/jour par compte (429), copie locale 30 jours, absence 1 jour, copie périmée servie si OFF tombe, texte nettoyé des caractères de contrôle, User-Agent `Lest/1.0 (OFF_CONTACT)` (jamais une adresse personnelle) ;
+  - mentions exigées : page `/sources` et `FoodCredit` dans le choix d'aliment (Ciqual, Etalab 2.0 ; OFF, ODbL avec `source_url` vers la fiche du produit). Rien de Ciqual ni d'OFF dans le dépôt : tests sur `alim.xml`/`compo.xml` fictifs.
+- **Journal** (ADR 0010) : l'aliment est **recopié** à la saisie (nom et valeurs), l'historique ne suit pas ses corrections ; aliment désactivé non ajoutable ; 100 entrées par jour, 500 aliments perso.
+- **Objectifs** (ADR 0011) :
+  - Mifflin-St Jeor × activité × objectif du profil, protéines 2 g/kg, lipides 0,9 g/kg, glucides pour le reste ; chaque valeur surchargeable ;
+  - rien n'est demandé ni stocké avant l'activation ; âge de 14 à 100 ans **révolus** ; écran présenté comme « formule de calcul » et « estimation, pas un avis médical » ;
+  - ligne illisible en base : « non configuré », message fixe dans les journaux (jamais la valeur, jamais de 500).
+- **Limites de débit** : `body_write` et `nutrition_write` 120/min, `body_photo_write` 30/h, `body_photo_export` 10/h, `food_lookup` 30/min, par compte. Pour compter aussi les `GET` : `consume_or_429(..., limit_get=True)`.
+- **Front** :
+  - formulaires : focus sur le premier champ fautif (`flushSync`), refus 422 rattachés aux champs, `aria-disabled` (jamais `disabled`) pendant l'envoi, message d'état `aria-live` **hors** d'un élément qui peut être recréé ;
+  - `ChoiceGroup` et `SelectField` ont une aide (et une erreur pour `ChoiceGroup`) lues avec le champ ; pas d'`aria-invalid` sur une radio (refusé par jsx-a11y) ;
+  - barre d'onglets en `fixed`, doublée d'un bloc invisible `aria-hidden` qui réserve sa hauteur (en `sticky`, axe la jugeait trop petite) ; 5 onglets en `flex-wrap` pour le texte agrandi ;
+  - lien d'évitement inutile : `main` précède les onglets dans le DOM (2.4.1 satisfait) ; à revoir si un en-tête de navigation apparaît avant ;
+  - grilles en `repeat(auto-fit, minmax(9rem, 1fr))` : une colonne quand la place manque ;
+  - scan par `BarcodeDetector` natif seulement (Chrome Android, pas Safari), `Permissions-Policy: camera=(self)` ; saisie du code toujours possible ;
+  - requêtes du corps et de la nutrition dans `PRIVATE_QUERY_KEYS` (`BODY_KEY`, `NUTRITION_KEY`).
+- **E2E** : sélecteurs de bouton exacts quand un libellé en contient un autre (« Activer » et « Activer mes objectifs ») ; Playwright garde l'espace de tête d'un `span` dans `getByText` (pas d'ancre `^`).
+- **Seed** : `seed_body` et `seed_nutrition`, déterministes et rejouables, identifiants stables dans `common/demo.py` (partagés avec `seed_training`) ; objectifs déjà réglés gardés.
+- **Reporté** :
+  - gunicorn et longs flux : workers synchrones, délai de 30 s ; l'archive ZIP des photos peut le dépasser sur une connexion lente. Avant le premier déploiement : ASGI, `gthread` avec un délai adapté, ou archive produite par Celery ;
+  - rotation des clés Fernet : aucune commande de rechiffrement (champs chiffrés et fichiers de photos), les anciennes clés restent nécessaires. À écrire avant le premier déploiement (ADR 0002, 0007, 0008) ;
+  - décodeur de code-barres pour Safari (ZXing : nouvelle dépendance et `wasm-unsafe-eval` dans la CSP), à décider ;
+  - mesures des balances Basic-Fit dans `body` (Phase 4).
 
 **Définition de « terminé »** : tests et CI verts, aucune alerte de sécurité haute, axe sans violation, types générés à jour, documentation et ADR écrits, démo visible sur le serveur de dev.

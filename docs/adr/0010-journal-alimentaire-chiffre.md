@@ -1,6 +1,6 @@
 # ADR 0010 — Chiffrer le journal alimentaire en entier, aliment recopié à la saisie
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-03
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 
