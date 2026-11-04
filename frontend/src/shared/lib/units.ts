@@ -66,3 +66,21 @@ export function metresToLength(metres: number, system: UnitSystem): number {
 export function lengthToMetres(value: number, system: UnitSystem): number {
   return system === "metric" ? round(value / 100, 3) : round(value * METRES_PER_INCH, 3);
 }
+
+const METRES_PER_MILE = 1609.344;
+
+/** Unité des distances d'activité : kilomètres (métrique) ou miles (impérial). */
+export const DISTANCE_UNITS = {
+  metric: { symbol: "km", name: "kilomètres", max: 1000 },
+  imperial: { symbol: "mi", name: "miles", max: 621 },
+} as const;
+
+/** Distance stockée (m) dans l'unité du profil, au centième de kilomètre ou de mile. */
+export function metresToDistance(metres: number, system: UnitSystem): number {
+  return system === "metric" ? round(metres / 1000, 2) : round(metres / METRES_PER_MILE, 2);
+}
+
+/** Distance saisie dans l'unité du profil, en mètres au décimètre (précision du stockage). */
+export function distanceToMetres(value: number, system: UnitSystem): number {
+  return system === "metric" ? round(value * 1000, 1) : round(value * METRES_PER_MILE, 1);
+}

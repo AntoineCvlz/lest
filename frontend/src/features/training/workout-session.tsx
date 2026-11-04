@@ -251,6 +251,9 @@ function ProgramStarts({
       <TextLink href="/seance/programmes" className="self-start">
         Mes programmes
       </TextLink>
+      <TextLink href="/seance/activites" className="self-start">
+        Autres sports : course, vélo, natation…
+      </TextLink>
     </section>
   );
 }
