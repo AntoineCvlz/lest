@@ -261,6 +261,61 @@
         "title": "AdherenceOut",
         "type": "object"
       },
+      "ConnectionOut": {
+        "properties": {
+          "connected_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connected At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "last_error": {
+            "title": "Last Error",
+            "type": "string"
+          },
+          "last_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Sync At"
+          },
+          "status": {
+            "enum": [
+              "disabled",
+              "none",
+              "connected",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "status",
+          "connected_at",
+          "last_sync_at",
+          "last_error"
+        ],
+        "title": "ConnectionOut",
+        "type": "object"
+      },
       "CustomFoodIn": {
         "properties": {
           "brand": {
@@ -1070,6 +1125,19 @@
         "title": "LastSetsOut",
         "type": "object"
       },
+      "LoginOut": {
+        "properties": {
+          "authorize_url": {
+            "title": "Authorize Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url"
+        ],
+        "title": "LoginOut",
+        "type": "object"
+      },
       "MacrosOut": {
         "properties": {
           "carbs_g": {
@@ -1852,6 +1920,21 @@
           "achieved_at"
         ],
         "title": "RecordOut",
+        "type": "object"
+      },
+      "RedirectIn": {
+        "properties": {
+          "redirect_url": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Redirect Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "redirect_url"
+        ],
+        "title": "RedirectIn",
         "type": "object"
       },
       "SetIn": {
@@ -3082,6 +3165,115 @@
         "summary": "Enregistrer ou remplacer une activité",
         "tags": [
           "activities"
+        ]
+      }
+    },
+    "/api/v1/basicfit/connection/": {
+      "delete": {
+        "operationId": "apps_integrations_basicfit_api_router_disconnect",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Délier Basic-Fit",
+        "tags": [
+          "basicfit"
+        ]
+      },
+      "get": {
+        "operationId": "apps_integrations_basicfit_api_router_connection",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "État de la liaison",
+        "tags": [
+          "basicfit"
+        ]
+      }
+    },
+    "/api/v1/basicfit/connection/complete/": {
+      "post": {
+        "operationId": "apps_integrations_basicfit_api_router_complete",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Terminer la connexion avec l'URL de redirection",
+        "tags": [
+          "basicfit"
+        ]
+      }
+    },
+    "/api/v1/basicfit/connection/start/": {
+      "post": {
+        "operationId": "apps_integrations_basicfit_api_router_start",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Commencer la connexion",
+        "tags": [
+          "basicfit"
         ]
       }
     },

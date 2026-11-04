@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.activities.selectors import export_activities
 from apps.body.selectors import export_measurements, export_photos, export_weights
+from apps.integrations.basicfit.selectors import export_connection
 from apps.nutrition.selectors import (
     export_custom_foods,
     export_journal,
@@ -98,6 +99,7 @@ def export_account(user: User) -> dict[str, Any]:
         "nutrition_target": export_targets(owner=user),
         # Activités hors musculation, déchiffrées (ADR 0012).
         "activities": export_activities(owner=user),
+        "basicfit": export_connection(owner=user),
         "profile": (
             {
                 "height_m": float(profile.height_m),
