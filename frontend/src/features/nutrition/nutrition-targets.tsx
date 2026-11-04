@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { dayToDate, localDay } from "@/shared/lib/days";
 import { formatNumber } from "@/shared/lib/number";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
@@ -16,6 +17,7 @@ import {
   type Macros,
   type TargetsIn,
   type TargetsOut,
+  TargetsRejected,
   useSaveTargets,
   useTargets,
 } from "./use-targets";
@@ -28,7 +30,12 @@ const SEXES = [
   { value: "female", label: "Formule féminine" },
 ] as const;
 
+/** Âges acceptés par l'API (ADR 0011). */
+const MIN_AGE = 14;
+const MAX_AGE = 100;
+
 type Field = "kcal" | "protein_g" | "carbs_g" | "fat_g";
+type FormField = "sex" | "birth" | Field;
 
 const FIELDS: readonly { key: Field; label: string; unit: string; min: number; max: number }[] = [
   { key: "kcal", label: "Énergie", unit: "kcal", min: 1000, max: 8000 },
@@ -37,15 +44,50 @@ const FIELDS: readonly { key: Field; label: string; unit: string; min: number; m
   { key: "fat_g", label: "Lipides", unit: "g", min: 0, max: 400 },
 ];
 
+/** Ordre du formulaire : le focus va au premier champ fautif. */
+const ORDER: readonly FormField[] = ["sex", "birth", "kcal", "protein_g", "carbs_g", "fat_g"];
+
+/** Nom des champs de l'API vers ceux du formulaire (refus 422). */
+const API_FIELDS: Readonly<Record<string, FormField>> = {
+  sex: "sex",
+  birth_date: "birth",
+  kcal: "kcal",
+  protein_g: "protein_g",
+  carbs_g: "carbs_g",
+  fat_g: "fat_g",
+};
+
 /** « 3 030 kcal », « 160 g » : un objectif. */
 export function targetText(macros: Macros, key: Field): string {
   const unit = FIELDS.find((f) => f.key === key)?.unit ?? "";
   return `${formatNumber(macros[key])} ${unit}`;
 }
 
+/** Même jour et même mois, `years` ans plus tôt (AAAA-MM-JJ). */
+function yearsBefore(day: string, years: number): string {
+  return `${String(Number(day.slice(0, 4)) - years).padStart(4, "0")}${day.slice(4)}`;
+}
+
+function numericDay(day: string): string {
+  return dayToDate(day).toLocaleDateString("fr-FR");
+}
+
+/** Message d'enregistrement : dit aussi ce qui manque pour calculer. */
+function savedMessage(data: TargetsOut): string {
+  if (data.missing.includes("weight")) {
+    return "Objectifs enregistrés. Pour les calculer, notez une première pesée dans Corps.";
+  }
+  if (data.missing.includes("profile")) {
+    return "Objectifs enregistrés. Pour les calculer, complétez votre taille et votre objectif plus haut.";
+  }
+  return "Objectifs enregistrés.";
+}
+
 function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: string) => void }) {
   const hydrated = useHydrated();
   const save = useSaveTargets();
+  // Formulaire jamais recréé après un enregistrement : le focus reste sur le bouton. Ses valeurs
+  // sont déjà celles que l'API renvoie.
   const inputs = data.inputs;
   const [sex, setSex] = useState<TargetsIn["sex"] | undefined>(inputs?.sex);
   const [birth, setBirth] = useState(inputs?.birth_date ?? "");
@@ -56,11 +98,27 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
     carbs_g: inputs?.carbs_g == null ? "" : String(inputs.carbs_g),
     fat_g: inputs?.fat_g == null ? "" : String(inputs.fat_g),
   });
-  const [invalid, setInvalid] = useState<string[]>([]);
+  const [invalid, setInvalid] = useState<FormField[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
+  const today = localDay();
+  const latestBirth = yearsBefore(today, MIN_AGE);
+  const earliestBirth = yearsBefore(today, MAX_AGE);
+  const detail = ACTIVITIES.find((a) => a.value === activity)?.detail;
 
-  function focus(selector: string) {
+  function showFaults(faults: FormField[]) {
+    flushSync(() => {
+      setInvalid(faults);
+    });
+    const first = ORDER.find((field) => faults.includes(field));
+    if (!first) return;
+    const selector = first === "sex" ? "[data-field=sex] input" : `input[name=${first}]`;
     formRef.current?.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  function birthError(): string | undefined {
+    if (!invalid.includes("birth")) return undefined;
+    if (!birth) return "Indiquez votre date de naissance.";
+    return `Date de naissance du ${numericDay(earliestBirth)} au ${numericDay(latestBirth)}.`;
   }
 
   return (
@@ -74,9 +132,9 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
         if (save.isPending) return;
         save.reset();
         onSaved("");
-        const faults: string[] = [];
+        const faults: FormField[] = [];
         if (!sex) faults.push("sex");
-        if (!birth) faults.push("birth");
+        if (!birth || birth < earliestBirth || birth > latestBirth) faults.push("birth");
         const values: Partial<Record<Field, number | null>> = {};
         for (const { key, min, max } of FIELDS) {
           const text = manual[key].trim();
@@ -88,14 +146,8 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
           if (!Number.isInteger(value) || value < min || value > max) faults.push(key);
           else values[key] = value;
         }
-        flushSync(() => {
-          setInvalid(faults);
-        });
-        const [first] = faults;
-        if (first || !sex) {
-          focus(first === "sex" || !first ? "[data-field=sex] input" : `input[name=${first}]`);
-          return;
-        }
+        showFaults(faults);
+        if (faults.length > 0 || !sex) return;
         save.mutate(
           {
             sex,
@@ -107,8 +159,13 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
             fat_g: values.fat_g ?? null,
           },
           {
-            onSuccess: () => {
-              onSaved("Objectifs enregistrés.");
+            onSuccess: (saved) => {
+              onSaved(savedMessage(saved));
+            },
+            onError: (error) => {
+              if (!(error instanceof TargetsRejected)) return;
+              const fields = error.fields.flatMap((name) => API_FIELDS[name] ?? []);
+              if (fields.length > 0) showFaults(fields);
             },
           },
         );
@@ -121,25 +178,19 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
           value={sex}
           onChange={setSex}
           layout="row"
+          hint="La formule de Mifflin-St Jeor prévoit une constante pour chacune : choisissez celle qui vous correspond le mieux."
+          error={invalid.includes("sex") ? "Choisissez une formule de calcul." : undefined}
         />
       </div>
-      <p className="text-ink-muted -mt-2 text-sm">
-        La formule de Mifflin-St Jeor prévoit une constante pour chacune : choisissez celle qui vous
-        correspond le mieux.
-      </p>
-      {invalid.includes("sex") && (
-        <p role="alert" className="text-danger text-sm font-semibold">
-          Choisissez une formule de calcul.
-        </p>
-      )}
       <TextField
         label="Date de naissance"
         name="birth"
         type="date"
         autoComplete="bday"
+        min={earliestBirth}
+        max={latestBirth}
         value={birth}
-        error={invalid.includes("birth") ? "Indiquez votre date de naissance." : undefined}
-        announceError
+        error={birthError()}
         onChange={(event) => {
           setBirth(event.target.value);
         }}
@@ -147,6 +198,7 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
       <SelectField
         label="Niveau d’activité"
         value={activity}
+        hint={detail}
         onChange={(event) => {
           const chosen = ACTIVITIES.find((a) => a.value === event.target.value);
           if (chosen) setActivity(chosen.value);
@@ -158,10 +210,12 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
           </option>
         ))}
       </SelectField>
-      <fieldset className="flex flex-col gap-3">
+      <fieldset aria-describedby="targets-manual-hint" className="flex flex-col gap-3">
         <legend className="mb-1 font-semibold">Objectifs à la main (facultatif)</legend>
-        <p className="text-ink-muted -mt-1 text-sm">Laissez vide pour garder la valeur calculée.</p>
-        <div className="grid grid-cols-2 gap-3">
+        <p id="targets-manual-hint" className="text-ink-muted -mt-1 text-sm">
+          Laissez vide pour garder la valeur calculée.
+        </p>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
           {FIELDS.map(({ key, label, unit, min, max }) => (
             <TextField
               key={key}
@@ -176,7 +230,6 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
                   ? `Nombre entier de ${formatNumber(min)} à ${formatNumber(max)}.`
                   : undefined
               }
-              announceError
               onChange={(event) => {
                 const text = event.target.value;
                 setManual((current) => ({ ...current, [key]: text }));
@@ -212,7 +265,6 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
 export function NutritionTargets() {
   const targets = useTargets();
   const data = targets.data;
-  // Hors du formulaire : celui-ci est recréé quand les données enregistrées changent.
   const [notice, setNotice] = useState("");
   const chosen = data?.targets;
 
@@ -245,7 +297,7 @@ export function NutritionTargets() {
           {chosen && (
             <div className="flex flex-col gap-2">
               <h3 className="text-ink-muted text-sm font-semibold">Objectifs retenus</h3>
-              <dl className="grid grid-cols-2 gap-3 tabular-nums">
+              <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3 tabular-nums">
                 {FIELDS.map(({ key, label }) => (
                   <div key={key} className="rounded-control bg-surface flex flex-col gap-1 p-3">
                     <dt className="text-ink-muted text-sm">{label}</dt>
@@ -266,10 +318,10 @@ export function NutritionTargets() {
           )}
           {data.configured && data.missing.includes("profile") && (
             <p className="text-ink-muted">
-              Pour calculer, complétez d’abord votre taille et votre objectif.
+              Pour calculer, complétez votre taille et votre objectif plus haut.
             </p>
           )}
-          <TargetsForm key={JSON.stringify(data.inputs)} data={data} onSaved={setNotice} />
+          <TargetsForm data={data} onSaved={setNotice} />
           <p aria-live="polite" className="text-ink-muted empty:sr-only">
             {notice}
           </p>

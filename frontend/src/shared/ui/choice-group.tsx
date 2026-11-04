@@ -13,6 +13,10 @@ export interface ChoiceGroupProps<T extends string | number> {
   onChange: (value: T) => void;
   /** `row` : segments côte à côte (libellés courts) ; `column` : une option par ligne. */
   layout?: "row" | "column";
+  /** Aide sous les options, lue avec chaque option (`aria-describedby`). */
+  hint?: string;
+  /** Erreur sous les options, lue avec chaque option (`aria-invalid` n'existe pas pour une radio). */
+  error?: string;
 }
 
 /**
@@ -27,9 +31,14 @@ export function ChoiceGroup<T extends string | number>({
   value,
   onChange,
   layout = "row",
+  hint,
+  error,
 }: ChoiceGroupProps<T>) {
   const column = layout === "column";
   const name = useId();
+  const hintId = hint ? `${name}-aide` : undefined;
+  const errorId = error ? `${name}-erreur` : undefined;
+  const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
   return (
     <fieldset className="m-0 border-0 p-0">
@@ -45,6 +54,7 @@ export function ChoiceGroup<T extends string | number>({
                 type="radio"
                 name={name}
                 className="peer sr-only"
+                aria-describedby={describedBy}
                 checked={option.value === value}
                 onChange={() => {
                   onChange(option.value);
@@ -67,6 +77,16 @@ export function ChoiceGroup<T extends string | number>({
           );
         })}
       </div>
+      {hint && (
+        <p id={hintId} className="text-ink-muted mt-2 text-sm">
+          {hint}
+        </p>
+      )}
+      {error && (
+        <p id={errorId} className="text-danger mt-2 text-sm font-semibold">
+          {error}
+        </p>
+      )}
     </fieldset>
   );
 }

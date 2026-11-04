@@ -280,10 +280,12 @@ export function FoodJournal() {
               ).map(([label, value, goal]) => (
                 <div key={label} className="rounded-control bg-surface flex flex-col gap-1 p-3">
                   <dt className="text-ink-muted text-sm">{label}</dt>
-                  <dd className="text-[17px] font-bold">{grams(value)}</dd>
-                  {goal !== undefined && (
-                    <dd className="text-ink-muted text-sm">{`sur ${grams(goal)}`}</dd>
-                  )}
+                  <dd className="text-[17px] font-bold">
+                    {grams(value)}
+                    {goal !== undefined && (
+                      <span className="text-ink-muted text-sm font-normal">{` sur ${grams(goal)}`}</span>
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>

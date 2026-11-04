@@ -58,6 +58,8 @@ describe("NutritionTargets", () => {
     await user.click(screen.getByRole("button", { name: "Activer mes objectifs" }));
 
     expect(await screen.findByText("Objectifs enregistrés.")).toBeVisible();
+    // Le formulaire n'est pas recréé : le focus reste sur le bouton.
+    expect(screen.getByRole("button", { name: "Enregistrer les objectifs" })).toHaveFocus();
     expect(sent()).toEqual({
       sex: "male",
       birth_date: "1996-11-04",
@@ -102,7 +104,9 @@ describe("NutritionTargets", () => {
     await user.click(screen.getByRole("button", { name: "Activer mes objectifs" }));
 
     expect(screen.getByText("Choisissez une formule de calcul.")).toBeVisible();
-    expect(screen.getByRole("radio", { name: "Formule masculine" })).toHaveFocus();
+    const radio = screen.getByRole("radio", { name: "Formule masculine" });
+    expect(radio).toHaveFocus();
+    expect(radio).toHaveAccessibleDescription(/Choisissez une formule de calcul\.$/);
     expect(screen.getByRole("textbox", { name: "Protéines (g)" })).toHaveAccessibleDescription(
       "Nombre entier de 0 à 500.",
     );
@@ -121,6 +125,73 @@ describe("NutritionTargets", () => {
 
     expect(await screen.findByText(/^Pour calculer, notez une première pesée/)).toBeVisible();
     expect(screen.getByRole("link", { name: "Corps" })).toHaveAttribute("href", "/corps");
+  });
+});
+
+describe("NutritionTargets, refus et manques", () => {
+  it("refuse une date de naissance hors de l'âge accepté", async () => {
+    const sent = targetsApi(NOT_CONFIGURED);
+    const user = userEvent.setup();
+    renderWithQuery(<NutritionTargets />);
+
+    await user.click(await screen.findByText("Formule féminine"));
+    await user.type(screen.getByLabelText("Date de naissance"), "2024-01-01");
+    await user.click(screen.getByRole("button", { name: "Activer mes objectifs" }));
+
+    const birth = screen.getByLabelText("Date de naissance");
+    expect(birth).toHaveFocus();
+    expect(birth).toHaveAccessibleDescription(/^Date de naissance du .* au .*\.$/);
+    expect(sent()).toBeUndefined();
+  });
+
+  it("rattache un refus de l'API au champ désigné", async () => {
+    targetsApi(NOT_CONFIGURED);
+    server.use(
+      http.put("*/api/v1/nutrition/targets/", () =>
+        HttpResponse.json(
+          { status: 422, errors: [{ loc: ["birth_date"], type: "out_of_range" }] },
+          { status: 422, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<NutritionTargets />);
+
+    await user.click(await screen.findByText("Formule masculine"));
+    await user.type(screen.getByLabelText("Date de naissance"), "1996-11-04");
+    await user.click(screen.getByRole("button", { name: "Activer mes objectifs" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Date de naissance")).toHaveFocus();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Objectifs non enregistrés.");
+  });
+
+  it("annonce à l'enregistrement qu'une pesée manque", async () => {
+    server.use(
+      http.get("*/api/v1/nutrition/targets/", () => HttpResponse.json(NOT_CONFIGURED)),
+      http.put("*/api/v1/nutrition/targets/", async ({ request }) =>
+        HttpResponse.json({
+          configured: true,
+          inputs: await request.json(),
+          computed: null,
+          targets: null,
+          missing: ["weight"],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<NutritionTargets />);
+
+    await user.click(await screen.findByText("Formule masculine"));
+    await user.type(screen.getByLabelText("Date de naissance"), "1996-11-04");
+    await user.click(screen.getByRole("button", { name: "Activer mes objectifs" }));
+
+    expect(
+      await screen.findByText(
+        "Objectifs enregistrés. Pour les calculer, notez une première pesée dans Corps.",
+      ),
+    ).toBeVisible();
   });
 });
 

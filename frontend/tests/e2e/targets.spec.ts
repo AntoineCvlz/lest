@@ -20,7 +20,7 @@ test("active les objectifs, les calcule après une pesée et les montre au journ
   await page.getByLabel("Date de naissance").fill("1996-11-04");
   await page.getByLabel("Niveau d’activité").selectOption("moderate");
   await page.getByRole("button", { name: "Activer mes objectifs" }).click();
-  await expect(page.getByText("Objectifs enregistrés.")).toBeVisible();
+  await expect(page.getByText(/^Objectifs enregistrés./)).toBeVisible();
   // Pas encore de pesée : rien à calculer, et l'écran le dit.
   await expect(page.getByText(/^Pour calculer, notez une première pesée/)).toBeVisible();
 
@@ -37,6 +37,6 @@ test("active les objectifs, les calcule après une pesée et les montre au journ
 
   await page.goto("/repas");
   await expect(page.getByText(/^sur .*\skcal, reste /)).toBeVisible();
-  await expect(page.getByText(/^sur 160\sg$/)).toBeVisible();
+  await expect(page.getByText(/sur 160\sg$/)).toBeVisible();
   expect(cspViolations).toEqual([]);
 });
