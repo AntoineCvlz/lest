@@ -127,3 +127,9 @@ def export_photos(*, owner: User) -> list[dict[str, Any]]:
         {"id": str(row.id), "date": row.date.isoformat(), "pose": row.pose}
         for row in ProgressPhoto.objects.filter(owner=owner)
     ]
+
+
+def latest_weight(*, owner: User) -> Decimal | None:
+    """Dernière pesée de `owner` en kilos, ou `None` (objectifs nutritionnels, Mifflin-St Jeor)."""
+    row = BodyWeight.objects.filter(owner=owner).order_by("-date").first()
+    return row.weight_kg if row else None

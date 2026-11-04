@@ -779,6 +779,34 @@
         "title": "LastSetsOut",
         "type": "object"
       },
+      "MacrosOut": {
+        "properties": {
+          "carbs_g": {
+            "title": "Carbs G",
+            "type": "integer"
+          },
+          "fat_g": {
+            "title": "Fat G",
+            "type": "integer"
+          },
+          "kcal": {
+            "title": "Kcal",
+            "type": "integer"
+          },
+          "protein_g": {
+            "title": "Protein G",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kcal",
+          "protein_g",
+          "carbs_g",
+          "fat_g"
+        ],
+        "title": "MacrosOut",
+        "type": "object"
+      },
       "MeOut": {
         "properties": {
           "email": {
@@ -1530,6 +1558,234 @@
           "records"
         ],
         "title": "SetOut",
+        "type": "object"
+      },
+      "TargetsIn": {
+        "properties": {
+          "activity": {
+            "enum": [
+              "sedentary",
+              "light",
+              "moderate",
+              "active",
+              "very_active"
+            ],
+            "title": "Activity",
+            "type": "string"
+          },
+          "birth_date": {
+            "format": "date",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "carbs_g": {
+            "anyOf": [
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs G"
+          },
+          "fat_g": {
+            "anyOf": [
+              {
+                "maximum": 400,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat G"
+          },
+          "kcal": {
+            "anyOf": [
+              {
+                "maximum": 8000,
+                "minimum": 1000,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
+          "protein_g": {
+            "anyOf": [
+              {
+                "maximum": 500,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein G"
+          },
+          "sex": {
+            "enum": [
+              "male",
+              "female"
+            ],
+            "title": "Sex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sex",
+          "birth_date",
+          "activity"
+        ],
+        "title": "TargetsIn",
+        "type": "object"
+      },
+      "TargetsInputsOut": {
+        "properties": {
+          "activity": {
+            "enum": [
+              "sedentary",
+              "light",
+              "moderate",
+              "active",
+              "very_active"
+            ],
+            "title": "Activity",
+            "type": "string"
+          },
+          "birth_date": {
+            "format": "date",
+            "title": "Birth Date",
+            "type": "string"
+          },
+          "carbs_g": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs G"
+          },
+          "fat_g": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat G"
+          },
+          "kcal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
+          "protein_g": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein G"
+          },
+          "sex": {
+            "enum": [
+              "male",
+              "female"
+            ],
+            "title": "Sex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sex",
+          "birth_date",
+          "activity",
+          "kcal",
+          "protein_g",
+          "carbs_g",
+          "fat_g"
+        ],
+        "title": "TargetsInputsOut",
+        "type": "object"
+      },
+      "TargetsOut": {
+        "properties": {
+          "computed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MacrosOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "inputs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetsInputsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "items": {
+              "enum": [
+                "profile",
+                "weight"
+              ],
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "targets": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MacrosOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "configured",
+          "inputs",
+          "computed",
+          "targets",
+          "missing"
+        ],
+        "title": "TargetsOut",
         "type": "object"
       },
       "TotalsOut": {
@@ -3253,6 +3509,68 @@
         "summary": "Créer ou modifier son profil",
         "tags": [
           "accounts"
+        ]
+      }
+    },
+    "/api/v1/nutrition/targets/": {
+      "get": {
+        "operationId": "apps_nutrition_api_router_get_targets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Objectifs nutritionnels",
+        "tags": [
+          "nutrition"
+        ]
+      },
+      "put": {
+        "operationId": "apps_nutrition_api_router_write_targets",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TargetsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TargetsOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Activer ou modifier ses objectifs",
+        "tags": [
+          "nutrition"
         ]
       }
     },

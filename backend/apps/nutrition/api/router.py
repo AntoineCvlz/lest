@@ -305,3 +305,71 @@ def remove_entry(request: HttpRequest, entry_id: UUID4) -> Status[None]:
 def write_water(request: HttpRequest, day: date, payload: WaterIn) -> WaterOut:
     water = services.put_water(owner=_limited(request, WRITE_ACTION), day=day, ml=payload.ml)
     return WaterOut(date=water.date, ml=int(water.ml or 0))
+
+
+# --- Objectifs nutritionnels (ADR 0011) -----------------------------------------------------
+
+SexName = Literal["male", "female"]
+ActivityName = Literal["sedentary", "light", "moderate", "active", "very_active"]
+
+
+class TargetsIn(Schema):
+    sex: SexName
+    birth_date: date
+    activity: ActivityName
+    # Objectifs saisis à la main : remplacent la valeur calculée correspondante.
+    kcal: int | None = Field(None, strict=True, ge=1000, le=8000)
+    protein_g: int | None = Field(None, strict=True, ge=0, le=500)
+    carbs_g: int | None = Field(None, strict=True, ge=0, le=1000)
+    fat_g: int | None = Field(None, strict=True, ge=0, le=400)
+
+
+class TargetsInputsOut(Schema):
+    sex: SexName
+    birth_date: date
+    activity: ActivityName
+    kcal: int | None
+    protein_g: int | None
+    carbs_g: int | None
+    fat_g: int | None
+
+
+class MacrosOut(Schema):
+    kcal: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+
+
+class TargetsOut(Schema):
+    configured: bool
+    inputs: TargetsInputsOut | None
+    # Valeurs proposées par le calcul ; `None` s'il manque le profil ou une pesée.
+    computed: MacrosOut | None
+    # Valeurs retenues : saisie manuelle, sinon calcul.
+    targets: MacrosOut | None
+    missing: list[Literal["profile", "weight"]]
+
+
+def _targets_out(view: selectors.TargetsView) -> TargetsOut:
+    return TargetsOut.model_validate(
+        {
+            "configured": view.configured,
+            "inputs": view.inputs,
+            "computed": None if view.computed is None else vars(view.computed),
+            "targets": view.targets,
+            "missing": view.missing,
+        }
+    )
+
+
+@router.get("/nutrition/targets/", response=TargetsOut, summary="Objectifs nutritionnels")
+def get_targets(request: HttpRequest) -> TargetsOut:
+    return _targets_out(selectors.targets_view(owner=request_user(request)))
+
+
+@router.put("/nutrition/targets/", response=TargetsOut, summary="Activer ou modifier ses objectifs")
+def write_targets(request: HttpRequest, payload: TargetsIn) -> TargetsOut:
+    owner = _limited(request, WRITE_ACTION)
+    services.put_targets(owner=owner, values=services.TargetValues(**payload.model_dump()))
+    return _targets_out(selectors.targets_view(owner=owner))

@@ -337,6 +337,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/nutrition/targets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Objectifs nutritionnels */
+        get: operations["apps_nutrition_api_router_get_targets"];
+        /** Activer ou modifier ses objectifs */
+        put: operations["apps_nutrition_api_router_write_targets"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/program-days/{day_id}/": {
         parameters: {
             query?: never;
@@ -833,6 +851,17 @@ export interface components {
             /** Sets */
             sets: components["schemas"]["SetOut"][];
         };
+        /** MacrosOut */
+        MacrosOut: {
+            /** Carbs G */
+            carbs_g: number;
+            /** Fat G */
+            fat_g: number;
+            /** Kcal */
+            kcal: number;
+            /** Protein G */
+            protein_g: number;
+        };
         /** MeOut */
         MeOut: {
             /** Email */
@@ -1172,6 +1201,68 @@ export interface components {
              * Format: uuid
              */
             workout_exercise_id: string;
+        };
+        /** TargetsIn */
+        TargetsIn: {
+            /**
+             * Activity
+             * @enum {string}
+             */
+            activity: "sedentary" | "light" | "moderate" | "active" | "very_active";
+            /**
+             * Birth Date
+             * Format: date
+             */
+            birth_date: string;
+            /** Carbs G */
+            carbs_g?: number | null;
+            /** Fat G */
+            fat_g?: number | null;
+            /** Kcal */
+            kcal?: number | null;
+            /** Protein G */
+            protein_g?: number | null;
+            /**
+             * Sex
+             * @enum {string}
+             */
+            sex: "male" | "female";
+        };
+        /** TargetsInputsOut */
+        TargetsInputsOut: {
+            /**
+             * Activity
+             * @enum {string}
+             */
+            activity: "sedentary" | "light" | "moderate" | "active" | "very_active";
+            /**
+             * Birth Date
+             * Format: date
+             */
+            birth_date: string;
+            /** Carbs G */
+            carbs_g: number | null;
+            /** Fat G */
+            fat_g: number | null;
+            /** Kcal */
+            kcal: number | null;
+            /** Protein G */
+            protein_g: number | null;
+            /**
+             * Sex
+             * @enum {string}
+             */
+            sex: "male" | "female";
+        };
+        /** TargetsOut */
+        TargetsOut: {
+            computed: components["schemas"]["MacrosOut"] | null;
+            /** Configured */
+            configured: boolean;
+            inputs: components["schemas"]["TargetsInputsOut"] | null;
+            /** Missing */
+            missing: ("profile" | "weight")[];
+            targets: components["schemas"]["MacrosOut"] | null;
         };
         /** TotalsOut */
         TotalsOut: {
@@ -2018,6 +2109,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProfileOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_get_targets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetsOut"];
+                };
+            };
+        };
+    };
+    apps_nutrition_api_router_write_targets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TargetsIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetsOut"];
                 };
             };
         };
