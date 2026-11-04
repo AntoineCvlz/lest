@@ -11,7 +11,7 @@ test("crée un programme, une séance type et règle la cible d'un exercice", as
 }, testInfo) => {
   const { email, password } = freshAccount(testInfo, "programme");
   await signUp(page, email, password);
-  await page.getByRole("link", { name: "Séance" }).first().click();
+  await page.getByRole("link", { name: "Séance", exact: true }).first().click();
   await page.getByRole("link", { name: "Mes programmes" }).click();
   await expect(page).toHaveURL("/seance/programmes");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);

@@ -12,10 +12,13 @@ test("démarre une séance, ajoute un exercice, saisit une série et la termine"
   // Compte neuf par projet (mobile, desktop) : une seule séance en cours par compte.
   const { email, password } = freshAccount(testInfo, "seance");
   await signUp(page, email, password);
-  await page.getByRole("link", { name: "Séance" }).click();
+  await page.getByRole("link", { name: "Séance", exact: true }).click();
   await expect(page).toHaveURL("/seance");
   const tabs = page.getByRole("navigation", { name: "Navigation principale" });
-  await expect(tabs.getByRole("link", { name: "Séance" })).toHaveAttribute("aria-current", "page");
+  await expect(tabs.getByRole("link", { name: "Séance", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 
   await page.getByRole("button", { name: "Démarrer une séance" }).click();
   await expect(page.getByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
