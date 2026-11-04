@@ -9,6 +9,7 @@ import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
+import { BarcodeScanner } from "./barcode-scanner";
 import {
   type Food,
   NutritionRequestFailed,
@@ -215,6 +216,12 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
           </ul>
         )}
       </div>
+      <BarcodeScanner
+        onDetected={(code) => {
+          setBarcode(code);
+          lookup.mutate(code, { onSuccess: choose });
+        }}
+      />
       <form
         method="post"
         noValidate
