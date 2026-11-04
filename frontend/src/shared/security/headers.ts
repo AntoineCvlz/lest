@@ -47,8 +47,9 @@ export function buildSecurityHeaders(options: SecurityHeadersOptions): Record<st
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "Cross-Origin-Opener-Policy": "same-origin",
-    // Tout est refusé par défaut ; la caméra (scan code-barres) sera ouverte en Phase 3.
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+    // Tout est refusé, sauf la caméra pour notre seule origine (scan d'un code-barres, ADR 0009) :
+    // jamais pour un cadre ou une origine tierce.
+    "Permissions-Policy": "camera=(self), microphone=(), geolocation=(), payment=(), usb=()",
   };
   if (!options.isDev) {
     headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload";

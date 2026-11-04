@@ -57,7 +57,9 @@ describe("buildSecurityHeaders", () => {
       isDev: false,
     });
 
-    expect(permissions).toContain("camera=()");
+    // Caméra : notre origine seulement (scan d'un code-barres), jamais un cadre tiers.
+    expect(permissions).toContain("camera=(self)");
+    expect(permissions).toContain("microphone=()");
     expect(permissions).toContain("geolocation=()");
   });
 });
