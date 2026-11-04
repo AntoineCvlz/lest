@@ -283,7 +283,7 @@ export function FoodJournal() {
                   <dd className="text-[17px] font-bold">
                     {grams(value)}
                     {goal !== undefined && (
-                      <span className="text-ink-muted text-sm font-normal">{` sur ${grams(goal)}`}</span>
+                      <span className="text-ink-muted block text-sm font-normal">{` sur ${grams(goal)}`}</span>
                     )}
                   </dd>
                 </div>

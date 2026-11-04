@@ -43,6 +43,9 @@ seed:
     docker compose exec -e LEST_USER_PASSWORD api python manage.py seed_demo
     docker compose exec api sh -c "python manage.py shell -c 'import sys; from apps.training.models import Exercise; sys.exit(0 if Exercise.objects.exists() else 1)' || python manage.py import_exercises"
     docker compose exec api python manage.py seed_training
+    docker compose exec api python manage.py seed_body
+    docker compose exec api sh -c "python manage.py shell -c 'import sys; from apps.nutrition.models import Food, FoodSource; sys.exit(0 if Food.objects.filter(source=FoodSource.CIQUAL).exists() else 1)' || python manage.py import_foods"
+    docker compose exec api python manage.py seed_nutrition
 
 # Applique les migrations
 migrate:

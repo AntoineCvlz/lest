@@ -5,12 +5,14 @@ lieu de les dupliquer, grâce aux écritures idempotentes (ADR 0003). Les charge
 d'une semaine à l'autre, avec quelques séances moins bonnes, comme un vrai carnet.
 """
 
-import hashlib
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo
+
+from common.demo import draw as _draw
+from common.demo import stable_id as _id
 
 WEEKS = 8
 # Lundi, mercredi, vendredi à 18 h, heure de Paris.
@@ -130,18 +132,6 @@ class PlannedWorkout:
     started_at: datetime
     ended_at: datetime
     exercises: tuple[PlannedExercise, ...]
-
-
-def _id(*parts: object) -> UUID:
-    """Identifiant stable, au format v4 : l'API n'accepte que celui-là en retour (ADR 0003),
-    l'app peut donc modifier les données de démo comme les autres."""
-    digest = hashlib.sha256("/".join(("lest-demo", *map(str, parts))).encode()).digest()
-    return UUID(bytes=digest[:16], version=4)
-
-
-def _draw(*parts: object) -> float:
-    """Tirage déterministe dans [0, 1) : même entrée, même valeur, d'un seed à l'autre."""
-    return _id("tirage", *parts).int / 2**128
 
 
 def _round(weight: Decimal, step: Decimal) -> Decimal:
