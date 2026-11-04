@@ -159,3 +159,40 @@ class WaterIntake(models.Model):
 
     def __str__(self) -> str:
         return f"Eau du {self.date.isoformat()}"
+
+
+class TargetSex(models.TextChoices):
+    """Sexe retenu pour la formule de Mifflin-St Jeor (seule donnée qu'elle demande)."""
+
+    MALE = "male", "Formule masculine"
+    FEMALE = "female", "Formule féminine"
+
+
+class Activity(models.TextChoices):
+    SEDENTARY = "sedentary", "Sédentaire"
+    LIGHT = "light", "Peu actif"
+    MODERATE = "moderate", "Actif"
+    ACTIVE = "active", "Très actif"
+    VERY_ACTIVE = "very_active", "Extrêmement actif"
+
+
+class NutritionTarget(models.Model):
+    """Objectifs nutritionnels d'un compte (ADR 0011) : données du calcul et objectifs saisis à
+    la main, tous chiffrés. Créé seulement quand l'utilisateur active ses objectifs."""
+
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="nutrition_target"
+    )
+    sex = EncryptedTextField()
+    # Date ISO (`AAAA-MM-JJ`), chiffrée comme texte.
+    birth_date = EncryptedTextField()
+    activity = EncryptedTextField()
+    # Objectifs saisis à la main ; `None` : la valeur calculée s'applique.
+    kcal = EncryptedDecimalField(decimal_places=0, null=True)
+    protein_g = EncryptedDecimalField(decimal_places=0, null=True)
+    carbs_g = EncryptedDecimalField(decimal_places=0, null=True)
+    fat_g = EncryptedDecimalField(decimal_places=0, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return "Objectifs nutritionnels"

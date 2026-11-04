@@ -17,16 +17,19 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.services import lock_account
-from apps.nutrition import openfoodfacts
+from apps.nutrition import openfoodfacts, targets
 from apps.nutrition.ciqual import CiqualFood
 from apps.nutrition.models import (
     MAX_ENTRIES_PER_DAY,
     MAX_ENTRY_GRAMS,
     MAX_WATER_ML,
+    Activity,
     Food,
     FoodSource,
     JournalEntry,
     Meal,
+    NutritionTarget,
+    TargetSex,
     WaterIntake,
 )
 
@@ -390,3 +393,62 @@ def put_water(*, owner: User, day: date, ml: int) -> WaterIntake:
             owner=owner, date=day, defaults={"ml": Decimal(ml)}
         )
     return water
+
+
+# --- Objectifs nutritionnels (ADR 0011) -----------------------------------------------------
+
+# Bornes des objectifs saisis à la main, et âge accepté pour le calcul.
+MANUAL_BOUNDS = {
+    "kcal": (1000, 8000),
+    "protein_g": (0, 500),
+    "carbs_g": (0, 1000),
+    "fat_g": (0, 400),
+}
+MIN_AGE, MAX_AGE = 14, 100
+
+
+@dataclass(frozen=True)
+class TargetValues:
+    sex: str
+    birth_date: date
+    activity: str
+    kcal: int | None
+    protein_g: int | None
+    carbs_g: int | None
+    fat_g: int | None
+
+
+def put_targets(*, owner: User, values: TargetValues) -> NutritionTarget:
+    """Active ou met à jour les objectifs de `owner` (idempotent). Lève `ValidationError` pour un
+    sexe, une activité, un âge ou un objectif saisi hors bornes (champs et codes seulement)."""
+    if values.sex not in TargetSex.values:
+        raise ValidationError({"sex": ValidationError("Valeur inconnue.", code="invalid_choice")})
+    if values.activity not in Activity.values:
+        raise ValidationError(
+            {"activity": ValidationError("Valeur inconnue.", code="invalid_choice")}
+        )
+    today = timezone.localdate()
+    if values.birth_date > today or not MIN_AGE <= targets.age(values.birth_date, today) <= MAX_AGE:
+        raise ValidationError(
+            {"birth_date": ValidationError("Date hors plage.", code="out_of_range")}
+        )
+    for field, (low, high) in MANUAL_BOUNDS.items():
+        value = getattr(values, field)
+        if value is not None and not low <= value <= high:
+            raise ValidationError({field: ValidationError("Hors plage.", code="out_of_range")})
+    with transaction.atomic():
+        target, _ = NutritionTarget.objects.update_or_create(
+            owner=owner,
+            defaults={
+                "sex": values.sex,
+                "birth_date": values.birth_date.isoformat(),
+                "activity": values.activity,
+                **{
+                    field: None
+                    if getattr(values, field) is None
+                    else Decimal(getattr(values, field))
+                    for field in MANUAL_BOUNDS
+                },
+            },
+        )
+    return target

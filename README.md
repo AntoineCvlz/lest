@@ -58,6 +58,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0008 — photos de progression chiffrées sur un volume privé](docs/adr/0008-photos-de-progression.md)
 - [ADR 0009 — aliments : Ciqual en local, Open Food Facts au scan du code-barres](docs/adr/0009-aliments-ciqual-open-food-facts.md)
 - [ADR 0010 — journal alimentaire chiffré, aliment recopié à la saisie](docs/adr/0010-journal-alimentaire-chiffre.md)
+- [ADR 0011 — objectifs nutritionnels calculés et modifiables, données chiffrées](docs/adr/0011-objectifs-nutritionnels.md)
 
 ## Qualité et sécurité
 
