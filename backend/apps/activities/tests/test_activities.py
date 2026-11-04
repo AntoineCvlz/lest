@@ -271,6 +271,9 @@ def test_the_api_writes_reads_and_deletes() -> None:
         {**BODY, "feeling": 9},
         {**BODY, "sport": "yoga", "distance_m": 500},
         {**BODY, "metrics": {"laps": 3}},
+        {**BODY, "metrics": {"elevation_gain_m": True}},
+        {**BODY, "metrics": {"elevation_gain_m": "12"}},
+        {**BODY, "metrics": {"elevation_gain_m": 1.5}},
         {**BODY, "metrics": {f"m{i}": 1 for i in range(11)}},
     ],
 )

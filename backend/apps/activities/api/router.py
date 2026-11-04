@@ -12,7 +12,7 @@ from typing import Literal
 from allauth.core import ratelimit
 from django.http import Http404, HttpRequest
 from ninja import Field, Query, Router, Schema, Status
-from pydantic import UUID4
+from pydantic import UUID4, StrictInt
 
 from apps.accounts.models import User
 from apps.activities import selectors, services
@@ -81,7 +81,8 @@ class ActivityIn(Schema):
         default=None, ge=MIN_HEART_RATE, le=MAX_HEART_RATE, strict=True
     )
     feeling: int | None = Field(default=None, ge=MIN_FEELING, le=MAX_FEELING, strict=True)
-    metrics: dict[str, int] = Field(default_factory=dict, max_length=MAX_METRICS)
+    # Strict : `true` ou « 12 » ne passent pas pour un entier.
+    metrics: dict[str, StrictInt] = Field(default_factory=dict, max_length=MAX_METRICS)
 
 
 class ActivityOut(Schema):
