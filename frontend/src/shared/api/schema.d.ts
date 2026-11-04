@@ -809,6 +809,8 @@ export interface components {
             serving_g: number | null;
             /** Source */
             source: string;
+            /** Source Url */
+            source_url: string | null;
         };
         /** FoodQuery */
         FoodQuery: {

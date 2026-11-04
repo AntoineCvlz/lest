@@ -25,6 +25,31 @@ export const NO_RESULT = "Aucun aliment trouvé. Essayez un mot plus court, ou s
 export const SEARCH_UNAVAILABLE = "Recherche indisponible pour le moment.";
 
 /** « Nutella, Ferrero » : nom et marque d'un aliment. */
+/** Mention exigée par la licence de la source de l'aliment (ADR 0009). */
+export function FoodCredit({ food }: { food: Food }) {
+  if (food.source === "ciqual") {
+    return (
+      <p className="text-ink-muted -mt-2 text-sm">
+        Table Ciqual 2025, Anses, Licence Ouverte Etalab 2.0.
+      </p>
+    );
+  }
+  if (food.source === "off" && food.source_url) {
+    return (
+      <p className="text-ink-muted -mt-2 text-sm">
+        <a
+          href={food.source_url}
+          rel="noopener noreferrer"
+          className="text-ink inline-flex min-h-11 items-center underline underline-offset-4"
+        >
+          Données Open Food Facts, sous licence ODbL
+        </a>
+      </p>
+    );
+  }
+  return null;
+}
+
 export function foodLabel(food: Food): string {
   return food.brand ? `${food.name}, ${food.brand}` : food.name;
 }
@@ -117,6 +142,7 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
             {`${formatNumber(chosen.kcal_100g)} kcal pour 100 g`}
           </span>
         </p>
+        <FoodCredit food={chosen} />
         <form
           method="post"
           noValidate

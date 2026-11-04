@@ -25,7 +25,7 @@ function External({
   );
 }
 
-/** Crédits exigés par les licences des données d'exercices (ADR 0006). Page publique. */
+/** Crédits exigés par les licences des données d'exercices et d'aliments (ADR 0006, 0009). Page publique. */
 export default function SourcesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pt-8 pb-10 sm:pt-16">
@@ -49,6 +49,33 @@ export default function SourcesPage() {
         </p>
         <p className="text-ink-muted">
           Ces données ne sont ni redistribuées ni réutilisées hors de l’application.
+        </p>
+      </section>
+      <section aria-labelledby="aliments" className="flex flex-col gap-3">
+        <h2 id="aliments" className="text-xl font-bold">
+          Aliments
+        </h2>
+        <p>
+          Les aliments génériques et leurs valeurs nutritionnelles viennent de la table de
+          composition nutritionnelle Ciqual de l’Anses, version 2025, réutilisée selon la Licence
+          Ouverte Etalab 2.0. Lest l’importe chaque mois et n’en garde que l’énergie, les protéines,
+          les glucides et les lipides.
+        </p>
+        <p>
+          <External href="https://doi.org/10.57745/RDMHWY">
+            Anses, table Ciqual 2025 (doi:10.57745/RDMHWY)
+          </External>
+        </p>
+        <p>
+          Les produits scannés viennent d’Open Food Facts, base collaborative sous licence Open
+          Database License (ODbL) ; chaque fiche renvoie au produit sur le site. Lest garde une
+          copie des produits scannés, sans les modifier, disponible sous la même licence sur
+          demande.
+        </p>
+        <p>
+          <External href="https://world.openfoodfacts.org">
+            Données Open Food Facts (openfoodfacts.org), licence ODbL
+          </External>
         </p>
       </section>
       <section aria-labelledby="application" className="flex flex-col gap-3">

@@ -46,7 +46,7 @@ test("cherche un exercice sans accents et filtre le catalogue", async ({
   expect(cspViolations).toEqual([]);
 });
 
-test("la page des sources crédite RepDB comme sa licence l'exige", async ({
+test("la page des sources crédite RepDB, Ciqual et Open Food Facts comme leurs licences l'exigent", async ({
   page,
   makeAxeBuilder,
 }) => {
@@ -55,5 +55,9 @@ test("la page des sources crédite RepDB comme sa licence l'exige", async ({
   await expect(
     page.getByRole("link", { name: "Exercise data by RepDB (repdb.co)" }),
   ).toHaveAttribute("href", "https://repdb.co");
+  await expect(page.getByText(/Licence\s+Ouverte Etalab 2\.0/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Données Open Food Facts (openfoodfacts.org), licence ODbL" }),
+  ).toHaveAttribute("href", "https://world.openfoodfacts.org");
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 });

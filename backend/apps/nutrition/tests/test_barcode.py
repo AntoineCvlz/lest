@@ -274,6 +274,8 @@ def test_the_barcode_route_returns_the_food(monkeypatch: pytest.MonkeyPatch) -> 
         "Marque témoin",
         40.0,
     )
+    # Mention exigée par l'ODbL : lien vers la fiche publique du produit.
+    assert body["source_url"] == f"https://world.openfoodfacts.org/product/{CODE}"
 
 
 @override_settings(ACCOUNT_RATE_LIMITS={"food_lookup": "1/m/user"})

@@ -661,6 +661,17 @@
           "source": {
             "title": "Source",
             "type": "string"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
           }
         },
         "required": [
@@ -673,7 +684,8 @@
           "carbs_100g",
           "fat_100g",
           "serving_g",
-          "is_custom"
+          "is_custom",
+          "source_url"
         ],
         "title": "FoodOut",
         "type": "object"
