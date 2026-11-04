@@ -1,6 +1,7 @@
 """Activités (ADR 0012) : catalogue de sports, valeurs validées et chiffrées, écritures
 idempotentes, lecture par période, isolation entre comptes, RGPD."""
 
+import json
 from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, get_args
@@ -21,6 +22,7 @@ from apps.activities import selectors, services
 from apps.activities.api.router import SportKey
 from apps.activities.models import MAX_ACTIVITIES_PER_DAY, Activity
 from apps.activities.sports import SPORTS
+from common import crypto
 
 pytestmark = pytest.mark.django_db
 
@@ -170,7 +172,9 @@ def test_values_are_encrypted_at_rest() -> None:
 
     assert row is not None
     assert all(value.startswith("gAAAA") for value in row)
-    assert not any("1800" in value or "151" in value or "321" in value for value in row)
+    # Déterministe : un jeton base64 peut contenir « 151 » par hasard, on compare donc en clair.
+    duration, heart_rate, metrics = (crypto.decrypt(value).rstrip(chr(0)) for value in row)
+    assert (duration, heart_rate, json.loads(metrics)) == ("1800", "151", {"elevation_gain_m": 321})
 
 
 def test_the_sport_must_belong_to_the_catalog_in_the_database() -> None:

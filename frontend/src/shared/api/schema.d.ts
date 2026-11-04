@@ -284,6 +284,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insights/dashboard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tableau de bord */
+        get: operations["apps_insights_api_router_dashboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/journal-entries/{entry_id}/": {
         parameters: {
             query?: never;
@@ -704,6 +721,35 @@ export interface components {
              */
             sport: "running" | "cycling" | "swimming" | "walking" | "hiking" | "rowing" | "cardio" | "team_sport" | "racket" | "combat" | "climbing" | "yoga" | "other";
         };
+        /** ActivityWeekOut */
+        ActivityWeekOut: {
+            /** Activities */
+            activities: number;
+            /** Activity Duration S */
+            activity_duration_s: number;
+            /** Distance M */
+            distance_m: number;
+            /**
+             * Week
+             * Format: date
+             */
+            week: string;
+            /** Workout Duration S */
+            workout_duration_s: number;
+            /** Workouts */
+            workouts: number;
+        };
+        /** AdherenceOut */
+        AdherenceOut: {
+            /** Days */
+            days: number;
+            /** Kcal Days */
+            kcal_days: number;
+            /** Logged Days */
+            logged_days: number;
+            /** Protein Days */
+            protein_days: number;
+        };
         /** CustomFoodIn */
         CustomFoodIn: {
             /**
@@ -723,6 +769,15 @@ export interface components {
             protein_100g?: number | string | null;
             /** Serving G */
             serving_g?: number | string | null;
+        };
+        /** DashboardOut */
+        DashboardOut: {
+            /** Muscles */
+            muscles: components["schemas"]["MuscleWeekOut"][];
+            nutrition: components["schemas"]["NutritionInsightOut"];
+            /** Weeks */
+            weeks: components["schemas"]["ActivityWeekOut"][];
+            weight: components["schemas"]["WeightInsightOut"];
         };
         /** DayOut */
         DayOut: {
@@ -1014,12 +1069,44 @@ export interface components {
             /** Unit */
             unit: string;
         };
+        /** MuscleWeekOut */
+        MuscleWeekOut: {
+            /** Muscle */
+            muscle: string;
+            /** Sets */
+            sets: number;
+            /** Volume Kg */
+            volume_kg: number;
+            /**
+             * Week
+             * Format: date
+             */
+            week: string;
+        };
         /** NamedOut */
         NamedOut: {
             /** Id */
             id: number;
             /** Name */
             name: string;
+        };
+        /** NutritionInsightOut */
+        NutritionInsightOut: {
+            /** Configured */
+            configured: boolean;
+            /** Kcal Target */
+            kcal_target: number | null;
+            last_28: components["schemas"]["AdherenceOut"] | null;
+            last_7: components["schemas"]["AdherenceOut"] | null;
+            /** Protein Target */
+            protein_target: number | null;
+        };
+        /** PaceRangeOut */
+        PaceRangeOut: {
+            /** High Kg */
+            high_kg: number;
+            /** Low Kg */
+            low_kg: number;
         };
         /** Period */
         Period: {
@@ -1430,6 +1517,22 @@ export interface components {
         WeightIn: {
             /** Weight Kg */
             weight_kg: number | string;
+        };
+        /** WeightInsightOut */
+        WeightInsightOut: {
+            /** Change 12W Kg */
+            change_12w_kg: number | null;
+            /** Change 4W Kg */
+            change_4w_kg: number | null;
+            /** Goal */
+            goal: ("gain" | "maintain" | "cut") | null;
+            /** Pace Kg Per Week */
+            pace_kg_per_week: number | null;
+            pace_range: components["schemas"]["PaceRangeOut"] | null;
+            /** Pace Status */
+            pace_status: ("below" | "within" | "above") | null;
+            /** Trend Kg */
+            trend_kg: number | null;
         };
         /** WeightOut */
         WeightOut: {
@@ -2142,6 +2245,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthOut"];
+                };
+            };
+        };
+    };
+    apps_insights_api_router_dashboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
                 };
             };
         };

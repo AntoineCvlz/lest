@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -6,6 +7,7 @@ from uuid import UUID
 from django.db.models import (
     Count,
     DecimalField,
+    DurationField,
     ExpressionWrapper,
     F,
     Prefetch,
@@ -14,7 +16,8 @@ from django.db.models import (
     Sum,
     Value,
 )
-from django.db.models.functions import Coalesce
+from django.db.models.functions import Coalesce, TruncWeek
+from django.utils import timezone
 
 from apps.accounts.models import User
 from common.pagination import Page, paginate
@@ -307,3 +310,98 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
         }
         for workout in workouts.order_by("started_at")
     ]
+
+
+# --- Tableau de bord (ADR 0013) ---------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class WorkoutWeek:
+    """Séances terminées d'une semaine (lundi en heure locale) et leur durée totale."""
+
+    week: date
+    workouts: int
+    duration_s: int
+
+
+@dataclass(frozen=True)
+class MuscleWeek:
+    """Séries de travail d'une semaine pour un muscle principal, et leur volume (poids * reps)."""
+
+    week: date
+    muscle: str
+    sets: int
+    volume_kg: Decimal
+
+
+def _week(value: datetime | date) -> date:
+    """Lundi de la semaine renvoyé par `TruncWeek` (heure locale)."""
+    return timezone.localtime(value).date() if isinstance(value, datetime) else value
+
+
+def _local_bounds(start: date, end: date) -> tuple[datetime, datetime]:
+    zone = timezone.get_current_timezone()
+    return (
+        datetime.combine(start, time.min, tzinfo=zone),
+        datetime.combine(end + timedelta(days=1), time.min, tzinfo=zone),
+    )
+
+
+def weekly_training(
+    *, owner: User, start: date, end: date
+) -> tuple[list[WorkoutWeek], list[MuscleWeek]]:
+    """Séances terminées de `owner` commencées du `start` au `end` (heure locale), par semaine,
+    et volume par muscle principal des séries de travail (CLAUDE.md : échauffement exclu). Un
+    exercice à plusieurs muscles principaux compte pour chacun ; semaines sans rien omises."""
+    since, until = _local_bounds(start, end)
+    finished = Workout.objects.filter(
+        owner=owner, ended_at__isnull=False, started_at__gte=since, started_at__lt=until
+    )
+    zone = timezone.get_current_timezone()
+    # Agrégé en base (séries en clair) : mémoire et requêtes constantes, quel que soit le volume.
+    workout_rows = (
+        finished.annotate(week=TruncWeek("started_at", tzinfo=zone))
+        .values("week")
+        .annotate(
+            count=Count("id"),
+            duration=Sum(
+                ExpressionWrapper(F("ended_at") - F("started_at"), output_field=DurationField())
+            ),
+        )
+    )
+    weeks = {
+        _week(row["week"]): (int(row["count"]), int(row["duration"].total_seconds()))
+        for row in workout_rows
+    }
+    set_rows = (
+        Set.objects.filter(
+            workout_exercise__workout__in=finished,
+            is_warmup=False,
+            workout_exercise__exercise__muscles__isnull=False,
+        )
+        .annotate(week=TruncWeek("workout_exercise__workout__started_at", tzinfo=zone))
+        .values("week", "workout_exercise__exercise__muscles__name")
+        .annotate(
+            sets=Count("id"),
+            volume=Sum(
+                ExpressionWrapper(
+                    F("weight_kg") * F("reps"),
+                    output_field=DecimalField(max_digits=14, decimal_places=2),
+                )
+            ),
+        )
+    )
+    volume = {
+        (_week(row["week"]), str(row["workout_exercise__exercise__muscles__name"])): (
+            int(row["sets"]),
+            Decimal(row["volume"]),
+        )
+        for row in set_rows
+    }
+    return (
+        [WorkoutWeek(week=w, workouts=c, duration_s=d) for w, (c, d) in sorted(weeks.items())],
+        [
+            MuscleWeek(week=w, muscle=m, sets=n, volume_kg=v)
+            for (w, m), (n, v) in sorted(volume.items())
+        ],
+    )

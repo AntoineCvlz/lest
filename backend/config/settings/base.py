@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.body",
     "apps.nutrition",
     "apps.activities",
+    "apps.insights",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
@@ -177,6 +178,8 @@ ACCOUNT_RATE_LIMITS = {
     "food_lookup": "30/m/user",
     # Activités hors musculation (ADR 0012).
     "activities_write": "120/m/user",
+    # Tableau de bord : lecture agrégée, la plus coûteuse des GET (ADR 0013).
+    "insights_read": "60/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
