@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
 import { server } from "@/shared/test/msw-server";
@@ -9,6 +10,7 @@ import {
   Dashboard,
   muscleRows,
   paceText,
+  periodSummary,
   signedWeight,
   weekSummary,
 } from "./dashboard";
@@ -85,6 +87,9 @@ describe("textes du Bilan", () => {
     expect(signedWeight(1.2, "metric")).toBe("+1,2 kg");
     expect(signedWeight(-0.4, "metric")).toBe("−0,4 kg");
     expect(signedWeight(0, "metric")).toBe("0 kg");
+    // En mots : le signe moins peut être tu par un lecteur d'écran.
+    expect(signedWeight(-0.4, "metric", true)).toBe("baisse de 0,4 kg");
+    expect(signedWeight(1.2, "metric", true)).toBe("hausse de 1,2 kg");
   });
 
   it("situe le rythme dans le repère de l'objectif", () => {
@@ -105,6 +110,13 @@ describe("textes du Bilan", () => {
     expect(adherenceText({ days: 7, logged_days: 0, kcal_days: 0, protein_days: 0 })).toBe(
       "Aucun repas noté sur les 7 derniers jours.",
     );
+  });
+
+  it("résume les 8 semaines", () => {
+    expect(periodSummary(DATA.weeks)).toBe(
+      "2 h 30 sur 8 semaines ; semaine la plus active : 2 nov. (2 h 30).",
+    );
+    expect(periodSummary(DATA.weeks.slice(0, 7))).toBe("Aucune activité notée sur 8 semaines.");
   });
 
   it("classe les muscles par séries sur 8 semaines", () => {
@@ -178,6 +190,24 @@ describe("Dashboard", () => {
 
     expect(await screen.findByText(/^174,6\slb$/)).toBeVisible();
     expect(screen.getByText(/3,11\smi/)).toBeVisible();
+  });
+
+  it("rend le focus au contenu après un nouvel essai réussi", async () => {
+    let calls = 0;
+    server.use(
+      http.get("*/api/v1/insights/dashboard/", () => {
+        calls += 1;
+        return calls === 1 ? new HttpResponse(null, { status: 503 }) : HttpResponse.json(DATA);
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<Dashboard />);
+
+    await user.click(await screen.findByRole("button", { name: "Réessayer" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Poids" })).toHaveFocus();
+    });
   });
 
   it("signale un bilan indisponible", async () => {

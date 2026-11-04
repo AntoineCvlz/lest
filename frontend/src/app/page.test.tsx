@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import HomePage from "./page";
+import HomePage, { generateMetadata } from "./page";
 
 const session = { active: false };
 const cookies = () => ({ has: (name: string) => session.active && name === "lest_csrf" });
@@ -34,6 +34,7 @@ describe("HomePage", () => {
     renderWithQuery(await HomePage());
 
     expect(screen.getByRole("heading", { level: 1, name: "Bilan" })).toBeInTheDocument();
+    expect(await generateMetadata()).toEqual({ title: "Bilan" });
     expect(screen.getByRole("link", { name: "Bilan" })).toHaveAttribute("aria-current", "page");
     expect(await screen.findByText("Bilan indisponible pour le moment.")).toBeVisible();
   });

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
 import { SessionPanel } from "@/features/auth/session-panel";
@@ -11,6 +12,10 @@ import { CSRF_COOKIE } from "@/shared/bff/cookies";
  * (déconnexion, purge du cache privé). Sans session : présentation et connexion. L'API reste
  * seule juge : une session expirée affiche « non connecté » dans le compte.
  */
+export async function generateMetadata(): Promise<Metadata> {
+  return (await cookies()).has(CSRF_COOKIE) ? { title: "Bilan" } : {};
+}
+
 export default async function HomePage() {
   const signedIn = (await cookies()).has(CSRF_COOKIE);
 

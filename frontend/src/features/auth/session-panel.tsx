@@ -66,7 +66,8 @@ export function SessionPanel({ shortcuts = true }: { shortcuts?: boolean } = {})
       <h2 id="session-title" className="text-ink-muted text-sm font-semibold">
         Compte
       </h2>
-      <div role="status">
+      {/* Sur le Bilan (sans raccourcis), seule une session perdue est annoncée à chaque visite. */}
+      <div role={shortcuts || !me.data ? "status" : undefined}>
         {me.isPending
           ? "Vérification de la session…"
           : me.data

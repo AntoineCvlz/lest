@@ -1,8 +1,9 @@
 "use client";
 
-import Link from "next/link";
+import { useEffect, useRef } from "react";
 
 import { durationText } from "@/features/activities/activity-journal";
+import { TextLink } from "@/features/auth/text-link";
 import { bodyWeightText } from "@/features/body/weight-chart";
 import { useProfile } from "@/features/profile/use-profile";
 import { shortDay } from "@/shared/lib/days";
@@ -26,7 +27,13 @@ type Adherence = NonNullable<DashboardData["nutrition"]["last_7"]>;
 type MuscleWeek = DashboardData["muscles"][number];
 
 const NBSP = " ";
-const LINK = "text-ink font-semibold underline underline-offset-4";
+// Cellule vide : un tiret à l'écran, un mot pour les lecteurs d'écran.
+const NONE = (
+  <>
+    <span aria-hidden="true">—</span>
+    <span className="sr-only">aucune</span>
+  </>
+);
 const SECTION = "border-line-subtle flex flex-col gap-4 border-t pt-6";
 const TITLE = "text-xl font-extrabold [font-stretch:112%]";
 
@@ -37,37 +44,49 @@ const STATUS = {
   above: "au-dessus du repère",
 } as const;
 
-/** « +1,2 kg » ou « −0,4 kg » : une variation de poids, signe compris. */
-export function signedWeight(kilograms: number, system: UnitSystem): string {
+/** « +1,2 kg » ou « −0,4 kg » : une variation de poids, signe compris. `spoken` : en mots
+ * (« hausse de 1,2 kg »), le signe moins pouvant être tu par un lecteur d'écran. */
+export function signedWeight(kilograms: number, system: UnitSystem, spoken = false): string {
   const value = Math.round(kilogramsToDisplay(Math.abs(kilograms), system) * 10) / 10;
-  const sign = value === 0 ? "" : kilograms > 0 ? "+" : "−";
-  return `${sign}${formatNumber(value)}${NBSP}${WEIGHT_UNITS[system].symbol}`;
+  const amount = `${formatNumber(value)}${NBSP}${WEIGHT_UNITS[system].symbol}`;
+  if (value === 0) return spoken ? `stable, ${amount}` : amount;
+  if (spoken) return `${kilograms > 0 ? "hausse" : "baisse"} de ${amount}`;
+  return `${kilograms > 0 ? "+" : "−"}${amount}`;
+}
+
+/** Texte visible, doublé de sa version en mots pour les lecteurs d'écran. */
+function Spoken({ shown, spoken }: { shown: string; spoken: string }) {
+  return (
+    <>
+      <span aria-hidden="true">{shown}</span>
+      <span className="sr-only">{spoken}</span>
+    </>
+  );
 }
 
 /** Phrase sur le rythme : « +0,3 kg par semaine sur 4 semaines, dans le repère de la prise de
  * masse (+0,1 à +0,5 kg). » */
-export function paceText(weight: Weight, system: UnitSystem): string | null {
+export function paceText(weight: Weight, system: UnitSystem, spoken = false): string | null {
   if (weight.pace_kg_per_week === null) return null;
-  const pace = `${signedWeight(weight.pace_kg_per_week, system)} par semaine sur 4${NBSP}semaines`;
+  const pace = `${signedWeight(weight.pace_kg_per_week, system, spoken)} par semaine sur 4${NBSP}semaines`;
   if (!weight.goal || !weight.pace_range || !weight.pace_status) return `${pace}.`;
-  const range = `${signedWeight(weight.pace_range.low_kg, system)} à ${signedWeight(weight.pace_range.high_kg, system)}`;
+  const range = `${signedWeight(weight.pace_range.low_kg, system, spoken)} à ${signedWeight(weight.pace_range.high_kg, system, spoken)}`;
   return `${pace}, ${STATUS[weight.pace_status]} de la ${GOALS[weight.goal]} (${range}).`;
 }
 
 function WeightBlock({ weight, system }: { weight: Weight; system: UnitSystem }) {
   const pace = paceText(weight, system);
+  const spokenPace = paceText(weight, system, true) ?? "";
   return (
     <section aria-labelledby="weight-title" className={SECTION}>
       <h2 id="weight-title" className={TITLE}>
         Poids
       </h2>
       {weight.trend_kg === null ? (
-        <p className="text-ink-muted">
-          Aucune pesée sur les 12 dernières semaines.{" "}
-          <Link href="/corps" className={LINK}>
-            Noter une pesée
-          </Link>
-        </p>
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-ink-muted">Aucune pesée sur les 12 dernières semaines.</p>
+          <TextLink href="/corps">Noter une pesée</TextLink>
+        </div>
       ) : (
         <>
           <p className="flex flex-col gap-1">
@@ -86,12 +105,23 @@ function WeightBlock({ weight, system }: { weight: Weight; system: UnitSystem })
               <div key={label} className="rounded-control bg-surface flex flex-col gap-1 p-3">
                 <dt className="text-ink-muted text-sm">{label}</dt>
                 <dd className="text-[17px] font-bold">
-                  {change === null ? "Pas assez de pesées" : signedWeight(change, system)}
+                  {change === null ? (
+                    "Pas assez de pesées"
+                  ) : (
+                    <Spoken
+                      shown={signedWeight(change, system)}
+                      spoken={signedWeight(change, system, true)}
+                    />
+                  )}
                 </dd>
               </div>
             ))}
           </dl>
-          {pace && <p>{pace}</p>}
+          {pace && (
+            <p>
+              <Spoken shown={pace} spoken={spokenPace} />
+            </p>
+          )}
           {weight.pace_status && (
             <p className="text-ink-muted text-sm">
               Repère général, pas un avis médical : ajustez selon votre ressenti.
@@ -125,6 +155,14 @@ export function weekSummary(week: Week | undefined): string {
   return `Cette semaine : ${parts.join(" et ")}.`;
 }
 
+/** « 18 h 40 sur 8 semaines ; semaine la plus active : 28 sept. (2 h 52). » */
+export function periodSummary(weeks: readonly Week[]): string {
+  const total = weeks.reduce((sum, w) => sum + activeSeconds(w), 0);
+  if (total === 0) return "Aucune activité notée sur 8 semaines.";
+  const best = weeks.reduce((top, w) => (activeSeconds(w) > activeSeconds(top) ? w : top));
+  return `${durationText(total)} sur 8${NBSP}semaines ; semaine la plus active : ${shortDay(best.week)} (${durationText(activeSeconds(best))}).`;
+}
+
 // Repère du dessin : étiré à la largeur de l'écran, barres en attributs (pas de `style`, CSP).
 const WIDTH = 320;
 const HEIGHT = 120;
@@ -139,7 +177,10 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
         Activité des 8 dernières semaines
       </h2>
       <figure className="flex flex-col gap-3">
-        <figcaption className="text-[17px] font-bold">{weekSummary(weeks.at(-1))}</figcaption>
+        <figcaption className="flex flex-col gap-1">
+          <span className="text-[17px] font-bold">{weekSummary(weeks.at(-1))}</span>
+          <span className="text-ink-muted text-sm">{periodSummary(weeks)}</span>
+        </figcaption>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
           <div
             aria-hidden="true"
@@ -151,6 +192,7 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
           <svg
             role="img"
             aria-label="Temps actif par semaine, détaillé dans le tableau qui suit"
+            aria-describedby="activity-table-caption"
             viewBox={`0 0 ${String(WIDTH)} ${String(HEIGHT)}`}
             preserveAspectRatio="none"
             className="border-line h-32 w-full border-b"
@@ -176,9 +218,12 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
           </div>
         </div>
       </figure>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm tabular-nums">
-          <caption className="text-ink-muted mb-2 text-left text-sm font-semibold">
+      <div>
+        <table className="w-full table-fixed text-left text-sm tabular-nums [overflow-wrap:anywhere]">
+          <caption
+            id="activity-table-caption"
+            className="text-ink-muted mb-2 text-left text-sm font-semibold"
+          >
             Détail par semaine, la plus récente d’abord
           </caption>
           <thead>
@@ -202,12 +247,12 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
                 </th>
                 <td className="py-2 pr-3">
                   {week.workouts === 0
-                    ? "—"
+                    ? NONE
                     : `${String(week.workouts)} ${week.workouts > 1 ? "séances" : "séance"}, ${durationText(week.workout_duration_s)}`}
                 </td>
                 <td className="py-2">
                   {week.activities === 0
-                    ? "—"
+                    ? NONE
                     : `${String(week.activities)} ${week.activities > 1 ? "activités" : "activité"}, ${durationText(week.activity_duration_s)}${
                         week.distance_m > 0
                           ? `, ${formatNumber(metresToDistance(week.distance_m, system))}${NBSP}${unit}`
@@ -239,12 +284,10 @@ function NutritionBlock({ nutrition }: { nutrition: DashboardData["nutrition"] }
         Nutrition
       </h2>
       {!nutrition.configured || !nutrition.last_7 || !nutrition.last_28 ? (
-        <p className="text-ink-muted">
-          Activez vos objectifs pour suivre vos repas.{" "}
-          <Link href="/profil" className={LINK}>
-            Objectifs dans le profil
-          </Link>
-        </p>
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-ink-muted">Activez vos objectifs pour suivre vos repas.</p>
+          <TextLink href="/profil">Objectifs dans le profil</TextLink>
+        </div>
       ) : (
         <>
           <p className="text-ink-muted text-sm tabular-nums">
@@ -311,17 +354,19 @@ function MuscleBlock({
         Volume par muscle
       </h2>
       {rows.length === 0 ? (
-        <p className="text-ink-muted">
-          Aucune série de travail sur les 8 dernières semaines.{" "}
-          <Link href="/seance" className={LINK}>
-            Commencer une séance
-          </Link>
-        </p>
+        <div className="flex flex-col items-start gap-1">
+          <p className="text-ink-muted">Aucune série de travail sur les 8 dernières semaines.</p>
+          <TextLink href="/seance">Commencer une séance</TextLink>
+        </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm tabular-nums">
-            <caption className="text-ink-muted mb-2 text-left text-sm font-semibold">
-              Séries de travail par muscle principal, échauffement exclu
+        <div>
+          <table className="w-full table-fixed text-left text-sm tabular-nums [overflow-wrap:anywhere]">
+            <caption
+              id="muscle-table-caption"
+              className="text-ink-muted mb-2 text-left text-sm font-semibold"
+            >
+              Séries de travail par muscle principal, échauffement exclu ; volume : poids ×
+              répétitions de la semaine
             </caption>
             <thead>
               <tr className="border-line-subtle border-b">
@@ -335,7 +380,7 @@ function MuscleBlock({
                   8 semaines
                 </th>
                 <th scope="col" className="py-2 font-semibold">
-                  Volume de la semaine
+                  Volume
                 </th>
               </tr>
             </thead>
@@ -363,7 +408,7 @@ function MuscleBlock({
                   </td>
                   <td className="py-2">
                     {row.volume === 0
-                      ? "—"
+                      ? NONE
                       : `${formatNumber(Math.round(kilogramsToDisplay(row.volume, system)))}${NBSP}${unit}`}
                   </td>
                 </tr>
@@ -384,31 +429,54 @@ export function Dashboard() {
   const dashboard = useDashboard();
   const profile = useProfile();
   const system = profile.data?.unit_system ?? "metric";
+  const contentRef = useRef<HTMLDivElement>(null);
+  const retried = useRef(false);
+  const loaded = dashboard.isSuccess;
+  useEffect(() => {
+    // Après « Réessayer », le bouton disparaît : le focus va au premier bloc chargé.
+    if (!loaded || !retried.current) return;
+    retried.current = false;
+    const first = contentRef.current?.querySelector<HTMLElement>("h2");
+    first?.setAttribute("tabindex", "-1");
+    first?.focus();
+  }, [loaded]);
   const data = dashboard.data;
 
-  if (dashboard.isPending) return <p className="text-ink-muted">Chargement du bilan…</p>;
+  if (dashboard.isPending) {
+    return (
+      <p role="status" className="text-ink-muted">
+        Chargement du bilan…
+      </p>
+    );
+  }
   if (!data) {
     return (
       <div role="alert" className="flex flex-col items-start gap-3">
         <p className="text-danger font-semibold">{DASHBOARD_UNAVAILABLE}</p>
         <Button
           variant="secondary"
+          aria-disabled={dashboard.isFetching}
           onClick={() => {
+            if (dashboard.isFetching) return;
+            retried.current = true;
             void dashboard.refetch();
           }}
         >
-          Réessayer
+          {dashboard.isFetching ? "Nouvel essai…" : "Réessayer"}
         </Button>
       </div>
     );
   }
   const currentWeek = data.weeks.at(-1)?.week ?? "";
   return (
-    <div className="flex flex-col gap-8">
+    <div ref={contentRef} className="flex flex-col gap-8">
       <WeightBlock weight={data.weight} system={system} />
       <ActivityBlock weeks={data.weeks} system={system} />
       <NutritionBlock nutrition={data.nutrition} />
       <MuscleBlock muscles={data.muscles} currentWeek={currentWeek} system={system} />
+      <TextLink href="/exercices" className="self-start">
+        Catalogue des exercices
+      </TextLink>
     </div>
   );
 }

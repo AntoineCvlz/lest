@@ -26,6 +26,13 @@ describe("AppTabs", () => {
     expect(within(nav).getByRole("link", { name: "Bilan" })).not.toHaveAttribute("aria-current");
   });
 
+  it("rattache le catalogue d'exercices à l'onglet Séance", () => {
+    pathname.mockReturnValue("/exercices/abc");
+    render(<AppTabs />);
+
+    expect(screen.getByRole("link", { name: "Séance" })).toHaveAttribute("aria-current", "page");
+  });
+
   it("signale le Bilan sur l'accueil seulement", () => {
     pathname.mockReturnValue("/");
     render(<AppTabs />);
