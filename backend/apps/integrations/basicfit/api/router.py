@@ -7,7 +7,6 @@ from typing import Literal
 
 from allauth.core import ratelimit
 from django.http import Http404, HttpRequest
-from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
 
 from apps.accounts.models import User
@@ -119,15 +118,20 @@ def disconnect(request: HttpRequest) -> Status[None]:
 )
 def sync_now(request: HttpRequest) -> Status[SyncOut]:
     owner = request_user(request)
-    view = selectors.connection_view(owner=owner)
-    if not view.enabled:
-        raise Http404
-    if view.status != "connected":
-        raise ProblemError(409, "Reliez d'abord votre compte Basic-Fit.", type_=NOT_CONNECTED_TYPE)
-    if view.last_sync_at and timezone.now() - view.last_sync_at < services.SYNC_INTERVAL:
+    if ratelimit.consume_or_429(request, action="basicfit_sync", user=owner) is not None:
+        raise ProblemError(429, "Trop de demandes. Réessayez plus tard.", type_=RATE_LIMITED_TYPE)
+    try:
+        services.request_sync(owner=owner)
+    except services.DisabledError as error:
+        raise Http404 from error
+    except services.NotConnectedError as error:
         raise ProblemError(
-            429, "Synchronisation déjà faite il y a moins d'une heure.", type_=TOO_SOON_TYPE
-        )
+            409, "Reliez d'abord votre compte Basic-Fit.", type_=NOT_CONNECTED_TYPE
+        ) from error
+    except services.TooSoonError as error:
+        raise ProblemError(
+            429, "Synchronisation déjà demandée il y a moins d'une heure.", type_=TOO_SOON_TYPE
+        ) from error
     tasks.sync_account.delay(str(owner.pk))
     return Status(202, SyncOut(queued=True))
 

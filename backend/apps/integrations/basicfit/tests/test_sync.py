@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 from django.core.cache import cache
-from django.test import Client
+from django.test import Client, override_settings
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -83,8 +83,8 @@ def test_later_syncs_reread_a_week_and_never_duplicate() -> None:
     assert Visit.objects.get().club == "Club témoin"
 
 
-def test_at_most_one_sync_per_hour() -> None:
-    user = connected(last_sync_at=timezone.now() - timedelta(minutes=20))
+def test_at_most_one_attempt_per_hour_even_a_failed_one() -> None:
+    user = connected(last_attempt_at=timezone.now() - timedelta(minutes=20))
 
     with pytest.raises(services.TooSoonError) as caught:
         services.sync(owner=user, gateway=FakeGateway())
@@ -92,8 +92,14 @@ def test_at_most_one_sync_per_hour() -> None:
     assert services.due_for_sync() == []
 
 
-def test_refused_tokens_mark_the_connection_expired_and_forget_them() -> None:
+def test_three_refusals_in_a_row_mark_the_connection_expired_and_forget_tokens() -> None:
     user = connected()
+    # Refus ou panne du serveur de jetons (indiscernables) : jetons gardés deux fois.
+    for _ in range(2):
+        with pytest.raises(services.UnavailableError):
+            services.sync(owner=user, gateway=FakeGateway(error=gw.GatewayAuthError()))
+        assert Connection.objects.get().tokens == OLD_TOKENS
+        Connection.objects.update(last_attempt_at=None)
 
     with pytest.raises(services.NotConnectedError):
         services.sync(owner=user, gateway=FakeGateway(error=gw.GatewayAuthError()))
@@ -120,6 +126,60 @@ def test_an_outage_keeps_tokens_rotated_before_it() -> None:
         "unavailable",
         None,
     )
+
+
+def test_a_success_resets_the_refusal_count() -> None:
+    user = connected(auth_failures=2)
+
+    services.sync(owner=user, gateway=FakeGateway())
+
+    assert Connection.objects.get().auth_failures == 0
+
+
+def test_rotated_tokens_survive_a_failure_while_writing_visits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from django.db import DatabaseError
+
+    user = connected()
+
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise DatabaseError
+
+    monkeypatch.setattr(Visit.objects, "update_or_create", broken)
+    with pytest.raises(DatabaseError):
+        services.sync(owner=user, gateway=FakeGateway([visit(1)]))
+
+    assert Connection.objects.get().tokens == NEW_TOKENS
+
+
+def test_a_reconnection_during_a_sync_is_never_overwritten() -> None:
+    user = connected()
+
+    class Reconnecting(FakeGateway):
+        def fetch(self, *, tokens: str, start: date, end: date) -> gw.MemberData:
+            Connection.objects.update(tokens="reconnexion-fictive", generation=1)
+            return super().fetch(tokens=tokens, start=start, end=end)
+
+    with pytest.raises(services.SyncBusyError):
+        services.sync(owner=user, gateway=Reconnecting([visit(1)]))
+
+    assert Connection.objects.get().tokens == "reconnexion-fictive"
+    assert not Visit.objects.exists()
+
+
+def test_the_lock_of_a_later_sync_is_never_released_by_an_earlier_one() -> None:
+    user = connected()
+
+    class Overrun(FakeGateway):
+        def fetch(self, *, tokens: str, start: date, end: date) -> gw.MemberData:
+            # Le verrou a expiré et une autre synchro l'a pris.
+            cache.set(f"basicfit:sync:{user.pk}", "autre-synchro")
+            return super().fetch(tokens=tokens, start=start, end=end)
+
+    services.sync(owner=user, gateway=Overrun())
+
+    assert cache.get(f"basicfit:sync:{user.pk}") == "autre-synchro"
 
 
 def test_concurrent_syncs_of_one_account_are_refused() -> None:
@@ -206,7 +266,7 @@ def fake(monkeypatch: pytest.MonkeyPatch) -> FakeGateway:
 @pytest.mark.usefixtures("fake")
 def test_the_hourly_task_syncs_only_due_accounts() -> None:
     due = connected()
-    connected(last_sync_at=timezone.now())
+    connected(last_attempt_at=timezone.now())
     connected(status=Connection.Status.EXPIRED)
 
     assert tasks.sync_due_accounts() == 1
@@ -225,6 +285,38 @@ def test_the_task_skips_accounts_with_nothing_to_do(settings: Any) -> None:
 
 def headers_for(client: Client, user: User) -> dict[str, str]:
     return bearer(login(client, user.email)["access_token"])
+
+
+def test_a_failed_attempt_also_blocks_manual_syncs_for_an_hour(client: Client) -> None:
+    user = connected()
+    failing = FakeGateway(error=gw.GatewayError())
+    with pytest.raises(services.UnavailableError):
+        services.sync(owner=user, gateway=failing)
+
+    again = client.post("/api/v1/basicfit/sync/", headers=headers_for(client, user))
+
+    assert again.status_code == 429
+    assert len(failing.calls) == 1
+    assert services.due_for_sync() == []
+
+
+def test_a_queued_sync_is_not_queued_twice() -> None:
+    user = connected()
+    services.request_sync(owner=user)
+
+    with pytest.raises(services.TooSoonError):
+        services.request_sync(owner=user)
+
+
+@override_settings(ACCOUNT_RATE_LIMITS={"basicfit_sync": "1/3600s/user"})
+def test_manual_syncs_are_rate_limited(client: Client) -> None:
+    headers = headers_for(client, make_verified_user())
+
+    statuses = [
+        client.post("/api/v1/basicfit/sync/", headers=headers).status_code for _ in range(2)
+    ]
+
+    assert statuses == [409, 429]
 
 
 @pytest.mark.usefixtures("fake")

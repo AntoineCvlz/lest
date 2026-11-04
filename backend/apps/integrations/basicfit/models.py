@@ -40,6 +40,13 @@ class Connection(models.Model):
     last_sync_at = models.DateTimeField(null=True, blank=True)
     # Code interne de la dernière erreur (jamais le message de Basic-Fit).
     last_error = models.CharField(max_length=20, blank=True)
+    # Dernière tentative, réussie ou non : le plafond d'une synchro par heure porte sur elle.
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    # Refus de jetons consécutifs : le paquet ne distingue pas un refus d'une panne du serveur
+    # de jetons (toute réponse autre que 200) ; les jetons ne sont effacés qu'au troisième.
+    auth_failures = models.PositiveSmallIntegerField(default=0)
+    # Change à chaque connexion : une synchro en cours n'écrase jamais des jetons plus récents.
+    generation = models.PositiveIntegerField(default=0)
     # Nom du club principal (seul élément gardé du profil membre), chiffré.
     home_club = EncryptedTextField(blank=True, default="")
 

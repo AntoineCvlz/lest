@@ -183,6 +183,8 @@ ACCOUNT_RATE_LIMITS = {
     "insights_read": "60/m/user",
     # Connexion Basic-Fit (lien, puis URL collée) : quelques essais par heure suffisent.
     "basicfit_connect": "10/3600s/user",
+    # Synchronisation à la demande : en plus du plafond d'une tentative par heure.
+    "basicfit_sync": "3/3600s/user",
     # Visites Basic-Fit (calendrier) : lectures simples.
     "basicfit_read": "60/m/user",
 }
