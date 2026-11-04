@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/api/v1/activities/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Activités d'une période */
+        get: operations["apps_activities_api_router_list_activities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/activities/{activity_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Enregistrer ou remplacer une activité */
+        put: operations["apps_activities_api_router_write_activity"];
+        post?: never;
+        /** Supprimer une activité */
+        delete: operations["apps_activities_api_router_remove_activity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/body-measurements/": {
         parameters: {
             query?: never;
@@ -517,6 +552,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalogue des sports */
+        get: operations["apps_activities_api_router_list_sports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/water/{day}/": {
         parameters: {
             query?: never;
@@ -596,6 +648,61 @@ export interface components {
         AccountDeletionIn: {
             /** Password */
             password: string;
+        };
+        /** ActivityIn */
+        ActivityIn: {
+            /** Avg Heart Rate */
+            avg_heart_rate?: number | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Distance M */
+            distance_m?: number | string | null;
+            /** Duration S */
+            duration_s: number;
+            /** Feeling */
+            feeling?: number | null;
+            /** Metrics */
+            metrics?: {
+                [key: string]: number;
+            };
+            /**
+             * Sport
+             * @enum {string}
+             */
+            sport: "running" | "cycling" | "swimming" | "walking" | "hiking" | "rowing" | "cardio" | "team_sport" | "racket" | "combat" | "climbing" | "yoga" | "other";
+        };
+        /** ActivityOut */
+        ActivityOut: {
+            /** Avg Heart Rate */
+            avg_heart_rate: number | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Distance M */
+            distance_m: number | null;
+            /** Duration S */
+            duration_s: number;
+            /** Feeling */
+            feeling: number | null;
+            /**
+             * Id
+             * Format: uuid4
+             */
+            id: string;
+            /** Metrics */
+            metrics: {
+                [key: string]: number;
+            };
+            /**
+             * Sport
+             * @enum {string}
+             */
+            sport: "running" | "cycling" | "swimming" | "walking" | "hiking" | "rowing" | "cardio" | "team_sport" | "racket" | "combat" | "climbing" | "yoga" | "other";
         };
         /** CustomFoodIn */
         CustomFoodIn: {
@@ -893,6 +1000,19 @@ export interface components {
              * @enum {string}
              */
             site: "neck" | "chest" | "waist" | "hips" | "arm" | "thigh" | "calf";
+        };
+        /** MetricOut */
+        MetricOut: {
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Max */
+            max: number;
+            /** Min */
+            min: number;
+            /** Unit */
+            unit: string;
         };
         /** NamedOut */
         NamedOut: {
@@ -1204,6 +1324,20 @@ export interface components {
              */
             workout_exercise_id: string;
         };
+        /** SportOut */
+        SportOut: {
+            /** Has Distance */
+            has_distance: boolean;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "running" | "cycling" | "swimming" | "walking" | "hiking" | "rowing" | "cardio" | "team_sport" | "racket" | "combat" | "climbing" | "yoga" | "other";
+            /** Label */
+            label: string;
+            /** Metrics */
+            metrics: components["schemas"]["MetricOut"][];
+        };
         /** TargetsIn */
         TargetsIn: {
             /**
@@ -1491,6 +1625,84 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    apps_activities_api_router_list_activities: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOut"][];
+                };
+            };
+        };
+    };
+    apps_activities_api_router_write_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivityOut"];
+                };
+            };
+        };
+    };
+    apps_activities_api_router_remove_activity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_body_api_router_list_measurements: {
         parameters: {
             query?: {
@@ -2544,6 +2756,26 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_activities_api_router_list_sports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SportOut"][];
+                };
             };
         };
     };
