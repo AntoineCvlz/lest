@@ -20,6 +20,7 @@ from apps.nutrition.models import (
     MAX_KCAL_100G,
     MAX_WATER_ML,
     Food,
+    FoodSource,
 )
 from common.auth import request_user
 from common.problems import ProblemError
@@ -68,10 +69,16 @@ class FoodOut(Schema):
     fat_100g: float | None
     serving_g: float | None
     is_custom: bool
+    # Fiche du produit chez la source, pour la mention exigée par sa licence (ADR 0009).
+    source_url: str | None
 
 
 class FoodQuery(Schema):
     q: Annotated[str, AfterValidator(printable)] = Field(min_length=2, max_length=100)
+
+
+# Page publique du produit (et non `OFF_BASE_URL`, qui peut viser un serveur de test).
+OFF_PRODUCT_URL = "https://world.openfoodfacts.org/product/"
 
 
 def _food_out(food: Food) -> FoodOut:
@@ -89,6 +96,9 @@ def _food_out(food: Food) -> FoodOut:
         fat_100g=number(food.fat_100g),
         serving_g=number(food.serving_g),
         is_custom=food.owner_id is not None,
+        source_url=(
+            f"{OFF_PRODUCT_URL}{food.source_code}" if food.source == FoodSource.OFF else None
+        ),
     )
 
 

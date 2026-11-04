@@ -217,6 +217,7 @@ def test_the_api_searches_and_shows_foods() -> None:
             "fat_100g": 6.2,
             "serving_g": None,
             "is_custom": False,
+            "source_url": None,
         }
     ]
     assert me.get(f"{found[0]['id']}/").json()["name"] == "Poulet témoin, rôti"

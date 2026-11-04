@@ -24,6 +24,7 @@ const RICE = {
   fat_100g: null,
   serving_g: null,
   is_custom: false,
+  source_url: null,
 };
 const BAR = {
   ...RICE,
@@ -31,6 +32,8 @@ const BAR = {
   name: "Barre témoin",
   brand: "Marque",
   serving_g: 40,
+  source: "off",
+  source_url: "https://world.openfoodfacts.org/product/3017620422003",
 };
 const ENTRY = {
   id: "3b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
