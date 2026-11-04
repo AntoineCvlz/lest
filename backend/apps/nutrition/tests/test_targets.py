@@ -184,4 +184,38 @@ def test_targets_are_private(client: Client) -> None:
     me.put(BODY)
 
     assert other.get().json()["configured"] is False
+    other.put({**BODY, "sex": "female", "activity": "sedentary", "kcal": 2000})
+    assert me.get().json()["inputs"]["sex"] == "male"
+    assert me.get().json()["inputs"]["kcal"] is None
+    assert NutritionTarget.objects.count() == 2
     assert client.get("/api/v1/nutrition/targets/").status_code == 401
+
+
+def test_the_minimum_age_counts_full_years(monkeypatch: pytest.MonkeyPatch) -> None:
+    from django.utils import timezone
+
+    monkeypatch.setattr(timezone, "localdate", lambda: TODAY)
+    me = Athlete()
+
+    assert me.put({**BODY, "birth_date": "2012-12-31"}).status_code == 422
+    assert me.put({**BODY, "birth_date": "2012-11-04"}).status_code == 200
+
+
+def test_unreadable_targets_neither_fail_nor_leak(caplog: pytest.LogCaptureFixture) -> None:
+    from django.db import connection
+
+    from common import crypto
+
+    me = Athlete()
+    me.put(BODY)
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "UPDATE nutrition_nutritiontarget SET birth_date = %s", [crypto.encrypt("pas-une-date")]
+        )
+
+    response = me.get()
+
+    assert response.status_code == 200
+    assert response.json()["configured"] is False
+    assert export_account(me.user)["nutrition_target"] is None
+    assert "pas-une-date" not in caplog.text

@@ -1,6 +1,7 @@
 """Lectures du domaine `nutrition` (ADR 0009). Un aliment perso n'est visible que de son
 propriétaire ; Ciqual et Open Food Facts le sont de tous."""
 
+import logging
 from dataclasses import dataclass
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
@@ -14,6 +15,8 @@ from apps.accounts.models import User
 from apps.body.selectors import latest_weight
 from apps.nutrition import targets as calc
 from apps.nutrition.models import Food, JournalEntry, NutritionTarget, WaterIntake
+
+logger = logging.getLogger(__name__)
 
 MAX_RESULTS = 30
 MAX_SEARCH_TERMS = 5
@@ -226,7 +229,15 @@ def targets_view(*, owner: User) -> TargetsView:
     if target is None:
         return TargetsView(configured=False, inputs=None, computed=None, targets=None, missing=[])
     manual = _manual(target)
-    birth = date.fromisoformat(target.birth_date or "")
+    try:
+        birth = date.fromisoformat(target.birth_date or "")
+    except ValueError:
+        # Ligne abîmée (restauration ratée…) : jamais la valeur dans les journaux, jamais un 500.
+        logger.warning("Objectifs nutritionnels illisibles : à ressaisir")
+        return TargetsView(configured=False, inputs=None, computed=None, targets=None, missing=[])
+    if target.sex not in calc.SEX_OFFSET or target.activity not in calc.ACTIVITY_FACTORS:
+        logger.warning("Objectifs nutritionnels illisibles : à ressaisir")
+        return TargetsView(configured=False, inputs=None, computed=None, targets=None, missing=[])
     profile = get_profile(owner)
     weight = latest_weight(owner=owner)
     missing = [name for name, ok in (("profile", profile), ("weight", weight)) if ok is None]

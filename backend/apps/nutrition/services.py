@@ -17,7 +17,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.accounts.services import lock_account
-from apps.nutrition import openfoodfacts
+from apps.nutrition import openfoodfacts, targets
 from apps.nutrition.ciqual import CiqualFood
 from apps.nutrition.models import (
     MAX_ENTRIES_PER_DAY,
@@ -428,8 +428,7 @@ def put_targets(*, owner: User, values: TargetValues) -> NutritionTarget:
             {"activity": ValidationError("Valeur inconnue.", code="invalid_choice")}
         )
     today = timezone.localdate()
-    years = today.year - values.birth_date.year
-    if not MIN_AGE <= years <= MAX_AGE or values.birth_date > today:
+    if values.birth_date > today or not MIN_AGE <= targets.age(values.birth_date, today) <= MAX_AGE:
         raise ValidationError(
             {"birth_date": ValidationError("Date hors plage.", code="out_of_range")}
         )
