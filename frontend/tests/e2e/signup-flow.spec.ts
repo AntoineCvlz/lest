@@ -18,7 +18,7 @@ test("inscription, code, onboarding, puis modification du profil", async ({ page
   const { email, password } = freshAccount(testInfo, "inscription");
   await signUp(page, email, password);
 
-  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Profil" })).toBeVisible();
   await expect(page.getByRole("radio", { name: "Prise de masse" })).toBeChecked();
   await expectNoAxeViolations(page);
@@ -89,7 +89,7 @@ test("mes données : export JSON puis suppression définitive du compte", async 
 }, testInfo) => {
   const { email, password } = freshAccount(testInfo, "rgpd");
   await signUp(page, email, password);
-  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Mes données" })).toBeVisible();
   await expectNoAxeViolations(page);
 
@@ -128,7 +128,7 @@ test("double authentification : activation, puis connexion avec un code de secou
 }, testInfo) => {
   const { email, password } = freshAccount(testInfo, "mfa");
   await signUp(page, email, password);
-  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
 
   await page.getByRole("button", { name: "Activer la double authentification" }).click();
   await page.getByLabel("Mot de passe, pour confirmer").fill(password);
@@ -165,7 +165,7 @@ test("double authentification : activation, puis connexion avec un code de secou
   await expect(page.getByText(`Connecté avec ${email}`)).toBeVisible();
 
   // Désactivation : un second facteur est exigé (ici un autre code de secours).
-  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
   await page.getByRole("button", { name: "Désactiver la double authentification" }).click();
   await page
     .getByRole("textbox", { name: "Code de l’application ou code de secours, pour confirmer" })
@@ -182,7 +182,7 @@ test("passkeys : ajout, second facteur, connexion sans mot de passe, puis retrai
   const { email, password } = freshAccount(testInfo, "passkey");
   await addVirtualAuthenticator(page);
   await signUp(page, email, password);
-  await page.getByRole("link", { name: "Mon profil" }).click();
+  await page.getByRole("link", { name: "Profil", exact: true }).click();
 
   // Premier facteur du compte : le mot de passe suffit pour l'ajouter.
   await page.getByRole("button", { name: "Ajouter une passkey" }).click();
@@ -262,7 +262,7 @@ test("appareils connectés : un autre appareil est déconnecté à distance", as
       timeout: RESPONSE_TIMEOUT,
     });
 
-    await page.getByRole("link", { name: "Mon profil" }).click();
+    await page.getByRole("link", { name: "Profil", exact: true }).click();
     const devices = page.getByRole("list", { name: "Appareils connectés" });
     await expect(devices.getByRole("listitem")).toHaveCount(2, { timeout: RESPONSE_TIMEOUT });
     await expect(devices).toContainText("(cet appareil)");
