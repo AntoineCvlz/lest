@@ -215,7 +215,7 @@ function TargetsForm({ data, onSaved }: { data: TargetsOut; onSaved: (message: s
         <p id="targets-manual-hint" className="text-ink-muted -mt-1 text-sm">
           Laissez vide pour garder la valeur calculée.
         </p>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-3">
           {FIELDS.map(({ key, label, unit, min, max }) => (
             <TextField
               key={key}
@@ -297,7 +297,7 @@ export function NutritionTargets() {
           {chosen && (
             <div className="flex flex-col gap-2">
               <h3 className="text-ink-muted text-sm font-semibold">Objectifs retenus</h3>
-              <dl className="grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3 tabular-nums">
+              <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-3 tabular-nums">
                 {FIELDS.map(({ key, label }) => (
                   <div key={key} className="rounded-control bg-surface flex flex-col gap-1 p-3">
                     <dt className="text-ink-muted text-sm">{label}</dt>

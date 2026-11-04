@@ -111,7 +111,7 @@ export function detailText(activity: Activity, sport: Sport | undefined, system:
     );
   }
   if (activity.avg_heart_rate !== null) {
-    parts.push(`FC moyenne ${String(activity.avg_heart_rate)}`);
+    parts.push(`FC moyenne ${String(activity.avg_heart_rate)}${NBSP}bpm`);
   }
   if (activity.feeling !== null) parts.push(`ressenti ${String(activity.feeling)} sur 5`);
   for (const metric of sport?.metrics ?? []) {
@@ -145,18 +145,40 @@ export function ActivityJournal() {
   const remove = useDeleteActivity();
   const today = localDay();
   const [draft, setDraft] = useState<Draft>(() => emptyDraft(today));
-  const [editing, setEditing] = useState(false);
+  // Activité en cours de modification (son bouton « Modifier » reprend le focus ensuite).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = editingId !== null;
   const [confirming, setConfirming] = useState(false);
   const [invalid, setInvalid] = useState<Field[]>([]);
   const [notice, setNotice] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const catalog = sports.data ?? [];
-  const sport = catalog.find((s) => s.key === draft.sport);
+  // Premier sport du catalogue si celui du brouillon n'y est pas (catalogue changé côté serveur).
+  const sport = catalog.find((s) => s.key === draft.sport) ?? catalog[0];
   const rows = (activities.data ?? []).toReversed();
 
   function focus(selector: string) {
     formRef.current?.querySelector<HTMLElement>(selector)?.focus();
+  }
+
+  function focusRow(id: string) {
+    listRef.current?.querySelector<HTMLElement>(`[data-activity="${id}"]`)?.focus();
+  }
+
+  /** « durée, FC moyenne » : champs à corriger, dans l'ordre du formulaire. */
+  function faultNames(faults: readonly Field[]): string {
+    return faults
+      .map((fault) => {
+        if (fault === "day") return "date";
+        if (fault === "duration") return "durée";
+        if (fault === "distance") return "distance";
+        if (fault === "heartRate") return "FC moyenne";
+        const key = fault.slice("metric-".length);
+        return sport?.metrics.find((m) => m.key === key)?.label.toLowerCase() ?? key;
+      })
+      .join(", ");
   }
 
   function sportLabel(key: SportKey): string {
@@ -170,8 +192,8 @@ export function ActivityJournal() {
 
   function reset(message: string) {
     flushSync(() => {
-      setDraft(emptyDraft(today, draft.sport));
-      setEditing(false);
+      setDraft(emptyDraft(today, sport?.key ?? draft.sport));
+      setEditingId(null);
       setConfirming(false);
       setInvalid([]);
       setNotice(message);
@@ -183,7 +205,7 @@ export function ActivityJournal() {
       save.reset();
       remove.reset();
       setDraft(draftOf(activity, system));
-      setEditing(true);
+      setEditingId(activity.id);
       setConfirming(false);
       setInvalid([]);
       setNotice(
@@ -224,6 +246,9 @@ export function ActivityJournal() {
       } else metrics[metric.key] = value;
     }
     flushSync(() => {
+      setInvalid([]);
+    });
+    flushSync(() => {
       setInvalid(faults);
     });
     const [first] = faults;
@@ -233,7 +258,7 @@ export function ActivityJournal() {
     }
     const label = sport.label;
     const day = draft.day;
-    const wasEditing = editing;
+    const wasEditing = editingId;
     save.mutate(
       {
         id: draft.id,
@@ -252,6 +277,8 @@ export function ActivityJournal() {
           reset(
             `Activité ${wasEditing ? "modifiée" : "enregistrée"} : ${label.toLowerCase()}, ${longDay(day)}.`,
           );
+          // Après une modification, retour à la ligne d'où l'on venait.
+          if (wasEditing) focusRow(wasEditing);
         },
       },
     );
@@ -273,6 +300,9 @@ export function ActivityJournal() {
           </Button>
         </div>
       )}
+      {sports.isSuccess && !sport && (
+        <p className="text-ink-muted">Aucun sport disponible pour le moment.</p>
+      )}
       {sport && (
         <form
           ref={formRef}
@@ -291,10 +321,16 @@ export function ActivityJournal() {
           <SelectField
             label="Sport"
             name="sport"
-            value={draft.sport}
+            value={sport.key}
+            hint="Les détails proposés dépendent du sport."
             onChange={(event) => {
               const chosen = catalog.find((s) => s.key === event.target.value);
-              if (chosen) update({ sport: chosen.key });
+              if (!chosen) return;
+              update({ sport: chosen.key });
+              // Les erreurs des champs propres à l'ancien sport ne valent plus.
+              setInvalid((current) =>
+                current.filter((f) => f !== "distance" && !f.startsWith("metric-")),
+              );
             }}
           >
             {catalog.map((s) => (
@@ -324,6 +360,8 @@ export function ActivityJournal() {
             name="duration"
             inputMode="numeric"
             autoComplete="off"
+            aria-required
+            hint="En minutes entières."
             value={draft.minutes}
             error={
               invalid.includes("duration")
@@ -336,7 +374,7 @@ export function ActivityJournal() {
           />
           <fieldset className="flex flex-col gap-3">
             <legend className="mb-1 font-semibold">Détails (facultatif)</legend>
-            <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))] gap-3">
               {sport.has_distance && (
                 <TextField
                   label={`Distance (${distanceUnit.symbol})`}
@@ -396,23 +434,28 @@ export function ActivityJournal() {
                 );
               })}
             </div>
+            <SelectField
+              label="Ressenti"
+              name="feeling"
+              value={draft.feeling}
+              onChange={(event) => {
+                update({ feeling: event.target.value });
+              }}
+            >
+              <option value="">Non noté</option>
+              {FEELINGS.map((f) => (
+                <option key={f.value} value={String(f.value)}>
+                  {f.label}
+                </option>
+              ))}
+            </SelectField>
           </fieldset>
-          <SelectField
-            label="Ressenti"
-            name="feeling"
-            value={draft.feeling}
-            onChange={(event) => {
-              update({ feeling: event.target.value });
-            }}
-          >
-            <option value="">Non noté</option>
-            {FEELINGS.map((f) => (
-              <option key={f.value} value={String(f.value)}>
-                {f.label}
-              </option>
-            ))}
-          </SelectField>
           <div role="alert" className="empty:hidden">
+            {invalid.length > 0 && (
+              <p className="text-danger font-semibold">
+                {`${String(invalid.length)} ${invalid.length > 1 ? "champs à corriger" : "champ à corriger"} : ${faultNames(invalid)}.`}
+              </p>
+            )}
             {save.isError && (
               <p className="rounded-control border-danger text-danger border p-4 font-semibold">
                 {ACTIVITY_NOT_SAVED}
@@ -478,9 +521,10 @@ export function ActivityJournal() {
                   <Button
                     variant="secondary"
                     onClick={() => {
+                      const id = editingId;
                       save.reset();
                       reset("Modification annulée.");
-                      focus("select[name=sport]");
+                      if (id) focusRow(id);
                     }}
                   >
                     Annuler
@@ -510,7 +554,7 @@ export function ActivityJournal() {
 
       <section
         aria-labelledby="history-title"
-        aria-busy={activities.isFetching}
+        aria-busy={activities.isPending}
         className="flex flex-col gap-4"
       >
         <h2 id="history-title" className="text-xl font-extrabold [font-stretch:112%]">
@@ -537,11 +581,14 @@ export function ActivityJournal() {
             <>
               <p className="font-semibold tabular-nums">{summaryText(rows)}</p>
               <ul
+                ref={listRef}
                 aria-label="Activités, les plus récentes d’abord"
                 className="border-line-subtle border-t"
               >
                 {rows.map((activity) => {
                   const label = sportLabel(activity.sport);
+                  const current = editingId === activity.id;
+                  const locked = editing && !current;
                   return (
                     <li
                       key={activity.id}
@@ -549,7 +596,13 @@ export function ActivityJournal() {
                     >
                       <div className="flex min-w-0 flex-col gap-1">
                         <span className="font-semibold">
-                          {`${label}, ${shortDay(activity.date)}`}
+                          {`${label}, `}
+                          <time dateTime={activity.date}>{shortDay(activity.date)}</time>
+                          {current && (
+                            <span className="text-ink-muted font-normal">
+                              {" (en cours de modification)"}
+                            </span>
+                          )}
                         </span>
                         <span className="text-ink-muted text-sm tabular-nums">
                           {detailText(
@@ -561,9 +614,12 @@ export function ActivityJournal() {
                       </div>
                       <Button
                         variant="ghost"
-                        aria-label={`Modifier l’activité : ${label.toLowerCase()}, ${longDay(activity.date)}`}
+                        data-activity={activity.id}
+                        aria-label={`Modifier l’activité : ${label.toLowerCase()}, ${longDay(activity.date)}, ${durationText(activity.duration_s)}`}
+                        // Une modification à la fois : la saisie en cours n'est jamais remplacée.
+                        aria-disabled={locked}
                         onClick={() => {
-                          startEdit(activity);
+                          if (!locked) startEdit(activity);
                         }}
                       >
                         Modifier

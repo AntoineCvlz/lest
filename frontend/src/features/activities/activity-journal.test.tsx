@@ -129,7 +129,10 @@ describe("ActivityJournal", () => {
 
     const duration = screen.getByRole("textbox", { name: "Durée (min)" });
     expect(duration).toHaveFocus();
-    expect(duration).toHaveAccessibleDescription("Nombre entier de 1 à 1 440.");
+    expect(duration).toHaveAccessibleDescription(
+      /^En minutes entières\. Nombre entier de 1 à 1\s440\.$/,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("2 champs à corriger : durée, FC moyenne.");
     expect(screen.getByRole("textbox", { name: "FC moyenne (bpm)" })).toHaveAccessibleDescription(
       /Nombre entier de 30 à 230\.$/,
     );
@@ -142,7 +145,7 @@ describe("ActivityJournal", () => {
 
     const list = await screen.findByRole("list", { name: "Activités, les plus récentes d’abord" });
     expect(
-      within(list).getByText(/^45\smin, 6,34\smi, FC moyenne 148, ressenti 4 sur 5/),
+      within(list).getByText(/^45\smin, 6,34\smi, FC moyenne 148\sbpm, ressenti 4 sur 5/),
     ).toBeVisible();
     expect(screen.getByText(/^1 activité, 45\smin au total\.$/)).toBeVisible();
   });
@@ -154,7 +157,7 @@ describe("ActivityJournal", () => {
 
     await user.click(
       await screen.findByRole("button", {
-        name: `Modifier l’activité : course à pied, ${longDay(RUN.date)}`,
+        name: `Modifier l’activité : course à pied, ${longDay(RUN.date)}, 45\u00a0min`,
       }),
     );
     expect(screen.getByLabelText("Sport")).toHaveFocus();
@@ -167,11 +170,12 @@ describe("ActivityJournal", () => {
       expect(writes[0]).toMatchObject({ method: "PUT", id: RUN.id, body: { duration_s: 3000 } });
     });
 
-    await user.click(
-      await screen.findByRole("button", {
-        name: `Modifier l’activité : course à pied, ${longDay(RUN.date)}`,
-      }),
-    );
+    // Retour à la ligne d'où l'on venait (la liste simulée garde 45 min).
+    const row = screen.getByRole("button", { name: /^Modifier l’activité : course à pied/ });
+    await waitFor(() => {
+      expect(row).toHaveFocus();
+    });
+    await user.click(row);
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
     expect(screen.getByRole("button", { name: "Garder" })).toHaveFocus();
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
@@ -180,6 +184,26 @@ describe("ActivityJournal", () => {
       await screen.findByText(`Activité supprimée : course à pied, ${longDay(RUN.date)}.`),
     ).toBeVisible();
     expect(writes[1]).toEqual({ method: "DELETE", id: RUN.id });
+  });
+
+  it("annule une modification : focus rendu à la ligne, autres lignes bloquées", async () => {
+    api({
+      activities: [RUN, { ...RUN, id: "2b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", duration_s: 1800 }],
+    });
+    const user = userEvent.setup();
+    renderWithQuery(<ActivityJournal />);
+
+    const first = await screen.findByRole("button", { name: /course à pied, .*, 45\smin$/ });
+    await user.click(first);
+    expect(screen.getByRole("button", { name: /course à pied, .*, 30\smin$/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByText("(en cours de modification)")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Annuler" }));
+
+    expect(first).toHaveFocus();
+    expect(screen.getByText("Modification annulée.")).toBeVisible();
   });
 
   it("signale un catalogue indisponible", async () => {
