@@ -279,6 +279,10 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "home_club": {
+            "title": "Home Club",
+            "type": "string"
+          },
           "last_error": {
             "title": "Last Error",
             "type": "string"
@@ -311,7 +315,8 @@
           "status",
           "connected_at",
           "last_sync_at",
-          "last_error"
+          "last_error",
+          "home_club"
         ],
         "title": "ConnectionOut",
         "type": "object"
@@ -2119,6 +2124,19 @@
         "title": "SportOut",
         "type": "object"
       },
+      "SyncOut": {
+        "properties": {
+          "queued": {
+            "title": "Queued",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "queued"
+        ],
+        "title": "SyncOut",
+        "type": "object"
+      },
       "TargetsIn": {
         "properties": {
           "activity": {
@@ -2373,6 +2391,25 @@
           "fat"
         ],
         "title": "TotalsOut",
+        "type": "object"
+      },
+      "VisitOut": {
+        "properties": {
+          "club": {
+            "title": "Club",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "club"
+        ],
+        "title": "VisitOut",
         "type": "object"
       },
       "WaterIn": {
@@ -3272,6 +3309,99 @@
           }
         ],
         "summary": "Commencer la connexion",
+        "tags": [
+          "basicfit"
+        ]
+      }
+    },
+    "/api/v1/basicfit/sync/": {
+      "post": {
+        "operationId": "apps_integrations_basicfit_api_router_sync_now",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncOut"
+                }
+              }
+            },
+            "description": "Accepted"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Synchroniser maintenant (au plus une fois par heure)",
+        "tags": [
+          "basicfit"
+        ]
+      }
+    },
+    "/api/v1/basicfit/visits/": {
+      "get": {
+        "operationId": "apps_integrations_basicfit_api_router_visits",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Start"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "End"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VisitOut"
+                  },
+                  "title": "Response",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Visites d'une période",
         "tags": [
           "basicfit"
         ]

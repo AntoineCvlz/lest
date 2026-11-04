@@ -183,6 +183,8 @@ ACCOUNT_RATE_LIMITS = {
     "insights_read": "60/m/user",
     # Connexion Basic-Fit (lien, puis URL collée) : quelques essais par heure suffisent.
     "basicfit_connect": "10/3600s/user",
+    # Visites Basic-Fit (calendrier) : lectures simples.
+    "basicfit_read": "60/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
@@ -240,6 +242,11 @@ CELERY_BEAT_SCHEDULE = {
     "import-foods": {
         "task": "apps.nutrition.tasks.import_foods",
         "schedule": crontab(day_of_month=2, hour=3, minute=30),
+    },
+    # Comptes Basic-Fit reliés (ADR 0014) : au plus une synchronisation par heure et par compte.
+    "basicfit-sync": {
+        "task": "apps.integrations.basicfit.tasks.sync_due_accounts",
+        "schedule": crontab(minute=17),
     },
     # Catalogue d'exercices RepDB et ses images (ADR 0006), le 1er de chaque mois.
     "import-exercises": {

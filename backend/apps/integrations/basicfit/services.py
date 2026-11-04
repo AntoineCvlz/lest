@@ -3,18 +3,26 @@ redirection collée), déconnexion. Désactivée par `BASICFIT_ENABLED`."""
 
 import hmac
 import re
+from dataclasses import dataclass
 from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.integrations.basicfit.gateway import BasicFitGateway, GatewayAuthError, GatewayError
-from apps.integrations.basicfit.models import Connection, PendingLogin
+from apps.integrations.basicfit.models import Connection, PendingLogin, Visit
 
 LOGIN_TTL = timedelta(minutes=10)
+# Au plus une synchronisation par heure et par compte (CLAUDE.md), relecture d'une semaine de
+# recouvrement, une année à la première (limite d'une requête Basic-Fit : 365 jours).
+SYNC_INTERVAL = timedelta(hours=1)
+OVERLAP = timedelta(days=7)
+FIRST_WINDOW = timedelta(days=364)
+SYNC_LOCK_SECONDS = 300
 REDIRECT_SCHEME = "com.basicfit.trainingapp"
 REDIRECT_PATH = "/oauthredirect"
 MAX_REDIRECT_LENGTH = 4096
@@ -114,3 +122,89 @@ def disconnect(*, owner: User) -> None:
     Les données déjà importées restent, comme celles saisies à la main."""
     Connection.objects.filter(owner=owner).delete()
     PendingLogin.objects.filter(owner=owner).delete()
+
+
+class NotConnectedError(Exception):
+    """Aucun compte Basic-Fit relié (ou reconnexion nécessaire)."""
+
+
+class TooSoonError(Exception):
+    """Dernière synchronisation il y a moins d'une heure."""
+
+    def __init__(self, retry_after: timedelta) -> None:
+        super().__init__()
+        self.retry_after = retry_after
+
+
+class SyncBusyError(Exception):
+    """Une synchronisation de ce compte est déjà en cours."""
+
+
+@dataclass(frozen=True)
+class SyncResult:
+    visits: int
+
+
+def sync(*, owner: User, gateway: BasicFitGateway | None = None) -> SyncResult:
+    """Synchronise le club principal et les visites de `owner` (au plus une fois par heure).
+
+    Le jeu de jetons tourné par Basic-Fit est enregistré même en cas d'échec. Refus des jetons :
+    connexion marquée à refaire et jetons effacés. Lève `DisabledError`, `NotConnectedError`,
+    `TooSoonError`, `SyncBusyError`, `UnavailableError` (à réessayer)."""
+    _enabled()
+    lock = f"basicfit:sync:{owner.pk}"
+    if not cache.add(lock, 1, timeout=SYNC_LOCK_SECONDS):
+        raise SyncBusyError
+    try:
+        return _sync(owner, gateway or BasicFitGateway())
+    finally:
+        cache.delete(lock)
+
+
+def _sync(owner: User, gateway: BasicFitGateway) -> SyncResult:
+    connection = Connection.objects.filter(owner=owner, status=Connection.Status.CONNECTED).first()
+    if connection is None or not connection.tokens:
+        raise NotConnectedError
+    now = timezone.now()
+    if connection.last_sync_at and now - connection.last_sync_at < SYNC_INTERVAL:
+        raise TooSoonError(SYNC_INTERVAL - (now - connection.last_sync_at))
+    today = timezone.localdate()
+    start = (
+        timezone.localdate(connection.last_sync_at) - OVERLAP
+        if connection.last_sync_at
+        else today - FIRST_WINDOW
+    )
+    try:
+        data = gateway.fetch(tokens=connection.tokens, start=start, end=today)
+    except GatewayAuthError:
+        Connection.objects.filter(pk=connection.pk).update(
+            status=Connection.Status.EXPIRED, tokens="", last_error="auth"
+        )
+        raise NotConnectedError from None
+    except GatewayError as error:
+        if error.tokens:
+            connection.tokens = error.tokens
+        connection.last_error = "unavailable"
+        connection.save(update_fields=["tokens", "last_error"])
+        raise UnavailableError from None
+    with transaction.atomic():
+        connection.tokens = data.tokens
+        connection.home_club = data.home_club
+        connection.last_sync_at = now
+        connection.last_error = ""
+        connection.save(update_fields=["tokens", "home_club", "last_sync_at", "last_error"])
+        days = {visit.day: visit.club for visit in data.visits if start <= visit.day <= today}
+        for day, club in days.items():
+            Visit.objects.update_or_create(owner=owner, date=day, defaults={"club": club})
+    return SyncResult(visits=len(days))
+
+
+def due_for_sync() -> list[str]:
+    """Comptes reliés dont la dernière synchronisation date de plus d'une heure."""
+    cutoff = timezone.now() - SYNC_INTERVAL
+    return [
+        str(owner_id)
+        for owner_id in Connection.objects.filter(status=Connection.Status.CONNECTED)
+        .exclude(last_sync_at__gte=cutoff)
+        .values_list("owner_id", flat=True)
+    ]
