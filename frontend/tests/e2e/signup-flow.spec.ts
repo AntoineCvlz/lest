@@ -139,7 +139,7 @@ test("double authentification : activation, puis connexion avec un code de secou
   await expectNoAxeViolations(page);
   const secret = (await page.locator("code").textContent()) ?? "";
   await page.getByRole("textbox", { name: "Code affiché par l’application" }).fill(totp(secret));
-  await page.getByRole("button", { name: "Activer" }).click();
+  await page.getByRole("button", { name: "Activer", exact: true }).click();
 
   const codes = page.getByRole("list", { name: "Codes de secours" }).getByRole("listitem");
   await expect(codes.first()).toBeVisible({ timeout: RESPONSE_TIMEOUT });

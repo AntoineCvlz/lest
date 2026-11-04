@@ -11,6 +11,7 @@ import { Stepper } from "@/shared/ui/stepper";
 import { TextField } from "@/shared/ui/text-field";
 
 import { FoodPicker, foodLabel } from "./food-picker";
+import { useTargets } from "./use-targets";
 import {
   type Entry,
   type Meal,
@@ -69,6 +70,8 @@ export function FoodJournal() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const data = journal.data;
+  // Objectifs retenus (ADR 0011), s'ils sont activés : affichés en regard des totaux.
+  const goals = useTargets().data?.targets ?? undefined;
   const entries = data?.entries ?? [];
 
   function focus(selector: string) {
@@ -258,17 +261,31 @@ export function FoodJournal() {
                 <dd className="text-[40px] leading-none font-extrabold [font-stretch:112%]">
                   {kcal(data.totals.kcal)}
                 </dd>
+                {goals && (
+                  <dd className="text-ink-muted mt-2 text-sm">
+                    {`sur ${kcal(goals.kcal)}, ${
+                      goals.kcal >= data.totals.kcal
+                        ? `reste ${kcal(goals.kcal - data.totals.kcal)}`
+                        : `dépassé de ${kcal(data.totals.kcal - goals.kcal)}`
+                    }`}
+                  </dd>
+                )}
               </div>
               {(
                 [
-                  ["Protéines", data.totals.protein],
-                  ["Glucides", data.totals.carbs],
-                  ["Lipides", data.totals.fat],
+                  ["Protéines", data.totals.protein, goals?.protein_g],
+                  ["Glucides", data.totals.carbs, goals?.carbs_g],
+                  ["Lipides", data.totals.fat, goals?.fat_g],
                 ] as const
-              ).map(([label, value]) => (
+              ).map(([label, value, goal]) => (
                 <div key={label} className="rounded-control bg-surface flex flex-col gap-1 p-3">
                   <dt className="text-ink-muted text-sm">{label}</dt>
-                  <dd className="text-[17px] font-bold">{grams(value)}</dd>
+                  <dd className="text-[17px] font-bold">
+                    {grams(value)}
+                    {goal !== undefined && (
+                      <span className="text-ink-muted text-sm font-normal">{` sur ${grams(goal)}`}</span>
+                    )}
+                  </dd>
                 </div>
               ))}
             </dl>
