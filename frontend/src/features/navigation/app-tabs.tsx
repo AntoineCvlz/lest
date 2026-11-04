@@ -61,41 +61,62 @@ export const TABS: readonly { href: string; label: string; icon: ReactNode }[] =
   },
 ];
 
-/** Onglets du bas, dans la zone du pouce (CLAUDE.md) : l'onglet courant porte `aria-current`. */
+const ITEM = "flex min-h-16 flex-col items-center justify-center gap-1 text-sm font-semibold";
+const LIST = "mx-auto flex max-w-2xl flex-wrap";
+const CELL = "min-w-fit flex-1 basis-16";
+const BAR = "border-t pb-[env(safe-area-inset-bottom)]";
+
+/**
+ * Onglets du bas, dans la zone du pouce (CLAUDE.md) : l'onglet courant porte `aria-current`.
+ *
+ * La barre est fixée en bas de l'écran. Un double invisible, dans le flux de la page, réserve
+ * exactement sa hauteur : avec un texte agrandi, les onglets passent à la ligne, la barre grandit
+ * et la réserve avec elle, sans que la fin de la page passe dessous (WCAG 1.4.4). Le double est
+ * masqué (`invisible`, `aria-hidden`) : ni lu, ni focalisable.
+ */
 export function AppTabs() {
   const pathname = usePathname();
 
   return (
-    <nav
-      aria-label="Navigation principale"
-      className="border-line-subtle bg-ground fixed inset-x-0 bottom-0 border-t pb-[env(safe-area-inset-bottom)]"
-    >
-      <ul className="mx-auto grid max-w-2xl grid-cols-5">
-        {TABS.map((tab) => {
-          const current = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-          return (
-            <li key={tab.href}>
-              <Link
-                href={tab.href}
-                aria-current={current ? "page" : undefined}
-                className={[
-                  "flex min-h-16 flex-col items-center justify-center gap-1 text-sm font-semibold",
-                  current ? "text-ink" : "text-ink-muted",
-                ].join(" ")}
-              >
-                {tab.icon}
-                <span
-                  className={
-                    current ? "border-accent-ink border-b-2" : "border-b-2 border-transparent"
-                  }
+    <>
+      <div aria-hidden="true" className={`invisible ${BAR}`}>
+        <div className={LIST}>
+          {TABS.map((tab) => (
+            <span key={tab.href} className={`${CELL} ${ITEM}`}>
+              {tab.icon}
+              <span className="border-b-2 border-transparent">{tab.label}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+      <nav
+        aria-label="Navigation principale"
+        className={`border-line-subtle bg-ground fixed inset-x-0 bottom-0 ${BAR}`}
+      >
+        <ul className={LIST}>
+          {TABS.map((tab) => {
+            const current = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+            return (
+              <li key={tab.href} className={CELL}>
+                <Link
+                  href={tab.href}
+                  aria-current={current ? "page" : undefined}
+                  className={[ITEM, current ? "text-ink" : "text-ink-muted"].join(" ")}
                 >
-                  {tab.label}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+                  {tab.icon}
+                  <span
+                    className={
+                      current ? "border-accent-ink border-b-2" : "border-b-2 border-transparent"
+                    }
+                  >
+                    {tab.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </>
   );
 }
