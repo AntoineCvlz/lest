@@ -7,10 +7,27 @@ import type { ReactNode } from "react";
 const ICON =
   "size-6 fill-none stroke-current stroke-2 [stroke-linecap:round] [stroke-linejoin:round]";
 
-export const TABS: readonly { href: string; label: string; icon: ReactNode }[] = [
+export const TABS: readonly {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  /** Autres sections couvertes par l'onglet (le catalogue d'exercices relève de Séance). */
+  also?: readonly string[];
+}[] = [
+  {
+    href: "/",
+    label: "Bilan",
+    // Trois barres montantes : le bilan des semaines.
+    icon: (
+      <svg aria-hidden="true" viewBox="0 0 24 24" className={ICON}>
+        <path d="M4 20h16M7 16v-4M12 16V8M17 16V5" />
+      </svg>
+    ),
+  },
   {
     href: "/seance",
     label: "Séance",
+    also: ["/exercices"],
     // Barre chargée : deux disques de chaque côté.
     icon: (
       <svg aria-hidden="true" viewBox="0 0 24 24" className={ICON}>
@@ -26,15 +43,6 @@ export const TABS: readonly { href: string; label: string; icon: ReactNode }[] =
       <svg aria-hidden="true" viewBox="0 0 24 24" className={ICON}>
         <circle cx="12" cy="12" r="6" />
         <path d="M3 4v6M3 7h1M21 4v16" />
-      </svg>
-    ),
-  },
-  {
-    href: "/exercices",
-    label: "Exercices",
-    icon: (
-      <svg aria-hidden="true" viewBox="0 0 24 24" className={ICON}>
-        <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />
       </svg>
     ),
   },
@@ -95,7 +103,10 @@ export function AppTabs() {
       >
         <ul className={LIST}>
           {TABS.map((tab) => {
-            const current = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+            // L'accueil ne couvre que lui-même (toutes les pages commencent par « / »).
+            const covers = (root: string) =>
+              pathname === root || (root !== "/" && pathname.startsWith(`${root}/`));
+            const current = covers(tab.href) || (tab.also ?? []).some(covers);
             return (
               <li key={tab.href} className={CELL}>
                 <Link

@@ -1,6 +1,7 @@
 "use client";
 
 import { ACTIVITIES_KEY } from "@/features/activities/query-keys";
+import { INSIGHTS_KEY } from "@/features/insights/query-keys";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -28,6 +29,7 @@ const PRIVATE_QUERY_KEYS = [
   BODY_KEY,
   NUTRITION_KEY,
   ACTIVITIES_KEY,
+  INSIGHTS_KEY,
 ];
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
 
@@ -39,7 +41,7 @@ async function signOut(): Promise<void> {
 }
 
 /** Compte connecté et déconnexion, ou invitation à se connecter. */
-export function SessionPanel() {
+export function SessionPanel({ shortcuts = true }: { shortcuts?: boolean } = {}) {
   const queryClient = useQueryClient();
   const me = $api.useQuery("get", "/api/v1/me/", {}, { retry: false });
   const profile = useProfile({ enabled: Boolean(me.data) });
@@ -78,16 +80,29 @@ export function SessionPanel() {
               Compléter mon profil
             </Link>
           )}
-          <Link href="/seance" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
-            Séance
-          </Link>
-          <Link href="/repas" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
-            Repas
-          </Link>
-          <Link href="/corps" className={`${LINK_BUTTON} border-line bg-surface text-ink border`}>
-            Corps
-          </Link>
-          {profile.data && (
+          {shortcuts && (
+            <>
+              <Link
+                href="/seance"
+                className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
+              >
+                Séance
+              </Link>
+              <Link
+                href="/repas"
+                className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
+              >
+                Repas
+              </Link>
+              <Link
+                href="/corps"
+                className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
+              >
+                Corps
+              </Link>
+            </>
+          )}
+          {shortcuts && profile.data && (
             <Link
               href="/profil"
               className={`${LINK_BUTTON} border-line bg-surface text-ink border`}
