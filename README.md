@@ -2,13 +2,18 @@
 
 Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé d'une main entre deux séries, même sans réseau en salle.
 
-> Phases 1 et 2 terminées : comptes sécurisés (code e-mail, double authentification, passkeys, export et suppression RGPD) et **musculation** : catalogue de 701 exercices illustrés, séance en cours avec saisie d'une série en un appui, minuteur de repos, historique, records et programmes avec charge suggérée. Prochaine étape, le corps et la nutrition (Phase 3) : voir la [roadmap](CLAUDE.md#roadmap).
+> Phases 1 à 3 terminées :
+> - comptes sécurisés : code e-mail, double authentification, passkeys, export et suppression RGPD ;
+> - **musculation** : catalogue de 701 exercices illustrés, saisie d'une série en un appui, minuteur de repos, records et programmes ;
+> - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés.
+>
+> Prochaine étape, les autres sports et le tableau de bord (Phase 4) : voir la [roadmap](CLAUDE.md#roadmap).
 
 ## Ce que fait Lest
 
 - **Musculation** : séances, séries, charges, RPE, minuteur de repos, records personnels, programmes avec cibles et charge suggérée, catalogue illustré (données RepDB).
-- **Corps** : poids quotidien et moyenne mobile, mensurations, photos de progression privées.
-- **Nutrition** : journal alimentaire, Open Food Facts, scan code-barres, objectifs caloriques et macros.
+- **Corps** : pesées et moyenne mobile sur 7 jours, mensurations, photos de progression chiffrées (archive ZIP téléchargeable).
+- **Nutrition** : journal des repas et de l'eau, aliments de la table Ciqual (Anses), produits Open Food Facts au scan du code-barres, aliments perso, objectifs caloriques et macros calculés et modifiables.
 - **Autres sports** : course, vélo, natation, sports collectifs, combat…
 - **Basic-Fit** (optionnel) : visites, pesées des balances en club, clubs, recettes.
 

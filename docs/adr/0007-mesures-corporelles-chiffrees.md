@@ -1,6 +1,6 @@
 # ADR 0007 — Chiffrer les mesures corporelles et calculer leurs tendances en Python
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-03
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

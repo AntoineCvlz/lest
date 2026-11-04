@@ -1,6 +1,6 @@
 # ADR 0008 — Stocker les photos de progression chiffrées sur un volume privé
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-03
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

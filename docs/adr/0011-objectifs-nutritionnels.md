@@ -1,6 +1,6 @@
 # ADR 0011 — Proposer des objectifs nutritionnels calculés, modifiables, à partir de données chiffrées
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-04
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

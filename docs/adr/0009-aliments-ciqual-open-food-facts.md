@@ -1,6 +1,6 @@
 # ADR 0009 — Chercher les aliments dans Ciqual en local, scanner les produits avec Open Food Facts
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-03
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 
