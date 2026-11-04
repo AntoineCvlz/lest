@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -15,6 +16,7 @@ from django.db.models import (
     Value,
 )
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from apps.accounts.models import User
 from common.pagination import Page, paginate
@@ -307,3 +309,80 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
         }
         for workout in workouts.order_by("started_at")
     ]
+
+
+# --- Tableau de bord (ADR 0013) ---------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class WorkoutWeek:
+    """Séances terminées d'une semaine (lundi en heure locale) et leur durée totale."""
+
+    week: date
+    workouts: int
+    duration_s: int
+
+
+@dataclass(frozen=True)
+class MuscleWeek:
+    """Séries de travail d'une semaine pour un muscle principal, et leur volume (poids * reps)."""
+
+    week: date
+    muscle: str
+    sets: int
+    volume_kg: Decimal
+
+
+def _monday(day: date) -> date:
+    return day - timedelta(days=day.weekday())
+
+
+def _local_bounds(start: date, end: date) -> tuple[datetime, datetime]:
+    zone = timezone.get_current_timezone()
+    return (
+        datetime.combine(start, time.min, tzinfo=zone),
+        datetime.combine(end + timedelta(days=1), time.min, tzinfo=zone),
+    )
+
+
+def weekly_training(
+    *, owner: User, start: date, end: date
+) -> tuple[list[WorkoutWeek], list[MuscleWeek]]:
+    """Séances terminées de `owner` commencées du `start` au `end` (heure locale), par semaine,
+    et volume par muscle principal des séries de travail (CLAUDE.md : échauffement exclu). Un
+    exercice à plusieurs muscles principaux compte pour chacun ; semaines sans rien omises."""
+    since, until = _local_bounds(start, end)
+    finished = Workout.objects.filter(
+        owner=owner, ended_at__isnull=False, started_at__gte=since, started_at__lt=until
+    )
+    weeks: dict[date, list[int]] = {}
+    for started, ended in finished.values_list("started_at", "ended_at"):
+        bucket = weeks.setdefault(_monday(timezone.localtime(started).date()), [0, 0])
+        bucket[0] += 1
+        bucket[1] += int((ended - started).total_seconds()) if ended else 0
+    rows = Set.objects.filter(workout_exercise__workout__in=finished, is_warmup=False).values_list(
+        "workout_exercise__workout__started_at",
+        "workout_exercise__exercise_id",
+        "weight_kg",
+        "reps",
+    )
+    sets = list(rows)
+    muscles: dict[UUID, list[str]] = {}
+    for exercise_id, name in Exercise.muscles.through.objects.filter(
+        exercise_id__in={exercise_id for _, exercise_id, _, _ in sets}
+    ).values_list("exercise_id", "muscle__name"):
+        muscles.setdefault(exercise_id, []).append(name)
+    volume: dict[tuple[date, str], list[Decimal]] = {}
+    for started, exercise_id, weight, reps in sets:
+        week = _monday(timezone.localtime(started).date())
+        for name in muscles.get(exercise_id, []):
+            totals = volume.setdefault((week, name), [Decimal(0), Decimal(0)])
+            totals[0] += 1
+            totals[1] += weight * reps
+    return (
+        [WorkoutWeek(week=w, workouts=c, duration_s=d) for w, (c, d) in sorted(weeks.items())],
+        [
+            MuscleWeek(week=w, muscle=m, sets=int(s), volume_kg=v)
+            for (w, m), (s, v) in sorted(volume.items())
+        ],
+    )

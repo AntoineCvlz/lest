@@ -194,6 +194,73 @@
         "title": "ActivityOut",
         "type": "object"
       },
+      "ActivityWeekOut": {
+        "properties": {
+          "activities": {
+            "title": "Activities",
+            "type": "integer"
+          },
+          "activity_duration_s": {
+            "title": "Activity Duration S",
+            "type": "integer"
+          },
+          "distance_m": {
+            "title": "Distance M",
+            "type": "number"
+          },
+          "week": {
+            "format": "date",
+            "title": "Week",
+            "type": "string"
+          },
+          "workout_duration_s": {
+            "title": "Workout Duration S",
+            "type": "integer"
+          },
+          "workouts": {
+            "title": "Workouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "workouts",
+          "workout_duration_s",
+          "activities",
+          "activity_duration_s",
+          "distance_m"
+        ],
+        "title": "ActivityWeekOut",
+        "type": "object"
+      },
+      "AdherenceOut": {
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "kcal_days": {
+            "title": "Kcal Days",
+            "type": "integer"
+          },
+          "logged_days": {
+            "title": "Logged Days",
+            "type": "integer"
+          },
+          "protein_days": {
+            "title": "Protein Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "days",
+          "logged_days",
+          "kcal_days",
+          "protein_days"
+        ],
+        "title": "AdherenceOut",
+        "type": "object"
+      },
       "CustomFoodIn": {
         "properties": {
           "brand": {
@@ -291,6 +358,38 @@
           "kcal_100g"
         ],
         "title": "CustomFoodIn",
+        "type": "object"
+      },
+      "DashboardOut": {
+        "properties": {
+          "muscles": {
+            "items": {
+              "$ref": "#/components/schemas/MuscleWeekOut"
+            },
+            "title": "Muscles",
+            "type": "array"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/NutritionInsightOut"
+          },
+          "weeks": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityWeekOut"
+            },
+            "title": "Weeks",
+            "type": "array"
+          },
+          "weight": {
+            "$ref": "#/components/schemas/WeightInsightOut"
+          }
+        },
+        "required": [
+          "weight",
+          "weeks",
+          "nutrition",
+          "muscles"
+        ],
+        "title": "DashboardOut",
         "type": "object"
       },
       "DayOut": {
@@ -1106,6 +1205,35 @@
         "title": "MetricOut",
         "type": "object"
       },
+      "MuscleWeekOut": {
+        "properties": {
+          "muscle": {
+            "title": "Muscle",
+            "type": "string"
+          },
+          "sets": {
+            "title": "Sets",
+            "type": "integer"
+          },
+          "volume_kg": {
+            "title": "Volume Kg",
+            "type": "number"
+          },
+          "week": {
+            "format": "date",
+            "title": "Week",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week",
+          "muscle",
+          "sets",
+          "volume_kg"
+        ],
+        "title": "MuscleWeekOut",
+        "type": "object"
+      },
       "NamedOut": {
         "properties": {
           "id": {
@@ -1122,6 +1250,83 @@
           "name"
         ],
         "title": "NamedOut",
+        "type": "object"
+      },
+      "NutritionInsightOut": {
+        "properties": {
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "kcal_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal Target"
+          },
+          "last_28": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdherenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_7": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AdherenceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protein_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein Target"
+          }
+        },
+        "required": [
+          "configured",
+          "kcal_target",
+          "protein_target",
+          "last_7",
+          "last_28"
+        ],
+        "title": "NutritionInsightOut",
+        "type": "object"
+      },
+      "PaceRangeOut": {
+        "properties": {
+          "high_kg": {
+            "title": "High Kg",
+            "type": "number"
+          },
+          "low_kg": {
+            "title": "Low Kg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "low_kg",
+          "high_kg"
+        ],
+        "title": "PaceRangeOut",
         "type": "object"
       },
       "Period": {
@@ -2141,6 +2346,107 @@
           "weight_kg"
         ],
         "title": "WeightIn",
+        "type": "object"
+      },
+      "WeightInsightOut": {
+        "properties": {
+          "change_12w_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change 12W Kg"
+          },
+          "change_4w_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change 4W Kg"
+          },
+          "goal": {
+            "anyOf": [
+              {
+                "enum": [
+                  "gain",
+                  "maintain",
+                  "cut"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Goal"
+          },
+          "pace_kg_per_week": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pace Kg Per Week"
+          },
+          "pace_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaceRangeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pace_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "below",
+                  "within",
+                  "above"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pace Status"
+          },
+          "trend_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trend Kg"
+          }
+        },
+        "required": [
+          "trend_kg",
+          "change_4w_kg",
+          "change_12w_kg",
+          "pace_kg_per_week",
+          "goal",
+          "pace_range",
+          "pace_status"
+        ],
+        "title": "WeightInsightOut",
         "type": "object"
       },
       "WeightOut": {
@@ -3671,6 +3977,33 @@
         "summary": "État de l'API et de ses dépendances",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/insights/dashboard/": {
+      "get": {
+        "operationId": "apps_insights_api_router_dashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Tableau de bord",
+        "tags": [
+          "insights"
         ]
       }
     },

@@ -65,6 +65,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0010 — journal alimentaire chiffré, aliment recopié à la saisie](docs/adr/0010-journal-alimentaire-chiffre.md)
 - [ADR 0011 — objectifs nutritionnels calculés et modifiables, données chiffrées](docs/adr/0011-objectifs-nutritionnels.md)
 - [ADR 0012 — activités : catalogue de sports fixe, métriques validées, valeurs chiffrées](docs/adr/0012-activites-catalogue-de-sports.md)
+- [ADR 0013 — tableau de bord : lectures agrégées par les sélecteurs des domaines, en une route](docs/adr/0013-tableau-de-bord.md)
 
 ## Qualité et sécurité
 

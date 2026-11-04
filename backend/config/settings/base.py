@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "apps.body",
     "apps.nutrition",
     "apps.activities",
+    "apps.insights",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.

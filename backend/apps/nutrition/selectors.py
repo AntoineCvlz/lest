@@ -148,6 +148,23 @@ def day_journal(*, owner: User, day: date) -> DayJournal:
     )
 
 
+def daily_totals(*, owner: User, start: date, end: date) -> dict[date, Totals]:
+    """Totaux de chaque jour noté de `owner` du `start` au `end` inclus (tableau de bord, ADR
+    0013) ; les jours sans entrée sont absents. Valeurs chiffrées : additionnées en Python."""
+    days: dict[date, list[EntryView]] = {}
+    for entry in JournalEntry.objects.filter(owner=owner, date__range=(start, end)):
+        days.setdefault(entry.date, []).append(_view(entry))
+    return {
+        day: Totals(
+            kcal=sum((e.kcal for e in entries), Decimal(0)),
+            protein=sum((e.protein for e in entries), Decimal(0)),
+            carbs=sum((e.carbs for e in entries), Decimal(0)),
+            fat=sum((e.fat for e in entries), Decimal(0)),
+        )
+        for day, entries in sorted(days.items())
+    }
+
+
 def recent_foods(*, owner: User) -> list[Food]:
     """Aliments saisis récemment par `owner`, du plus récent au plus ancien, sans doublon ;
     seulement ceux qui existent encore et lui sont visibles."""
