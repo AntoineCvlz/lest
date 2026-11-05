@@ -10,6 +10,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 import aiohttp
 from basicfit import pkce
@@ -52,12 +53,36 @@ class Visit:
 
 
 @dataclass(frozen=True)
+class ScaleWeight:
+    """Poids mesuré par une balance de club ; la composition corporelle n'est pas gardée."""
+
+    day: date
+    weight_kg: Decimal
+
+
+@dataclass(frozen=True)
 class MemberData:
     """Ce que Lest garde du membre (ADR 0014) ; tout le reste du profil est ignoré ici."""
 
     tokens: str
     home_club: str
     visits: list[Visit]
+    weights: list[ScaleWeight]
+
+
+def _weights(raw: list[object]) -> list[ScaleWeight]:
+    """Une pesée par jour, la plus récente (la liste arrive de la plus récente à la plus
+    ancienne) ; poids seul, au centième, tout le reste de la mesure abandonné ici."""
+    kept: dict[date, ScaleWeight] = {}
+    for item in raw:
+        try:
+            day = date.fromisoformat(str(getattr(item, "date", "") or "")[:10])
+            kg = Decimal(str(getattr(item, "weight", None))).quantize(Decimal("0.01"))
+        except (ValueError, InvalidOperation):
+            continue
+        if kg.is_finite() and day not in kept:
+            kept[day] = ScaleWeight(day=day, weight_kg=kg)
+    return list(kept.values())
 
 
 def _visits(raw: list[object]) -> list[Visit]:
@@ -114,26 +139,30 @@ class BasicFitGateway:
             raise GatewayError from None
 
     def fetch(self, *, tokens: str, start: date, end: date) -> MemberData:
-        """Club principal et visites du `start` au `end` (365 jours au plus). Le jeu de jetons
+        """Club principal, visites du `start` au `end` (365 jours au plus) et poids des
+        balances de club. Le jeu de jetons
         rendu est le dernier tourné ; en cas d'échec, l'erreur le porte aussi (`tokens`)."""
         latest = {"tokens": tokens}
 
         def rotated(new: TokenSet) -> None:
             latest["tokens"] = _dump(new)
 
-        async def run() -> tuple[str, list[Visit]]:
+        async def run() -> tuple[str, list[Visit], list[ScaleWeight]]:
             current = TokenSet.from_dict(json.loads(tokens))
             async with BasicFitClient.create(current, token_updated=rotated) as client:
                 member = await client.get_member()
                 visits = await client.get_visits(from_date=start, to_date=end)
-            return _clean(member.home_club), _visits(list(visits))
+                scale = await client.get_body_measurements()
+            return _clean(member.home_club), _visits(list(visits)), _weights(list(scale))
 
         try:
-            home_club, visits = asyncio.run(run())
+            home_club, visits, weights = asyncio.run(run())
         except BasicFitAuthError:
             raise GatewayAuthError(latest["tokens"]) from None
         except (BasicFitError, aiohttp.ClientError, TimeoutError):
             raise GatewayError(latest["tokens"]) from None
         except Exception:
             raise GatewayError(latest["tokens"]) from None
-        return MemberData(tokens=latest["tokens"], home_club=home_club, visits=visits)
+        return MemberData(
+            tokens=latest["tokens"], home_club=home_club, visits=visits, weights=weights
+        )

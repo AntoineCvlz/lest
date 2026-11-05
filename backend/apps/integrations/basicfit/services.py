@@ -10,11 +10,13 @@ from urllib.parse import parse_qs, urlsplit
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.body.services import ScaleOutcome, import_scale_weight
 from apps.integrations.basicfit.gateway import BasicFitGateway, GatewayAuthError, GatewayError
 from apps.integrations.basicfit.models import Connection, PendingLogin, Visit
 
@@ -153,6 +155,8 @@ class SyncBusyError(Exception):
 @dataclass(frozen=True)
 class SyncResult:
     visits: int
+    # Pesées de la balance ajoutées ou suivies (jamais une saisie manuelle remplacée).
+    weights: int = 0
 
 
 def request_sync(*, owner: User) -> None:
@@ -229,11 +233,21 @@ def _sync(owner: User, gateway: BasicFitGateway) -> SyncResult:
         # Reconnexion pendant la synchro : ses jetons et ses données priment.
         raise SyncBusyError
     days = {visit.day: visit.club for visit in data.visits if start <= visit.day <= today}
+    weights = 0
     with transaction.atomic():
         for day, club in days.items():
             Visit.objects.update_or_create(owner=owner, date=day, defaults={"club": club})
+        # Poids des balances : par le service de `body`, qui garde toujours la saisie manuelle.
+        for scale in data.weights:
+            if not start <= scale.day <= today:
+                continue
+            try:
+                outcome = import_scale_weight(owner=owner, day=scale.day, weight_kg=scale.weight_kg)
+            except ValidationError:
+                continue  # mesure aberrante de la balance : ignorée
+            weights += outcome is not ScaleOutcome.KEPT_MANUAL
         mine.update(home_club=data.home_club, last_sync_at=now, last_error="")
-    return SyncResult(visits=len(days))
+    return SyncResult(visits=len(days), weights=weights)
 
 
 def due_for_sync() -> list[str]:

@@ -73,8 +73,13 @@ def test_listing_returns_the_period_with_its_trend() -> None:
     assert response.status_code == 200
     # 90 derniers jours par défaut : la pesée d'il y a 200 jours n'y est pas.
     assert response.json() == [
-        {"date": (today - timedelta(days=1)).isoformat(), "weight_kg": 80.0, "trend_kg": 80.0},
-        {"date": today.isoformat(), "weight_kg": 81.0, "trend_kg": 80.5},
+        {
+            "date": (today - timedelta(days=1)).isoformat(),
+            "weight_kg": 80.0,
+            "trend_kg": 80.0,
+            "source": "manual",
+        },
+        {"date": today.isoformat(), "weight_kg": 81.0, "trend_kg": 80.5, "source": "manual"},
     ]
 
 

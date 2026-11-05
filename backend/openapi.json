@@ -2595,6 +2595,14 @@
             "title": "Date",
             "type": "string"
           },
+          "source": {
+            "enum": [
+              "manual",
+              "basicfit"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
           "trend_kg": {
             "title": "Trend Kg",
             "type": "number"
@@ -2607,7 +2615,8 @@
         "required": [
           "date",
           "weight_kg",
-          "trend_kg"
+          "trend_kg",
+          "source"
         ],
         "title": "WeightPointOut",
         "type": "object"

@@ -63,6 +63,11 @@ prime sur celle de la balance ; **le poids seulement**, sans la composition corp
   conditions d'utilisation de Basic-Fit ; l'écran le dit, l'intégration reste désactivable et
   réservée au compte personnel de l'utilisateur.
 - ⚠️ Paquet d'un seul mainteneur, sans provenance : version figée, relue, mise à jour à la main.
+- ⚠️ Pesées de la balance : une par jour (la plus récente), dans `body` avec la source
+  `basicfit` ; elles remplissent les jours vides et suivent leur balance, jamais elles ne
+  remplacent une saisie manuelle. Une pesée de la balance supprimée à la main revient à la
+  synchronisation suivante si elle date de la semaine relue : la remplacer par une saisie
+  manuelle la fige.
 - ⚠️ Le collage d'une URL de redirection est inhabituel : l'écran le guide pas à pas, et
   avertit de ne jamais transmettre cette adresse à quelqu'un (elle relierait son compte
   Basic-Fit au compte Lest de cette personne).

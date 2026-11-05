@@ -3,6 +3,7 @@ jour, une mensuration par compte, jour et endroit, des photos sous l'UUID du cli
 
 from datetime import date, timedelta
 from decimal import Decimal
+from enum import Enum
 from uuid import UUID
 
 from django.core.exceptions import ValidationError
@@ -23,6 +24,7 @@ from apps.body.models import (
     Pose,
     ProgressPhoto,
     Site,
+    WeightSource,
 )
 
 EARLIEST = date(2000, 1, 1)
@@ -56,8 +58,39 @@ def put_weight(*, owner: User, day: date, weight_kg: Decimal) -> tuple[BodyWeigh
         )
     with transaction.atomic():
         return BodyWeight.objects.update_or_create(
-            owner=owner, date=day, defaults={"weight_kg": weight_kg}
+            owner=owner, date=day, defaults={"weight_kg": weight_kg, "source": WeightSource.MANUAL}
         )
+
+
+class ScaleOutcome(Enum):
+    CREATED = "created"
+    UPDATED = "updated"
+    KEPT_MANUAL = "kept_manual"
+
+
+def import_scale_weight(*, owner: User, day: date, weight_kg: Decimal) -> ScaleOutcome:
+    """Pesée d'une balance de club (Basic-Fit, ADR 0014) pour le jour `day` de `owner`.
+
+    Remplit un jour sans pesée, ou suit sa balance sur un jour qu'elle a déjà rempli ; une pesée
+    saisie à la main n'est jamais remplacée (choix produit). Lève `ValidationError` (date ou
+    poids hors plage, sans la valeur)."""
+    _check_day(day)
+    if not MIN_WEIGHT_KG <= weight_kg <= MAX_WEIGHT_KG:
+        raise ValidationError(
+            {"weight_kg": ValidationError("Poids hors plage.", code="out_of_range")}
+        )
+    with transaction.atomic():
+        row = BodyWeight.objects.select_for_update().filter(owner=owner, date=day).first()
+        if row is None:
+            BodyWeight.objects.create(
+                owner=owner, date=day, weight_kg=weight_kg, source=WeightSource.BASICFIT
+            )
+            return ScaleOutcome.CREATED
+        if row.source == WeightSource.MANUAL:
+            return ScaleOutcome.KEPT_MANUAL
+        row.weight_kg = weight_kg
+        row.save(update_fields=["weight_kg", "updated_at"])
+        return ScaleOutcome.UPDATED
 
 
 def delete_weight(*, owner: User, day: date) -> None:
