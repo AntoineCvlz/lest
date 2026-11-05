@@ -47,6 +47,24 @@ test.describe("Accueil", () => {
     expect(cspViolations).toEqual([]);
   });
 
+  test("est installable : manifest et icônes servis par l'image de prod", async ({
+    page,
+    request,
+  }) => {
+    await page.goto("/");
+    const href = await page.locator('link[rel="manifest"]').getAttribute("href");
+    expect(href).toBe("/manifest.webmanifest");
+
+    const manifest = (await (await request.get("/manifest.webmanifest")).json()) as {
+      icons: { src: string }[];
+    };
+    for (const icon of manifest.icons) {
+      const response = await request.get(icon.src);
+      expect(response.status(), icon.src).toBe(200);
+      expect(response.headers()["content-type"]).toBe("image/png");
+    }
+  });
+
   test("change de nonce à chaque requête", async ({ request }) => {
     const nonceOf = async () => {
       const response = await request.get("/");

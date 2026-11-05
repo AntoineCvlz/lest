@@ -28,6 +28,7 @@ describe("buildContentSecurityPolicy", () => {
     expect(csp.get("style-src")).toBe(`'self' 'nonce-${NONCE}'`);
     expect(csp.get("object-src")).toBe("'none'");
     expect(csp.get("frame-ancestors")).toBe("'none'");
+    expect(csp.get("manifest-src")).toBe("'self'");
     expect(csp.has("upgrade-insecure-requests")).toBe(true);
     expect([...csp.values()].join(" ")).not.toMatch(/unsafe/);
   });
