@@ -55,7 +55,9 @@ def test_the_length_is_encrypted_at_rest() -> None:
         cursor.execute("SELECT length_m FROM body_bodymeasurement WHERE id = %s", [row.pk])
         raw: str = cursor.fetchone()[0]
     assert created
-    assert "385" not in raw
+    # Un jeton Fernet (base64) peut contenir « 385 » par hasard :
+    # on vérifie le jeton, pas une sous-chaîne.
+    assert raw.startswith("gAAAA")
     assert BodyMeasurement.objects.get(pk=row.pk).length_m == Decimal("0.385")
 
 
