@@ -321,7 +321,12 @@ export function WeightJournal() {
                       <th scope="row" className="py-1 pr-2 font-semibold">
                         {shortDay(p.date)}
                       </th>
-                      <td className="py-1 pr-2">{bodyWeightText(p.weight_kg, system)}</td>
+                      <td className="py-1 pr-2">
+                        {bodyWeightText(p.weight_kg, system)}
+                        {p.source === "basicfit" && (
+                          <span className="text-ink-muted block text-sm">balance Basic-Fit</span>
+                        )}
+                      </td>
                       <td className="text-ink-muted py-1 pr-2 text-sm">
                         {bodyWeightText(p.trend_kg, system)}
                       </td>
