@@ -9,7 +9,7 @@ Basic-Fit.
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 
 import aiohttp
@@ -18,6 +18,7 @@ from basicfit.auth import AuthManager
 from basicfit.client import BasicFitClient
 from basicfit.exceptions import BasicFitAuthError, BasicFitError
 from basicfit.models import TokenSet
+from django.utils import timezone as djtimezone
 
 
 class _GatewayFailureError(Exception):
@@ -70,19 +71,38 @@ class MemberData:
     weights: list[ScaleWeight]
 
 
-def _weights(raw: list[object]) -> list[ScaleWeight]:
-    """Une pesée par jour, la plus récente (la liste arrive de la plus récente à la plus
-    ancienne) ; poids seul, au centième, tout le reste de la mesure abandonné ici."""
-    kept: dict[date, ScaleWeight] = {}
-    for item in raw:
+def _moment(value: object) -> datetime | None:
+    """Horodatage d'une mesure, en heure locale ; une date seule vaut minuit."""
+    text = str(value or "").strip()
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
         try:
-            day = date.fromisoformat(str(getattr(item, "date", "") or "")[:10])
+            moment = datetime.combine(date.fromisoformat(text[:10]), time.min)
+        except ValueError:
+            return None
+    zone = djtimezone.get_current_timezone()
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=zone)
+    return moment.astimezone(zone)
+
+
+def _weights(raw: list[object]) -> list[ScaleWeight]:
+    """Une pesée par jour local, la plus tardive (comparée à l'heure près, pas à l'ordre de la
+    liste) ; poids seul, au centième, tout le reste de la mesure abandonné ici."""
+    kept: dict[date, tuple[datetime, ScaleWeight]] = {}
+    for item in raw:
+        moment = _moment(getattr(item, "date", None))
+        try:
             kg = Decimal(str(getattr(item, "weight", None))).quantize(Decimal("0.01"))
-        except (ValueError, InvalidOperation):
+        except InvalidOperation:
             continue
-        if kg.is_finite() and day not in kept:
-            kept[day] = ScaleWeight(day=day, weight_kg=kg)
-    return list(kept.values())
+        if moment is None or not kg.is_finite():
+            continue
+        day = moment.date()
+        if day not in kept or moment > kept[day][0]:
+            kept[day] = (moment, ScaleWeight(day=day, weight_kg=kg))
+    return [weight for _, weight in kept.values()]
 
 
 def _visits(raw: list[object]) -> list[Visit]:

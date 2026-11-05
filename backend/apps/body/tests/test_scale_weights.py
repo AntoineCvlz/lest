@@ -77,3 +77,27 @@ def test_the_source_is_shown_and_exported() -> None:
     assert selectors.export_weights(owner=user) == [
         {"date": "2026-10-30", "weight_kg": 80.4, "source": "basicfit"}
     ]
+
+
+def test_a_manual_weigh_in_racing_the_import_wins_without_failing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = make_verified_user()
+    real_select = BodyWeight.objects.select_for_update
+    seen = {"reads": 0}
+
+    def stale_first_read() -> object:
+        seen["reads"] += 1
+        if seen["reads"] == 1:
+            # La saisie manuelle est validée juste après la lecture de l'import, qui ne la voit pas.
+            services.put_weight(owner=user, day=DAY, weight_kg=Decimal("81"))
+            return real_select().none()
+        return real_select()
+
+    monkeypatch.setattr(BodyWeight.objects, "select_for_update", stale_first_read)
+
+    outcome = services.import_scale_weight(owner=user, day=DAY, weight_kg=Decimal("80.4"))
+
+    assert outcome == services.ScaleOutcome.KEPT_MANUAL
+    row = BodyWeight.objects.get()
+    assert (row.weight_kg, row.source) == (Decimal("81.00"), WeightSource.MANUAL)

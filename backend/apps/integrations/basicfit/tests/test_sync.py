@@ -410,3 +410,19 @@ def test_visits_and_home_club_are_exported_without_tokens() -> None:
     assert exported["home_club"] == "Club témoin"
     assert exported["visits"] == [{"date": "2026-10-30", "club": "Club témoin"}]
     assert "fictif" not in json.dumps(exported)
+
+
+def test_scale_days_follow_local_time_and_keep_the_latest_measure() -> None:
+    from basicfit.models import BodyMeasurement
+
+    measures = [
+        # 23 h 30 UTC le 30 : 0 h 30 le 31 à Paris.
+        BodyMeasurement.from_api({"date": "2026-10-30T23:30:00+00:00", "weight": 80.5}),
+        BodyMeasurement.from_api({"date": "2026-10-29T07:00:00", "weight": 79.0}),
+        BodyMeasurement.from_api({"date": "2026-10-29T19:00:00", "weight": 79.6}),
+    ]
+
+    assert gw._weights(list(measures)) == [
+        gw.ScaleWeight(day=date(2026, 10, 31), weight_kg=Decimal("80.50")),
+        gw.ScaleWeight(day=date(2026, 10, 29), weight_kg=Decimal("79.60")),
+    ]

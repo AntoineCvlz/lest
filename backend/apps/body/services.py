@@ -82,10 +82,16 @@ def import_scale_weight(*, owner: User, day: date, weight_kg: Decimal) -> ScaleO
     with transaction.atomic():
         row = BodyWeight.objects.select_for_update().filter(owner=owner, date=day).first()
         if row is None:
-            BodyWeight.objects.create(
-                owner=owner, date=day, weight_kg=weight_kg, source=WeightSource.BASICFIT
-            )
-            return ScaleOutcome.CREATED
+            try:
+                # Point de sauvegarde : une saisie manuelle arrivée entre la lecture et l'écriture
+                # ne fait pas échouer la synchro (ni journaliser la date de la pesée).
+                with transaction.atomic():
+                    BodyWeight.objects.create(
+                        owner=owner, date=day, weight_kg=weight_kg, source=WeightSource.BASICFIT
+                    )
+                return ScaleOutcome.CREATED
+            except IntegrityError:
+                row = BodyWeight.objects.select_for_update().get(owner=owner, date=day)
         if row.source == WeightSource.MANUAL:
             return ScaleOutcome.KEPT_MANUAL
         row.weight_kg = weight_kg
