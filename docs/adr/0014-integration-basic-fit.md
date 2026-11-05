@@ -1,6 +1,6 @@
 # ADR 0014 — Basic-Fit : les données du membre seulement, par un adaptateur isolé et désactivable
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-04
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

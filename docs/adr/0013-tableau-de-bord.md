@@ -1,6 +1,6 @@
 # ADR 0013 — Tableau de bord : lectures agrégées par les sélecteurs des domaines, en une route
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-04
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

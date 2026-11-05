@@ -2,20 +2,22 @@
 
 Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé d'une main entre deux séries, même sans réseau en salle.
 
-> Phases 1 à 3 terminées :
+> Phases 1 à 4 terminées :
 > - comptes sécurisés : code e-mail, double authentification, passkeys, export et suppression RGPD ;
 > - **musculation** : catalogue de 701 exercices illustrés, saisie d'une série en un appui, minuteur de repos, records et programmes ;
-> - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés.
+> - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés ;
+> - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil, liaison Basic-Fit optionnelle.
 >
-> Prochaine étape, les autres sports et le tableau de bord (Phase 4) : voir la [roadmap](CLAUDE.md#roadmap).
+> Prochaine étape, le mobile : application installable et hors ligne (Phase 5) : voir la [roadmap](CLAUDE.md#roadmap).
 
 ## Ce que fait Lest
 
 - **Musculation** : séances, séries, charges, RPE, minuteur de repos, records personnels, programmes avec cibles et charge suggérée, catalogue illustré (données RepDB).
 - **Corps** : pesées et moyenne mobile sur 7 jours, mensurations, photos de progression chiffrées (archive ZIP téléchargeable).
 - **Nutrition** : journal des repas et de l'eau, aliments de la table Ciqual (Anses), produits Open Food Facts au scan du code-barres, aliments perso, objectifs caloriques et macros calculés et modifiables.
-- **Autres sports** : course, vélo, natation, sports collectifs, combat…
-- **Basic-Fit** (optionnel) : visites, pesées des balances en club, clubs, recettes.
+- **Autres sports** : 13 sports (course, vélo, natation, sports collectifs, combat, escalade…), avec les mesures propres à chacun (dénivelé, longueurs, rounds…).
+- **Bilan** : à l'accueil, poids et rythme par rapport à l'objectif, activité des 8 dernières semaines, adhérence nutrition, volume par muscle ; chaque graphique a son résumé et son tableau.
+- **Basic-Fit** (optionnel, désactivé par défaut) : club principal, visites en club et poids des balances du club, rien d'autre ; une pesée saisie à la main n'est jamais remplacée.
 
 Les données appartiennent à l'utilisateur : export CSV/JSON et suppression complète du compte.
 
