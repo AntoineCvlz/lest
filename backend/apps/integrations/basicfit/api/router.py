@@ -2,16 +2,17 @@
 déconnexion. Désactivée (`BASICFIT_ENABLED`), seules les lectures répondent (« désactivée »),
 les écritures sont introuvables (404). Aucun jeton ne sort jamais de l'API."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from allauth.core import ratelimit
 from django.http import Http404, HttpRequest
-from ninja import Field, Router, Schema, Status
+from ninja import Field, Query, Router, Schema, Status
 
 from apps.accounts.models import User
-from apps.integrations.basicfit import selectors, services
+from apps.integrations.basicfit import selectors, services, tasks
 from common.auth import request_user
+from common.period import Period
 from common.problems import ProblemError
 
 router = Router(tags=["basicfit"])
@@ -21,6 +22,8 @@ REFUSED_TYPE = "urn:lest:problem:basicfit-redirect-refused"
 LOGIN_REFUSED_TYPE = "urn:lest:problem:basicfit-login-refused"
 UNAVAILABLE_TYPE = "urn:lest:problem:basicfit-unavailable"
 CONNECT_ACTION = "basicfit_connect"
+TOO_SOON_TYPE = "urn:lest:problem:basicfit-too-soon"
+NOT_CONNECTED_TYPE = "urn:lest:problem:basicfit-not-connected"
 
 
 class ConnectionOut(Schema):
@@ -29,6 +32,16 @@ class ConnectionOut(Schema):
     connected_at: datetime | None
     last_sync_at: datetime | None
     last_error: str
+    home_club: str
+
+
+class VisitOut(Schema):
+    date: date
+    club: str
+
+
+class SyncOut(Schema):
+    queued: bool
 
 
 class LoginOut(Schema):
@@ -96,3 +109,42 @@ def complete(request: HttpRequest, payload: RedirectIn) -> ConnectionOut:
 def disconnect(request: HttpRequest) -> Status[None]:
     services.disconnect(owner=request_user(request))
     return Status(204, None)
+
+
+@router.post(
+    "/basicfit/sync/",
+    response={202: SyncOut},
+    summary="Synchroniser maintenant (au plus une fois par heure)",
+)
+def sync_now(request: HttpRequest) -> Status[SyncOut]:
+    owner = request_user(request)
+    if ratelimit.consume_or_429(request, action="basicfit_sync", user=owner) is not None:
+        raise ProblemError(429, "Trop de demandes. Réessayez plus tard.", type_=RATE_LIMITED_TYPE)
+    try:
+        services.request_sync(owner=owner)
+    except services.DisabledError as error:
+        raise Http404 from error
+    except services.NotConnectedError as error:
+        raise ProblemError(
+            409, "Reliez d'abord votre compte Basic-Fit.", type_=NOT_CONNECTED_TYPE
+        ) from error
+    except services.TooSoonError as error:
+        raise ProblemError(
+            429, "Synchronisation déjà demandée il y a moins d'une heure.", type_=TOO_SOON_TYPE
+        ) from error
+    tasks.sync_account.delay(str(owner.pk))
+    return Status(202, SyncOut(queued=True))
+
+
+@router.get("/basicfit/visits/", response=list[VisitOut], summary="Visites d'une période")
+def visits(request: HttpRequest, period: Query[Period]) -> list[VisitOut]:
+    owner = request_user(request)
+    if ratelimit.consume_or_429(request, action="basicfit_read", user=owner, limit_get=True):
+        raise ProblemError(
+            429, "Trop de demandes. Réessayez dans un instant.", type_=RATE_LIMITED_TYPE
+        )
+    start, end = period.bounds()
+    return [
+        VisitOut(date=visit.date, club=visit.club or "")
+        for visit in selectors.list_visits(owner=owner, start=start, end=end)
+    ]

@@ -20,7 +20,8 @@ EXPORTED_MODELS = {
     "nutrition.journalentry",
     "nutrition.waterintake",
     "activities.activity",
-    "basicfit.connection",  # état et dates seulement, jamais les jetons
+    "basicfit.connection",  # état, dates et club principal, jamais les jetons
+    "basicfit.visit",
     "nutrition.nutritiontarget",
 }
 

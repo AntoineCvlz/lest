@@ -91,6 +91,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/basicfit/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Synchroniser maintenant (au plus une fois par heure) */
+        post: operations["apps_integrations_basicfit_api_router_sync_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/basicfit/visits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Visites d'une période */
+        get: operations["apps_integrations_basicfit_api_router_visits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/body-measurements/": {
         parameters: {
             query?: never;
@@ -808,6 +842,8 @@ export interface components {
             connected_at: string | null;
             /** Enabled */
             enabled: boolean;
+            /** Home Club */
+            home_club: string;
             /** Last Error */
             last_error: string;
             /** Last Sync At */
@@ -1503,6 +1539,11 @@ export interface components {
             /** Metrics */
             metrics: components["schemas"]["MetricOut"][];
         };
+        /** SyncOut */
+        SyncOut: {
+            /** Queued */
+            queued: boolean;
+        };
         /** TargetsIn */
         TargetsIn: {
             /**
@@ -1575,6 +1616,16 @@ export interface components {
             kcal: number;
             /** Protein */
             protein: number;
+        };
+        /** VisitOut */
+        VisitOut: {
+            /** Club */
+            club: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
         };
         /** WaterIn */
         WaterIn: {
@@ -1962,6 +2013,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LoginOut"];
+                };
+            };
+        };
+    };
+    apps_integrations_basicfit_api_router_sync_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncOut"];
+                };
+            };
+        };
+    };
+    apps_integrations_basicfit_api_router_visits: {
+        parameters: {
+            query?: {
+                start?: string | null;
+                end?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitOut"][];
                 };
             };
         };

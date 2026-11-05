@@ -9,20 +9,67 @@ Basic-Fit.
 import asyncio
 import json
 from dataclasses import dataclass
+from datetime import date
 
 import aiohttp
 from basicfit import pkce
 from basicfit.auth import AuthManager
+from basicfit.client import BasicFitClient
 from basicfit.exceptions import BasicFitAuthError, BasicFitError
 from basicfit.models import TokenSet
 
 
-class GatewayAuthError(Exception):
+class _GatewayFailureError(Exception):
+    """Erreur de la passerelle ; `tokens` : jeu de jetons tourné pendant l'appel, à enregistrer
+    malgré l'échec (l'ancien n'est plus valable chez Basic-Fit)."""
+
+    def __init__(self, tokens: str | None = None) -> None:
+        super().__init__()
+        self.tokens = tokens
+
+
+class GatewayAuthError(_GatewayFailureError):
     """Basic-Fit refuse la connexion ou les jetons : reconnexion nécessaire."""
 
 
-class GatewayError(Exception):
+class GatewayError(_GatewayFailureError):
     """Panne de Basic-Fit ou du réseau : à réessayer plus tard."""
+
+
+# Texte venu de Basic-Fit (nom du club) : borné, sans caractère de contrôle.
+MAX_CLUB_LENGTH = 120
+
+
+def _clean(value: object) -> str:
+    text = value if isinstance(value, str) else ""
+    return "".join(c for c in text if c.isprintable())[:MAX_CLUB_LENGTH].strip()
+
+
+@dataclass(frozen=True)
+class Visit:
+    day: date
+    club: str
+
+
+@dataclass(frozen=True)
+class MemberData:
+    """Ce que Lest garde du membre (ADR 0014) ; tout le reste du profil est ignoré ici."""
+
+    tokens: str
+    home_club: str
+    visits: list[Visit]
+
+
+def _visits(raw: list[object]) -> list[Visit]:
+    visits = []
+    for item in raw:
+        text = str(getattr(item, "date", "") or "")[:10]
+        try:
+            day = date.fromisoformat(text)
+        except ValueError:
+            continue
+        visits.append(Visit(day=day, club=_clean(getattr(item, "club", ""))))
+    return visits
 
 
 @dataclass(frozen=True)
@@ -65,3 +112,28 @@ class BasicFitGateway:
         # dont la trace citerait la réponse ou les jetons.
         except Exception:
             raise GatewayError from None
+
+    def fetch(self, *, tokens: str, start: date, end: date) -> MemberData:
+        """Club principal et visites du `start` au `end` (365 jours au plus). Le jeu de jetons
+        rendu est le dernier tourné ; en cas d'échec, l'erreur le porte aussi (`tokens`)."""
+        latest = {"tokens": tokens}
+
+        def rotated(new: TokenSet) -> None:
+            latest["tokens"] = _dump(new)
+
+        async def run() -> tuple[str, list[Visit]]:
+            current = TokenSet.from_dict(json.loads(tokens))
+            async with BasicFitClient.create(current, token_updated=rotated) as client:
+                member = await client.get_member()
+                visits = await client.get_visits(from_date=start, to_date=end)
+            return _clean(member.home_club), _visits(list(visits))
+
+        try:
+            home_club, visits = asyncio.run(run())
+        except BasicFitAuthError:
+            raise GatewayAuthError(latest["tokens"]) from None
+        except (BasicFitError, aiohttp.ClientError, TimeoutError):
+            raise GatewayError(latest["tokens"]) from None
+        except Exception:
+            raise GatewayError(latest["tokens"]) from None
+        return MemberData(tokens=latest["tokens"], home_club=home_club, visits=visits)

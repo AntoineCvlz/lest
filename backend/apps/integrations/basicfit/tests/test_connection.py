@@ -314,6 +314,7 @@ def test_disabled_writes_are_not_found(client: Client, settings: Any) -> None:
         "connected_at": None,
         "last_sync_at": None,
         "last_error": "",
+        "home_club": "",
     }
     assert client.post("/api/v1/basicfit/connection/start/", headers=headers).status_code == 404
     assert client.get("/api/v1/basicfit/connection/").status_code == 401
