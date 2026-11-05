@@ -1,6 +1,6 @@
 # ADR 0012 — Activités : un catalogue de sports fixe, des métriques validées, des valeurs chiffrées
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-04
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

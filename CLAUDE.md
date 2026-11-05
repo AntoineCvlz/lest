@@ -47,17 +47,15 @@ Une app Django par domaine, **aucun import croisé direct entre leurs modèles**
 
 Package `basicfit` (v1.0.0, juillet 2026, MIT, un seul mainteneur) : client async non officiel de l'API de l'app Basic-Fit. Pas de catalogue de machines.
 
-| `basicfit` fournit | Usage dans Lest |
+| `basicfit` fournit | Usage dans Lest (ADR 0014 : données du membre seulement) |
 | --- | --- |
-| Profil membre : abonnement, club principal | Pré-remplit profil et salle par défaut |
-| Historique des visites (365 j max par requête) | Calendrier d'assiduité ; visite sans séance → proposer de la compléter |
-| Mesures des balances en club (poids, % gras, muscle, eau) | Import dans `body`, source « Basic-Fit », dédoublonnage par date |
-| Badges | Affichés dans le profil, sans gamification supplémentaire |
-| Catalogue d'entraînements (public) | Modèles de programmes à importer |
-| Recettes avec macros (public) | Aliments composés dans les repas |
-| Recherche de clubs + image (public) | Création des `Gym` sans saisie manuelle |
+| Profil membre : abonnement, club principal | Nom du club principal seulement (rien d'autre du profil) ✅ |
+| Historique des visites (365 j max par requête) | Visites en club (date, club) ✅ ; visite sans séance → proposer de la compléter (à faire) |
+| Mesures des balances en club (poids, % gras, muscle, eau) | **Poids seulement**, dans `body` avec la source `basicfit` ; une saisie manuelle prime toujours ✅ |
+| Badges | Affichés dans le profil (à faire) |
+| Catalogue d'entraînements, recettes, recherche de clubs + image | **Écartés** : contenus Basic-Fit lus avec le jeton de leur application, sans licence |
 
-Non exposé : journal de progression des séances, affluence des clubs. Vérifier le dépôt avant la Phase 4 ; proposer une PR upstream si simple.
+Non exposé : journal de progression des séances, affluence des clubs. Dépôt relu le 2026-11-04 (ADR 0014) ; PR upstream possible : erreur distincte pour une panne du serveur de jetons (aujourd'hui `BasicFitAuthError` pour toute réponse autre que 200).
 
 **Exercices** (ADR 0006, remplace wger) : offre gratuite de **RepDB** (701 exercices illustrés dans un style unique, positions départ et effort), importée par `import_exercises` depuis le dépôt GitHub officiel de RepDB. Licence maison : usage dans l'app avec la mention **« Exercise data by RepDB (repdb.co) »**, **rien du jeu de données dans notre dépôt public** (ni JSON, ni images, ni traduction des noms : tests sur des exercices fictifs), aucune IA générative sur les images. Noms en anglais ; catégories, muscles et équipements traduits par nos libellés. Machines guidées de salle ajoutées comme `Equipment` maison, annotables par club (« présent dans ma salle »). Secours : Everkinetic (CC-BY-SA).
 
@@ -65,7 +63,7 @@ Non exposé : journal de progression des séances, affluence des clubs. Vérifie
 
 - App `integrations/basicfit/` : adaptateur `BasicFitGateway` (seul point de contact avec le package), DTO internes, mapping vers nos modèles. **Aucun autre module n'importe `basicfit`.**
 - Connexion OAuth2 PKCE du package. Login Basic-Fit protégé par anti-bot : l'utilisateur se connecte dans son navigateur puis colle l'URL de redirection ; l'écran l'explique clairement.
-- Refresh tokens rotatifs à chaque appel : persister le nouveau jeu via le callback `token_updated`, chiffré en base (`django-cryptography` ou Fernet, clé en variable d'environnement), **jamais loggé**.
+- Refresh tokens rotatifs à chaque appel : le jeu tourné (`token_updated`) est recueilli puis écrit dès la fin de l'appel, chiffré (Fernet), **jamais loggé** (ADR 0014).
 - Synchro via tâche Celery : max 1×/heure/utilisateur, backoff exponentiel, déclenchable manuellement ; gérer `BasicFitAuthError` (demande de reconnexion) et `BasicFitAPIError`.
 - Tests avec réponses enregistrées (fixtures JSON), aucun appel réseau réel en CI.
 - Feature flag `BASICFIT_ENABLED` : l'app reste entièrement utilisable sans.
@@ -121,7 +119,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
 - Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
-- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records), 8 semaines de pesées et de mensurations (`seed_body`), table Ciqual si elle est vide (`import_foods`), 2 semaines de repas et les objectifs (`seed_nutrition`, sur des aliments perso).
+- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records), 8 semaines de pesées et de mensurations (`seed_body`), table Ciqual si elle est vide (`import_foods`), 2 semaines de repas et les objectifs (`seed_nutrition`, sur des aliments perso), 8 semaines de course et de natation (`seed_activities`).
 - Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
 - E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 
@@ -262,7 +260,7 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 1. **Comptes & design system** ✅ (2026-10-29) : direction « Fonte calibrée », tokens, Storybook ; auth allauth + JWT + BFF, inscription, connexion, mot de passe oublié ; profil, onboarding, pages privées ; `seed` de démo ; export et suppression RGPD ; double authentification (TOTP, codes de secours) et passkeys, connexion sans mot de passe ; appareils connectés ; ADR 0002 (chiffrement au repos).
 2. **Musculation** ✅ (2026-11-02) : catalogue RepDB illustré (ADR 0006), séance en cours (saisie d'une série en un appui, charge pré-remplie, minuteur de repos, écran allumé), modification des séries, historique et détail des séances, fiches d'exercice et records (formule du 1RM au choix), programmes avec cibles et charge suggérée ; ADR 0003 (écritures idempotentes) et 0006 ; seed de démo.
 3. **Corps & nutrition** ✅ (2026-11-04) : pesées et moyenne mobile sur 7 jours, mensurations, photos de progression chiffrées et leur archive ZIP ; aliments Ciqual et code-barres Open Food Facts (scan par la caméra si le navigateur le permet), aliments perso, journal des repas et eau, objectifs calculés et modifiables ; données de santé chiffrées ; ADR 0007 à 0011 ; seed de démo.
-4. **Autres sports & insights** : activités génériques, Basic-Fit (visites, pesées, clubs, recettes), tableau de bord, graphiques accessibles.
+4. **Autres sports & insights** ✅ (2026-11-05) : activités sur un catalogue de 13 sports (ADR 0012) ; Bilan à l'accueil (poids et rythme, 8 semaines d'activité, adhérence nutrition, volume par muscle, ADR 0013) ; Basic-Fit désactivable, données du membre seulement (club, visites, poids des balances, ADR 0014) ; seed de démo.
 5. **Mobile** : PWA installable, hors ligne + synchronisation, notifications. Option : app native Expo réutilisant le client API typé.
 
 ## Règles de travail
@@ -354,6 +352,39 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
   - gunicorn et longs flux : workers synchrones, délai de 30 s ; l'archive ZIP des photos peut le dépasser sur une connexion lente. Avant le premier déploiement : ASGI, `gthread` avec un délai adapté, ou archive produite par Celery ;
   - rotation des clés Fernet : aucune commande de rechiffrement (champs chiffrés et fichiers de photos), les anciennes clés restent nécessaires. À écrire avant le premier déploiement (ADR 0002, 0007, 0008) ;
   - décodeur de code-barres pour Safari (ZXing : nouvelle dépendance et `wasm-unsafe-eval` dans la CSP), à décider ;
-  - mesures des balances Basic-Fit dans `body` (Phase 4).
+  - ~~mesures des balances Basic-Fit dans `body`~~ : fait en Phase 4 (poids seulement).
+
+## Décisions et constats de la Phase 4 (à respecter)
+
+- **Activités** (ADR 0012) :
+  - catalogue de sports **fixe**, dans le code (`apps/activities/sports.py`), servi par `GET /api/v1/sports/` ; chaque sport dit s'il a une distance et ses métriques entières bornées ; le formulaire du front est construit depuis ce catalogue ;
+  - `Activity` : UUID du client (ADR 0003), date et sport en clair, durée, distance, FC, ressenti et métriques chiffrés ; métriques en `StrictInt` (ni `true`, ni « 12 ») ; 20 par jour, plafond vérifié aussi quand une activité change de jour ;
+  - `Period` partagée dans `common/period.py` (corps, activités, visites).
+- **Bilan** (ADR 0013) :
+  - accueil `/` : avec l'indice de session, Bilan + onglets + section Compte (déconnexion et purge du cache privé restent là) ; sans, page publique ; onglets Bilan, Séance, Repas, Corps, Profil (le catalogue d'exercices passe par Séance et le Bilan, onglet Séance courant sur `/exercices`) ;
+  - une route `GET /api/v1/insights/dashboard/`, sans table : sélecteurs des domaines (`training.weekly_training` agrégé en SQL, `nutrition.daily_totals`, `list_weights`, `list_activities`) ; coût constant (testé par un budget de requêtes), `insights_read` 60/min ;
+  - graphiques en SVG maison, sans dépendance (CLAUDE.md citait Visx ou Recharts) : une série, encre (pas de jaune sur fond clair : contraste < 3:1), résumé en légende et tableau ; tableaux `table-fixed` qui ne débordent jamais (pas de région défilable, donc pas de `tabIndex` refusé par jsx-a11y) ; variations lues en mots (« baisse de 0,4 kg », le signe moins pouvant être tu) ;
+  - repères de rythme du poids génériques, présentés comme tels.
+- **Basic-Fit** (ADR 0014) :
+  - `apps/integrations/basicfit/` ; `BasicFitGateway`, seul à importer `basicfit` (test d'architecture) ; erreurs du paquet converties `from None`, jamais leur message (il cite la réponse de Basic-Fit) ;
+  - paquet épinglé par hash, **exclu de Dependabot**, un test fige les empreintes relues ; la roue installée a été comparée au code source relu ; `aiohttp` en dépendance directe ; mypy lit le source (`follow_untyped_imports`) ;
+  - connexion : PKCE, `state` et vérificateur chiffrés 10 min, usage unique ; **URL de redirection complète exigée** et analysée par nous (`parse_redirect` du paquet accepte un code seul et un `state` absent) ; l'écran avertit de ne jamais transmettre l'adresse ;
+  - synchronisation : au plus une **tentative** par heure (réussie ou non), une seule en file, verrou nominatif plus long que la limite dure ; jetons tournés écrits dès la fin de l'appel, avant les données, protégés par un numéro de génération ; effacés au **3e refus** consécutif seulement (le paquet confond refus et panne du serveur de jetons) ; `basicfit_connect` 10/h, `basicfit_sync` 3/h, `basicfit_read` 60/min ;
+  - données gardées : nom du club principal et visites (club chiffré), poids des balances (une pesée par jour local, la plus tardive) ; la composition corporelle et le reste du profil membre sont abandonnés dans la passerelle ;
+  - `BodyWeight.source` (`manual`, `basicfit`) : `import_scale_weight` remplit un jour vide, suit sa balance, ne remplace jamais une saisie manuelle (point de sauvegarde contre une saisie concurrente) ;
+  - `BASICFIT_ENABLED` (faux par défaut) transmis par `compose.yaml` ; à mettre à `true` dans `.env` pour l'essayer ; désactivé, la section du profil n'apparaît pas et les écritures répondent 404.
+- **Front** :
+  - quand un bouton disparaît (liaison, déliaison, nouvel essai, « Préparer »), le focus va au titre de la section ou au nouvel élément ; jamais au haut de la page ;
+  - message d'état vidé puis rempli pour qu'un même texte soit réannoncé ; rien d'affiché tant qu'on ignore si une section existe (pas de titre éphémère) ;
+  - requêtes `["activities"]`, `["insights"]`, `["basicfit"]` dans `PRIVATE_QUERY_KEYS`.
+- **E2E** : sélecteurs exacts pour les onglets (« Séance » contre « Commencer une séance ») ; en CI, une seule IP : les rejeux d'un test raté créent des comptes et peuvent faire buter les inscriptions suivantes sur la limite d'allauth (20/min/IP) ; corriger la cause première avant de chercher plus loin.
+- **Seed** : `seed_activities` (course le dimanche, natation un mardi sur deux).
+- **Reporté** :
+  - badges Basic-Fit dans le profil ; visite sans séance → proposer de la compléter ;
+  - application `gyms` (salles, équipements disponibles) : non commencée ;
+  - focus masqué par la barre d'onglets fixe avec le texte agrandi à 200 % (WCAG 2.4.11) : `scroll-padding-bottom` suppose une barre d'une rangée ;
+  - plafond de séances par jour : aucun, ce qui laisse `export_workouts` et l'export RGPD charger un volume illimité ;
+  - Basic-Fit : un processus tué pendant l'appel perd la rotation des jetons (reconnexion) ; une pesée de la balance supprimée revient si elle date de la semaine relue ; pas de révocation possible des jetons chez Basic-Fit ;
+  - `.env.example` : ajouter `BASICFIT_ENABLED=false` (le hook du projet interdit à Claude d'écrire dans `.env*`).
 
 **Définition de « terminé »** : tests et CI verts, aucune alerte de sécurité haute, axe sans violation, types générés à jour, documentation et ADR écrits, démo visible sur le serveur de dev.
