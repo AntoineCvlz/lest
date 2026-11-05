@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { longDay } from "@/shared/lib/days";
@@ -23,6 +23,9 @@ import {
 export const BASICFIT_UNAVAILABLE = "Liaison Basic-Fit indisponible pour le moment.";
 const LINK =
   "text-ink inline-flex min-h-11 items-center font-semibold underline underline-offset-4";
+/** Message d'état ; `moveFocus` : le bloc va être remplacé, le focus ira au titre. */
+type Announce = (text: string, moveFocus?: boolean) => void;
+
 const MOMENT = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" });
 
 /** Message d'un refus de l'API, sans jamais reprendre l'adresse collée. */
@@ -62,13 +65,7 @@ function Imported() {
   );
 }
 
-function Connect({
-  connection,
-  onNotice,
-}: {
-  connection: Connection;
-  onNotice: (text: string) => void;
-}) {
+function Connect({ connection, onNotice }: { connection: Connection; onNotice: Announce }) {
   const hydrated = useHydrated();
   const start = useStartLogin();
   const complete = useCompleteLogin();
@@ -76,6 +73,7 @@ function Connect({
   const [authorizeUrl, setAuthorizeUrl] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const linkRef = useRef<HTMLAnchorElement>(null);
 
   return (
     <div className="flex flex-col gap-4">
@@ -88,9 +86,18 @@ function Connect({
       <ol className="marker:text-ink-muted flex list-decimal flex-col gap-3 pl-6 marker:font-bold">
         <li className="pl-1">
           <div className="flex flex-col items-start gap-2">
-            <span>Préparez la connexion, puis ouvrez la page de Basic-Fit et connectez-vous.</span>
+            <span>
+              Préparez la connexion, puis ouvrez la page de Basic-Fit et connectez-vous (le lien est
+              valable 10 minutes).
+            </span>
             {authorizeUrl ? (
-              <a href={authorizeUrl} target="_blank" rel="noopener noreferrer" className={LINK}>
+              <a
+                ref={linkRef}
+                href={authorizeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={LINK}
+              >
                 Ouvrir la connexion Basic-Fit (nouvel onglet)
               </a>
             ) : (
@@ -100,9 +107,14 @@ function Connect({
                 aria-disabled={start.isPending}
                 onClick={() => {
                   if (start.isPending) return;
+                  complete.reset();
                   start.mutate(undefined, {
                     onSuccess: (address) => {
-                      setAuthorizeUrl(address);
+                      // Le bouton laisse place au lien : le focus le suit.
+                      flushSync(() => {
+                        setAuthorizeUrl(address);
+                      });
+                      linkRef.current?.focus();
                       onNotice("Connexion préparée : ouvrez la page de Basic-Fit.");
                     },
                   });
@@ -111,18 +123,22 @@ function Connect({
                 Préparer la connexion
               </Button>
             )}
+            <div role="alert" className="empty:hidden">
+              {start.isError && (
+                <p className="text-danger font-semibold">{failureText(start.error)}</p>
+              )}
+            </div>
           </div>
         </li>
         <li className="pl-1">
           <div className="flex flex-col gap-2">
             <span>
               Une fois connecté, le navigateur affiche une erreur ou une page vide : copiez
-              l’adresse complète de la barre d’adresse (elle commence par «
-              com.basicfit.trainingapp: ») et collez-la ci-dessous.
+              l’adresse complète de la barre d’adresse et collez-la ci-dessous.
             </span>
-            <p className="rounded-control border-danger border p-3 text-sm font-semibold">
-              Ne transmettez jamais cette adresse à quelqu’un : elle relierait votre compte
-              Basic-Fit à son compte Lest.
+            <p className="rounded-control border-danger border p-3 text-sm">
+              <strong>Attention :</strong> ne transmettez jamais cette adresse à quelqu’un : elle
+              relierait votre compte Basic-Fit à son compte Lest.
             </p>
           </div>
         </li>
@@ -136,6 +152,7 @@ function Connect({
           event.preventDefault();
           if (complete.isPending) return;
           complete.reset();
+          start.reset();
           const value = url.trim();
           flushSync(() => {
             setMissing(value === "");
@@ -148,7 +165,7 @@ function Connect({
             onSuccess: () => {
               setUrl("");
               setAuthorizeUrl(null);
-              onNotice("Compte Basic-Fit relié. Première synchronisation dans l’heure.");
+              onNotice("Compte Basic-Fit relié. Première synchronisation dans l’heure.", true);
             },
           });
         }}
@@ -157,17 +174,22 @@ function Connect({
           label="Adresse de redirection"
           name="redirect"
           autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          inputMode="url"
           spellCheck={false}
           value={url}
+          hint="Elle commence par « com.basicfit.trainingapp: »."
           error={missing ? "Collez l’adresse copiée après la connexion." : undefined}
           onChange={(event) => {
             setUrl(event.target.value);
+            setMissing(false);
           }}
         />
         <div role="alert" className="empty:hidden">
-          {(start.isError || complete.isError) && (
+          {complete.isError && (
             <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-              {failureText(start.error ?? complete.error)}
+              {failureText(complete.error)}
             </p>
           )}
         </div>
@@ -185,13 +207,7 @@ function Connect({
   );
 }
 
-function Linked({
-  connection,
-  onNotice,
-}: {
-  connection: Connection;
-  onNotice: (text: string) => void;
-}) {
+function Linked({ connection, onNotice }: { connection: Connection; onNotice: Announce }) {
   const sync = useSyncNow();
   const disconnect = useDisconnect();
   const visits = useVisits(true);
@@ -228,7 +244,7 @@ function Linked({
       <div role="alert" className="empty:hidden">
         {(sync.isError || disconnect.isError) && (
           <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-            {failureText(sync.error ?? disconnect.error)}
+            {failureText(disconnect.error ?? sync.error)}
           </p>
         )}
       </div>
@@ -245,9 +261,10 @@ function Linked({
               aria-disabled={disconnect.isPending}
               onClick={() => {
                 if (disconnect.isPending) return;
+                sync.reset();
                 disconnect.mutate(undefined, {
                   onSuccess: () => {
-                    onNotice("Compte Basic-Fit délié.");
+                    onNotice("Compte Basic-Fit délié.", true);
                   },
                 });
               }}
@@ -276,6 +293,7 @@ function Linked({
             onClick={() => {
               if (sync.isPending) return;
               sync.reset();
+              disconnect.reset();
               sync.mutate(undefined, {
                 onSuccess: () => {
                   onNotice("Synchronisation demandée : elle aura lieu dans quelques instants.");
@@ -303,7 +321,20 @@ function Linked({
         {`Visites des ${String(VISIT_DAYS)} derniers jours`}
       </h3>
       {visits.isPending && <p className="text-ink-muted">Chargement des visites…</p>}
-      {visits.isError && <p className="text-danger font-semibold">{BASICFIT_UNAVAILABLE}</p>}
+      {visits.isError && (
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-danger font-semibold">{BASICFIT_UNAVAILABLE}</p>
+          <Button
+            variant="secondary"
+            aria-disabled={visits.isFetching}
+            onClick={() => {
+              if (!visits.isFetching) void visits.refetch();
+            }}
+          >
+            Réessayer
+          </Button>
+        </div>
+      )}
       {visits.isSuccess &&
         (rows.length === 0 ? (
           <p className="text-ink-muted">Aucune visite relevée sur cette période.</p>
@@ -334,36 +365,66 @@ function Linked({
 export function BasicFitSection() {
   const connection = useConnection();
   const [notice, setNotice] = useState("");
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Nouvel essai du chargement : le bouton disparaît au succès, le focus ira au titre.
+  const focusTitle = useRef(false);
   const data = connection.data;
+  const status = data?.status;
 
-  if (data && !data.enabled) return null;
+  useEffect(() => {
+    if (!focusTitle.current || status === undefined) return;
+    focusTitle.current = false;
+    titleRef.current?.focus();
+  }, [status]);
+
+  const announce: Announce = (text, moveFocus = false) => {
+    // Vidée puis remplie : un même message est annoncé de nouveau.
+    flushSync(() => {
+      setNotice("");
+    });
+    setNotice(text);
+    // Le titre reste dans les deux états : il reçoit le focus avant que le bloc soit remplacé.
+    if (moveFocus) titleRef.current?.focus();
+  };
+
+  // Rien tant que l'on ignore si l'intégration est activée (pas de titre éphémère).
+  if (connection.isPending || (data && !data.enabled)) return null;
   return (
     <section
       aria-labelledby="basicfit-title"
       className="border-line-subtle flex flex-col gap-4 border-t pt-8"
     >
-      <h2 id="basicfit-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <h2
+        ref={titleRef}
+        id="basicfit-title"
+        tabIndex={-1}
+        className="text-xl font-extrabold [font-stretch:112%]"
+      >
         Basic-Fit
       </h2>
-      {connection.isPending && <p className="text-ink-muted">Chargement de la liaison…</p>}
       {connection.isError && (
-        <div role="alert" className="flex flex-col items-start gap-3">
-          <p className="text-danger font-semibold">{BASICFIT_UNAVAILABLE}</p>
+        <div className="flex flex-col items-start gap-3">
+          <p role="alert" className="text-danger font-semibold">
+            {BASICFIT_UNAVAILABLE}
+          </p>
           <Button
             variant="secondary"
+            aria-disabled={connection.isFetching}
             onClick={() => {
+              if (connection.isFetching) return;
+              focusTitle.current = true;
               void connection.refetch();
             }}
           >
-            Réessayer
+            {connection.isFetching ? "Nouvel essai…" : "Réessayer"}
           </Button>
         </div>
       )}
       {data &&
         (data.status === "connected" ? (
-          <Linked connection={data} onNotice={setNotice} />
+          <Linked connection={data} onNotice={announce} />
         ) : (
-          <Connect connection={data} onNotice={setNotice} />
+          <Connect connection={data} onNotice={announce} />
         ))}
       <p aria-live="polite" className="text-ink-muted empty:sr-only">
         {notice}

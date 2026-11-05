@@ -69,18 +69,25 @@ describe("BasicFitSection", () => {
     const user = userEvent.setup();
     renderWithQuery(<BasicFitSection />);
 
-    expect(await screen.findByText(/Ne transmettez jamais cette adresse/)).toBeVisible();
+    expect(await screen.findByText(/ne transmettez jamais cette adresse/)).toBeVisible();
+    expect(screen.getByText("Attention :")).toBeVisible();
     expect(screen.getByText(/poids mesuré par les balances du club/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Préparer la connexion" }));
     const link = await screen.findByRole("link", { name: /^Ouvrir la connexion Basic-Fit/ });
     expect(link).toHaveAttribute("href", AUTHORIZE);
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    // Le bouton laisse place au lien : le focus le suit.
+    expect(link).toHaveFocus();
 
     await user.type(screen.getByRole("textbox", { name: "Adresse de redirection" }), REDIRECT);
     await user.click(screen.getByRole("button", { name: "Relier mon compte" }));
 
     expect(await screen.findByText(/^Compte Basic-Fit relié\./)).toBeVisible();
     expect(sent.complete).toEqual({ redirect_url: REDIRECT });
+    // Le formulaire disparaît : le focus va au titre de la section.
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Basic-Fit" })).toHaveFocus();
+    });
   });
 
   it("met le focus sur l'adresse quand elle manque", async () => {
@@ -92,7 +99,9 @@ describe("BasicFitSection", () => {
 
     const field = screen.getByRole("textbox", { name: "Adresse de redirection" });
     expect(field).toHaveFocus();
-    expect(field).toHaveAccessibleDescription("Collez l’adresse copiée après la connexion.");
+    expect(field).toHaveAccessibleDescription(
+      "Elle commence par « com.basicfit.trainingapp: ». Collez l’adresse copiée après la connexion.",
+    );
     expect(sent.complete).toBeUndefined();
   });
 

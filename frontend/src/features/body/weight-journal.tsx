@@ -324,7 +324,12 @@ export function WeightJournal() {
                       <td className="py-1 pr-2">
                         {bodyWeightText(p.weight_kg, system)}
                         {p.source === "basicfit" && (
-                          <span className="text-ink-muted block text-sm">balance Basic-Fit</span>
+                          <>
+                            {" "}
+                            <span className="text-ink-muted block text-sm">
+                              (balance Basic-Fit)
+                            </span>
+                          </>
                         )}
                       </td>
                       <td className="text-ink-muted py-1 pr-2 text-sm">
