@@ -35,7 +35,7 @@ just migrate              # dans un second terminal, au premier démarrage
 | API + doc interactive | http://localhost:8000/api/v1/docs/ |
 | E-mails capturés (Mailpit) | http://localhost:8025 |
 
-Compte de démo (`demo@example.com`, profil rempli, 8 semaines de séances poussée/tirage/jambes avec leurs records, 8 semaines de pesées et de mensurations, 2 semaines de repas et objectifs nutritionnels) : définir `LEST_USER_PASSWORD` dans le terminal, puis `just seed` (la première fois, importe aussi le catalogue RepDB avec ses images et la table Ciqual : quelques minutes). Autre compte déjà vérifié ; le mot de passe est lu dans l'environnement :
+Compte de démo (`demo@example.com`, profil rempli, 8 semaines de séances poussée/tirage/jambes avec leurs records, 8 semaines de pesées et de mensurations, 2 semaines de repas et objectifs nutritionnels, 8 semaines de course et de natation) : définir `LEST_USER_PASSWORD` dans le terminal, puis `just seed` (la première fois, importe aussi le catalogue RepDB avec ses images et la table Ciqual : quelques minutes). Autre compte déjà vérifié ; le mot de passe est lu dans l'environnement :
 
 ```sh
 LEST_USER_PASSWORD='…' docker compose exec -e LEST_USER_PASSWORD api python manage.py create_verified_user --email moi@example.com
