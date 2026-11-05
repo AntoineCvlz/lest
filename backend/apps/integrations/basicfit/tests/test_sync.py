@@ -4,6 +4,7 @@ fictives, aucun appel réseau."""
 
 import json
 from datetime import date, timedelta
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -15,6 +16,8 @@ from apps.accounts.models import User
 from apps.accounts.selectors import export_account
 from apps.accounts.tests.auth import bearer, login
 from apps.accounts.tests.factories import make_verified_user
+from apps.body import services as body
+from apps.body.models import BodyWeight, WeightSource
 from apps.integrations.basicfit import gateway as gw
 from apps.integrations.basicfit import services, tasks
 from apps.integrations.basicfit.models import Connection, Visit
@@ -26,8 +29,14 @@ NEW_TOKENS = json.dumps({"refresh_token": "nouveau-fictif"})
 
 
 class FakeGateway(gw.BasicFitGateway):
-    def __init__(self, visits: list[gw.Visit] | None = None, error: Exception | None = None):
+    def __init__(
+        self,
+        visits: list[gw.Visit] | None = None,
+        error: Exception | None = None,
+        weights: list[gw.ScaleWeight] | None = None,
+    ):
         self.visits = visits or []
+        self.weights = weights or []
         self.error = error
         self.calls: list[tuple[str, date, date]] = []
 
@@ -35,7 +44,9 @@ class FakeGateway(gw.BasicFitGateway):
         self.calls.append((tokens, start, end))
         if self.error:
             raise self.error
-        return gw.MemberData(tokens=NEW_TOKENS, home_club="Club témoin", visits=self.visits)
+        return gw.MemberData(
+            tokens=NEW_TOKENS, home_club="Club témoin", visits=self.visits, weights=self.weights
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -69,6 +80,30 @@ def test_a_first_sync_reads_a_year_and_keeps_the_rotated_tokens() -> None:
     # Un passage par jour ; hors de la fenêtre demandée : ignoré.
     assert result.visits == 2
     assert Visit.objects.count() == 2
+
+
+def scale(days_ago: int, kg: str) -> gw.ScaleWeight:
+    return gw.ScaleWeight(
+        day=timezone.localdate() - timedelta(days=days_ago), weight_kg=Decimal(kg)
+    )
+
+
+def test_scale_weights_fill_empty_days_and_never_replace_manual_ones() -> None:
+    user = connected()
+    manual_day = timezone.localdate() - timedelta(days=2)
+    body.put_weight(owner=user, day=manual_day, weight_kg=Decimal("81"))
+    fake = FakeGateway(
+        weights=[scale(1, "80.4"), scale(2, "79.9"), scale(3, "5"), scale(400, "80")]
+    )
+
+    result = services.sync(owner=user, gateway=fake)
+
+    assert result.weights == 1
+    rows = {row.date: (row.weight_kg, row.source) for row in BodyWeight.objects.filter(owner=user)}
+    assert rows == {
+        timezone.localdate() - timedelta(days=1): (Decimal("80.40"), WeightSource.BASICFIT),
+        manual_day: (Decimal("81.00"), WeightSource.MANUAL),
+    }
 
 
 def test_later_syncs_reread_a_week_and_never_duplicate() -> None:
@@ -203,7 +238,7 @@ def test_disabled_or_unconnected_accounts_are_not_synced(settings: Any) -> None:
 
 def test_the_gateway_keeps_only_the_home_club_and_visits(monkeypatch: pytest.MonkeyPatch) -> None:
     from basicfit.client import BasicFitClient
-    from basicfit.models import Activity, Member, TokenSet
+    from basicfit.models import Activity, BodyMeasurement, Member, TokenSet
 
     # Réponses fictives, à la forme de l'API (aucune vraie donnée Basic-Fit).
     member = Member.from_api(
@@ -221,8 +256,19 @@ def test_the_gateway_keeps_only_the_home_club_and_visits(monkeypatch: pytest.Mon
     async def get_visits(self: BasicFitClient, **_kwargs: Any) -> list[Activity]:
         return feed
 
+    scale = [
+        BodyMeasurement.from_api({"date": "2026-10-30T09:00:00", "weight": 80.44, "fat": 15.2}),
+        BodyMeasurement.from_api({"date": "2026-10-30T07:00:00", "weight": 81.0}),
+        BodyMeasurement.from_api({"date": "2026-10-20", "weight": None}),
+        BodyMeasurement.from_api({"date": "pas une date", "weight": 80}),
+    ]
+
+    async def get_body_measurements(self: BasicFitClient, **_kwargs: Any) -> Any:
+        return scale
+
     monkeypatch.setattr(BasicFitClient, "get_member", get_member)
     monkeypatch.setattr(BasicFitClient, "get_visits", get_visits)
+    monkeypatch.setattr(BasicFitClient, "get_body_measurements", get_body_measurements)
 
     data = gw.BasicFitGateway().fetch(
         tokens=OLD_TOKENS, start=date(2026, 10, 1), end=date(2026, 11, 4)
@@ -232,6 +278,9 @@ def test_the_gateway_keeps_only_the_home_club_and_visits(monkeypatch: pytest.Mon
     assert data.visits == [gw.Visit(day=date(2026, 10, 30), club="Club témoin")]
     assert json.loads(data.tokens)["refresh_token"] == "tourne-fictif"
     assert "Nom fictif" not in repr(data)
+    # Poids seul, une pesée par jour (la plus récente) ; composition corporelle abandonnée.
+    assert data.weights == [gw.ScaleWeight(day=date(2026, 10, 30), weight_kg=Decimal("80.44"))]
+    assert "15.2" not in repr(data)
 
 
 def test_a_gateway_failure_carries_the_rotated_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -361,3 +410,19 @@ def test_visits_and_home_club_are_exported_without_tokens() -> None:
     assert exported["home_club"] == "Club témoin"
     assert exported["visits"] == [{"date": "2026-10-30", "club": "Club témoin"}]
     assert "fictif" not in json.dumps(exported)
+
+
+def test_scale_days_follow_local_time_and_keep_the_latest_measure() -> None:
+    from basicfit.models import BodyMeasurement
+
+    measures = [
+        # 23 h 30 UTC le 30 : 0 h 30 le 31 à Paris.
+        BodyMeasurement.from_api({"date": "2026-10-30T23:30:00+00:00", "weight": 80.5}),
+        BodyMeasurement.from_api({"date": "2026-10-29T07:00:00", "weight": 79.0}),
+        BodyMeasurement.from_api({"date": "2026-10-29T19:00:00", "weight": 79.6}),
+    ]
+
+    assert gw._weights(list(measures)) == [
+        gw.ScaleWeight(day=date(2026, 10, 31), weight_kg=Decimal("80.50")),
+        gw.ScaleWeight(day=date(2026, 10, 29), weight_kg=Decimal("79.60")),
+    ]

@@ -22,6 +22,8 @@ class WeightPoint:
     weight_kg: Decimal
     # Moyenne des pesées des 7 derniers jours, jour compris (jours sans pesée ignorés).
     trend_kg: Decimal
+    # `manual` ou `basicfit` (balance de club, ADR 0014).
+    source: str = "manual"
 
 
 def list_weights(*, owner: User, start: date, end: date) -> list[WeightPoint]:
@@ -31,18 +33,18 @@ def list_weights(*, owner: User, start: date, end: date) -> list[WeightPoint]:
     """
     window = timedelta(days=TREND_DAYS - 1)
     rows = [
-        (row.date, row.weight_kg)
+        (row.date, row.weight_kg, row.source)
         for row in BodyWeight.objects.filter(
             owner=owner, date__gte=start - window, date__lte=end
-        ).only("date", "weight_kg")
+        ).only("date", "weight_kg", "source")
     ]
     points = []
-    for day, kg in rows:
+    for day, kg, source in rows:
         if day < start or kg is None:
             continue
-        recent = [value for other, value in rows if day - window <= other <= day and value]
+        recent = [value for other, value, _ in rows if day - window <= other <= day and value]
         trend = (sum(recent, Decimal(0)) / len(recent)).quantize(CENTI, rounding=ROUND_HALF_UP)
-        points.append(WeightPoint(date=day, weight_kg=kg, trend_kg=trend))
+        points.append(WeightPoint(date=day, weight_kg=kg, trend_kg=trend, source=source))
     return points
 
 
@@ -74,7 +76,7 @@ def export_measurements(*, owner: User) -> list[dict[str, Any]]:
 def export_weights(*, owner: User) -> list[dict[str, Any]]:
     """Pesées de `owner` en clair, pour l'export RGPD."""
     return [
-        {"date": row.date.isoformat(), "weight_kg": float(row.weight_kg)}
+        {"date": row.date.isoformat(), "weight_kg": float(row.weight_kg), "source": row.source}
         for row in BodyWeight.objects.filter(owner=owner)
         if row.weight_kg is not None
     ]

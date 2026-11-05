@@ -20,8 +20,11 @@ import {
 const TODAY = localDay();
 const YESTERDAY = shiftDay(TODAY, -1);
 
-const FIRST = { date: shiftDay(TODAY, -2), weight_kg: 80, trend_kg: 80 };
-const points = [FIRST, { date: YESTERDAY, weight_kg: 81.4, trend_kg: 80.7 }];
+const FIRST = { date: shiftDay(TODAY, -2), weight_kg: 80, trend_kg: 80, source: "manual" as const };
+const points = [
+  FIRST,
+  { date: YESTERDAY, weight_kg: 81.4, trend_kg: 80.7, source: "manual" as const },
+];
 
 function api({
   weights = points,

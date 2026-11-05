@@ -9,7 +9,8 @@ Basic-Fit.
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, time
+from decimal import Decimal, InvalidOperation
 
 import aiohttp
 from basicfit import pkce
@@ -17,6 +18,7 @@ from basicfit.auth import AuthManager
 from basicfit.client import BasicFitClient
 from basicfit.exceptions import BasicFitAuthError, BasicFitError
 from basicfit.models import TokenSet
+from django.utils import timezone as djtimezone
 
 
 class _GatewayFailureError(Exception):
@@ -52,12 +54,55 @@ class Visit:
 
 
 @dataclass(frozen=True)
+class ScaleWeight:
+    """Poids mesuré par une balance de club ; la composition corporelle n'est pas gardée."""
+
+    day: date
+    weight_kg: Decimal
+
+
+@dataclass(frozen=True)
 class MemberData:
     """Ce que Lest garde du membre (ADR 0014) ; tout le reste du profil est ignoré ici."""
 
     tokens: str
     home_club: str
     visits: list[Visit]
+    weights: list[ScaleWeight]
+
+
+def _moment(value: object) -> datetime | None:
+    """Horodatage d'une mesure, en heure locale ; une date seule vaut minuit."""
+    text = str(value or "").strip()
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            moment = datetime.combine(date.fromisoformat(text[:10]), time.min)
+        except ValueError:
+            return None
+    zone = djtimezone.get_current_timezone()
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=zone)
+    return moment.astimezone(zone)
+
+
+def _weights(raw: list[object]) -> list[ScaleWeight]:
+    """Une pesée par jour local, la plus tardive (comparée à l'heure près, pas à l'ordre de la
+    liste) ; poids seul, au centième, tout le reste de la mesure abandonné ici."""
+    kept: dict[date, tuple[datetime, ScaleWeight]] = {}
+    for item in raw:
+        moment = _moment(getattr(item, "date", None))
+        try:
+            kg = Decimal(str(getattr(item, "weight", None))).quantize(Decimal("0.01"))
+        except InvalidOperation:
+            continue
+        if moment is None or not kg.is_finite():
+            continue
+        day = moment.date()
+        if day not in kept or moment > kept[day][0]:
+            kept[day] = (moment, ScaleWeight(day=day, weight_kg=kg))
+    return [weight for _, weight in kept.values()]
 
 
 def _visits(raw: list[object]) -> list[Visit]:
@@ -114,26 +159,30 @@ class BasicFitGateway:
             raise GatewayError from None
 
     def fetch(self, *, tokens: str, start: date, end: date) -> MemberData:
-        """Club principal et visites du `start` au `end` (365 jours au plus). Le jeu de jetons
+        """Club principal, visites du `start` au `end` (365 jours au plus) et poids des
+        balances de club. Le jeu de jetons
         rendu est le dernier tourné ; en cas d'échec, l'erreur le porte aussi (`tokens`)."""
         latest = {"tokens": tokens}
 
         def rotated(new: TokenSet) -> None:
             latest["tokens"] = _dump(new)
 
-        async def run() -> tuple[str, list[Visit]]:
+        async def run() -> tuple[str, list[Visit], list[ScaleWeight]]:
             current = TokenSet.from_dict(json.loads(tokens))
             async with BasicFitClient.create(current, token_updated=rotated) as client:
                 member = await client.get_member()
                 visits = await client.get_visits(from_date=start, to_date=end)
-            return _clean(member.home_club), _visits(list(visits))
+                scale = await client.get_body_measurements()
+            return _clean(member.home_club), _visits(list(visits)), _weights(list(scale))
 
         try:
-            home_club, visits = asyncio.run(run())
+            home_club, visits, weights = asyncio.run(run())
         except BasicFitAuthError:
             raise GatewayAuthError(latest["tokens"]) from None
         except (BasicFitError, aiohttp.ClientError, TimeoutError):
             raise GatewayError(latest["tokens"]) from None
         except Exception:
             raise GatewayError(latest["tokens"]) from None
-        return MemberData(tokens=latest["tokens"], home_club=home_club, visits=visits)
+        return MemberData(
+            tokens=latest["tokens"], home_club=home_club, visits=visits, weights=weights
+        )

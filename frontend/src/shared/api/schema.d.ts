@@ -1680,6 +1680,11 @@ export interface components {
              * Format: date
              */
             date: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "manual" | "basicfit";
             /** Trend Kg */
             trend_kg: number;
             /** Weight Kg */
