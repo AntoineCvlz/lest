@@ -18,6 +18,8 @@ const archivo = Archivo({
 export const metadata: Metadata = {
   title: { default: "Lest", template: "%s · Lest" },
   description: "Suivi de prise de masse, de musculation et de sport.",
+  // Écran d'accueil iOS (ADR 0015) : barre d'état opaque, le contenu ne passe pas dessous.
+  appleWebApp: { capable: true, title: "Lest", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
