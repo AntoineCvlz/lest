@@ -38,7 +38,9 @@ def test_the_weight_is_encrypted_at_rest() -> None:
 
     raw = stored_value(weight)
     assert created
-    assert "81" not in raw
+    # Un jeton Fernet (base64) peut contenir « 81 » par hasard :
+    # on vérifie le jeton, pas une sous-chaîne.
+    assert raw.startswith("gAAAA")
     assert crypto.decrypt(raw) == "81.40"
     assert BodyWeight.objects.get(pk=weight.pk).weight_kg == Decimal("81.40")
 

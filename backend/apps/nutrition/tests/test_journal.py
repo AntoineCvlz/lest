@@ -75,9 +75,9 @@ def test_an_entry_is_encrypted_at_rest_with_padded_names() -> None:
     short = eat(user, shared_food("Riz"))
     longer = eat(user, shared_food("Riz témoin cuit sans sel ajouté, variété longue"))
 
-    assert "Riz" not in raw("name", short)
-    assert "200" not in raw("grams", short)
-    assert str(short.food_ref) not in raw("food_ref", short)
+    # Un jeton Fernet (base64) peut contenir « 200 » par hasard : on vérifie le jeton, pas une
+    # sous-chaîne ; la relecture par le modèle prouve qu'il porte la bonne valeur.
+    assert all(raw(column, short).startswith("gAAAA") for column in RAW)
     # Même bloc de 64 octets : la longueur du jeton ne distingue pas les deux noms.
     assert len("Riz témoin cuit sans sel ajouté, variété longue".encode()) < TEXT_BLOCK
     assert len(raw("name", short)) == len(raw("name", longer))
