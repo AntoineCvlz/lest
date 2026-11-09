@@ -5,6 +5,8 @@ import { storedQueuedWrites, waitForServiceWorker } from "./pwa";
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
 
+const QUEUE_DRAIN_TIMEOUT = 15_000;
+
 test("saisit une série hors ligne, la garde au rechargement et l'envoie au retour du réseau", async ({
   page,
   context,
@@ -44,11 +46,30 @@ test("saisit une série hors ligne, la garde au rechargement et l'envoie au reto
   await expect(pending).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
+  // Un exercice déjà consulté s'ajoute sans réseau : le catalogue vu est gardé.
+  await page.getByRole("button", { name: "Ajouter un exercice" }).click();
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("bench press");
+  await expect(
+    page.getByText(/^Hors ligne : \d+ exercices? déjà consultés? sur cet appareil\.$/),
+  ).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+  await page
+    .getByRole("button", { name: /^Barbell Bench Press/ })
+    .first()
+    .click();
+  await expect(page.getByRole("button", { name: "Valider la série" })).toBeVisible();
+  await expect(
+    page.getByText("2 saisies en attente d’envoi, gardées sur cet appareil."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Retour à la séance" }).click();
+
   // Retour du réseau : la série part, puis le serveur la renvoie.
+  // Saisies rejouées une par une, dans l'ordre : quelques allers-retours.
   await context.setOffline(false);
-  await expect(pending).toBeHidden();
+  await expect(page.getByText(/en attente d’envoi/)).toBeHidden({ timeout: QUEUE_DRAIN_TIMEOUT });
   await page.reload();
   await expect(plan).toContainText("2 séries");
+  await expect(plan.getByRole("listitem")).toHaveCount(2);
   expect(cspViolations).toEqual([]);
 });
 

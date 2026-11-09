@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -5,7 +6,7 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { CATALOG_UNAVAILABLE, ExerciseLibrary, NO_MATCH } from "./exercise-library";
+import { CATALOG_UNAVAILABLE, ExerciseLibrary, NO_MATCH, NO_SEEN_MATCH } from "./exercise-library";
 
 const LIST_URL = "*/api/v1/exercises/";
 const FILTERS_URL = "*/api/v1/exercise-filters/";
@@ -151,5 +152,32 @@ describe("ExerciseLibrary", () => {
     await user.click(screen.getByRole("button", { name: "Réessayer" }));
 
     expect(await screen.findByText("Squat")).toBeInTheDocument();
+  });
+
+  it("hors ligne, cherche parmi les exercices déjà consultés et permet de les choisir", async () => {
+    catalog({ "": { items: [bench, squat], next_cursor: null } });
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    renderWithQuery(<ExerciseLibrary onSelect={onSelect} />);
+    await screen.findByText("Squat");
+
+    onlineManager.setOnline(false);
+    try {
+      const field = screen.getByRole("searchbox", { name: "Rechercher un exercice" });
+      await user.type(field, "developpe");
+
+      expect(
+        await screen.findByText("Hors ligne : 1 exercice déjà consulté sur cet appareil."),
+      ).toBeVisible();
+      expect(screen.queryByText(CATALOG_UNAVAILABLE)).toBeNull();
+      await user.click(screen.getByRole("button", { name: /Développé couché/ }));
+      expect(onSelect).toHaveBeenCalledWith(bench);
+
+      await user.clear(field);
+      await user.type(field, "rowing");
+      expect(await screen.findByText(NO_SEEN_MATCH)).toBeVisible();
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 });
