@@ -1,5 +1,6 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState } from "react";
 
 import type { Schemas } from "@/shared/api/client";
@@ -23,8 +24,6 @@ import { nextSet, useDeleteSet, useLastSets, useSaveSet } from "./use-sets";
 type SetOut = Schemas["SetOut"];
 type Item = Schemas["WorkoutExerciseDetailOut"];
 
-export const SET_NOT_SAVED = "Série non enregistrée. Vérifiez la connexion et validez à nouveau.";
-export const SET_NOT_DELETED = "Série non supprimée. Vérifiez la connexion et réessayez.";
 const RPE_OPTIONS = [7, 7.5, 8, 8.5, 9, 9.5].map((value) => ({
   value,
   label: formatNumber(value),
@@ -181,6 +180,12 @@ function SetForm({
         },
       },
     );
+    if (!onlineManager.isOnline()) {
+      // Gardée en file (ADR 0015) : rien à attendre pour continuer la séance.
+      const done = editing ? "modifiée" : "enregistrée";
+      onAnnounce(`Série ${String(number)} ${done} sur cet appareil, envoi au retour du réseau.`);
+      if (editing) onDone();
+    }
     if (editing) return;
     setRpe(undefined);
     setWarmup(false);
@@ -197,6 +202,10 @@ function SetForm({
         onDone();
       },
     });
+    if (!onlineManager.isOnline()) {
+      onAnnounce(`Série ${String(editing.number)} supprimée sur cet appareil.`);
+      onDone();
+    }
   }
 
   return (
@@ -259,18 +268,6 @@ function SetForm({
         <label htmlFor={warmupId} className="font-semibold">
           Série d’échauffement
         </label>
-      </div>
-      <div role="alert" className="empty:hidden">
-        {save.isError && (
-          <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-            {SET_NOT_SAVED}
-          </p>
-        )}
-        {remove.isError && (
-          <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-            {SET_NOT_DELETED}
-          </p>
-        )}
       </div>
       {editing &&
         (confirming ? (

@@ -5,13 +5,15 @@ import { ProfileUnavailable, PROFILE_QUERY_KEY } from "@/features/profile/use-pr
 import { forgetOnSessionEnd } from "./offline-query-provider";
 import { QUEUED_KEY } from "./queue";
 
+const ONGOING = ["workouts", "ongoing"];
 const HEALTH = ["get", "/api/v1/health/", {}];
 
-/** Copie restaurée au lancement : profil et une saisie en attente. */
+/** Copie restaurée au lancement : profil, séance en cours, une saisie en attente. */
 function restored(): QueryClient {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   forgetOnSessionEnd(queryClient);
   queryClient.setQueryData(PROFILE_QUERY_KEY, { unit_system: "metric" });
+  queryClient.setQueryData(ONGOING, { id: "séance" });
   queryClient.setQueryData(HEALTH, { status: "ok" });
   queryClient.getMutationCache().build(queryClient, { mutationKey: [...QUEUED_KEY, "set"] });
   return queryClient;
@@ -30,6 +32,7 @@ describe("forgetOnSessionEnd", () => {
     await refetchProfile(queryClient, new ProfileUnavailable(401));
 
     expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
+    expect(queryClient.getQueryData(ONGOING)).toBeUndefined();
     expect(queryClient.getQueryData(HEALTH)).toEqual({ status: "ok" });
     expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
   });
@@ -55,5 +58,6 @@ describe("forgetOnSessionEnd", () => {
     await refetchProfile(queryClient, new TypeError("Failed to fetch"));
 
     expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toEqual({ unit_system: "metric" });
+    expect(queryClient.getQueryData(ONGOING)).toEqual({ id: "séance" });
   });
 });

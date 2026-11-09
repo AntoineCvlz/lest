@@ -1,18 +1,23 @@
+import { onlineManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import type { ReactNode } from "react";
 
 import type { Schemas } from "@/shared/api/client";
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
-import { prefill, SET_NOT_DELETED, SET_NOT_SAVED, SetEntry, targetText } from "./set-entry";
+import { prefill, SetEntry, targetText } from "./set-entry";
+import { DELETE_REFUSED, SET_REFUSED } from "./use-sets";
 import type { RestTimer } from "./use-rest-timer";
-import { workoutKey } from "./use-workout";
+import { useWorkout, workoutKey } from "./use-workout";
 
 const WORKOUT_ID = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
 const ITEM_ID = "2b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
 const BENCH = "8c5b0f4e-9b1a-4d43-9d55-0d6d6b1f1a01";
+const ACCOUNT = "3b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed";
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 function set(weight_kg: number, reps: number, overrides: Partial<Schemas["SetOut"]> = {}) {
@@ -59,6 +64,12 @@ const timer: RestTimer = {
   stop: vi.fn(),
 };
 
+/** L'écran de séance, qui lit la séance pendant la saisie (relue après les envois). */
+function SessionScreen({ children }: { children: ReactNode }) {
+  useWorkout(WORKOUT_ID);
+  return children;
+}
+
 /** Saisie rendue avec la séance en cache, comme depuis l'écran de séance. */
 function renderEntry(current = item(), system: "metric" | "imperial" = "metric") {
   const workout = {
@@ -68,15 +79,21 @@ function renderEntry(current = item(), system: "metric" | "imperial" = "metric")
     volume_kg: 0,
     exercises: [current],
   };
-  server.use(http.get(`*/api/v1/workouts/${WORKOUT_ID}/`, () => HttpResponse.json(workout)));
+  server.use(
+    http.get(`*/api/v1/workouts/${WORKOUT_ID}/`, () => HttpResponse.json(workout)),
+    http.get("*/api/v1/me/", () => HttpResponse.json({ id: ACCOUNT, email: "a@example.com" })),
+  );
   const result = renderWithQuery(
-    <SetEntry
-      workoutId={WORKOUT_ID}
-      item={current}
-      system={system}
-      timer={timer}
-      onClose={vi.fn()}
-    />,
+    <SessionScreen>
+      <PendingWrites />
+      <SetEntry
+        workoutId={WORKOUT_ID}
+        item={current}
+        system={system}
+        timer={timer}
+        onClose={vi.fn()}
+      />
+    </SessionScreen>,
   );
   result.queryClient.setQueryData(workoutKey(WORKOUT_ID), workout);
   return result;
@@ -246,16 +263,65 @@ describe("SetEntry", () => {
 
   it("retire la série affichée et l'annonce si l'API la refuse", async () => {
     lastTime([]);
-    server.use(http.put("*/api/v1/sets/:id/", () => new HttpResponse(null, { status: 503 })));
+    server.use(http.put("*/api/v1/sets/:id/", () => new HttpResponse(null, { status: 422 })));
     const user = userEvent.setup();
     const { queryClient } = renderEntry();
 
     await screen.findByText("Première fois pour cet exercice.");
     await user.click(screen.getByRole("button", { name: "Valider la série" }));
 
-    expect(await screen.findByText(SET_NOT_SAVED)).toBeVisible();
+    expect(await screen.findByText(SET_REFUSED)).toBeVisible();
+    await waitFor(() => {
+      expect(
+        queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID))?.exercises[0]
+          ?.sets,
+      ).toEqual([]);
+    });
     const cached = queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID));
     expect(cached?.exercises[0]?.sets).toEqual([]);
+  });
+
+  it("garde la série hors ligne et l'envoie au retour du réseau, pour ce compte", async () => {
+    lastTime([]);
+    const sent: (string | null)[] = [];
+    server.use(
+      http.put("*/api/v1/sets/:id/", ({ request }) => {
+        sent.push(request.headers.get("x-lest-account"));
+        return HttpResponse.json(set(20, 8), { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { queryClient } = renderEntry();
+    await screen.findByText("Première fois pour cet exercice.");
+    await waitFor(() => {
+      expect(
+        queryClient.getQueriesData({ queryKey: ["get", "/api/v1/me/"] })[0]?.[1],
+      ).toBeDefined();
+    });
+
+    onlineManager.setOnline(false);
+    try {
+      await user.click(screen.getByRole("button", { name: "Valider la série" }));
+
+      expect(
+        await screen.findByText("Série 1 enregistrée sur cet appareil, envoi au retour du réseau."),
+      ).toBeVisible();
+      expect(
+        screen.getByText("1 saisie en attente d’envoi, gardée sur cet appareil."),
+      ).toBeVisible();
+      const cached = queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID));
+      expect(cached?.exercises[0]?.sets).toHaveLength(1);
+      expect(sent).toEqual([]);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    await waitFor(() => {
+      expect(sent).toEqual([ACCOUNT]);
+    });
+    await waitFor(() => {
+      expect(screen.queryByText(/en attente d’envoi/)).toBeNull();
+    });
   });
 
   it("marque une série d'échauffement", async () => {
@@ -332,6 +398,18 @@ describe("SetEntry", () => {
     );
     const user = userEvent.setup();
     const { queryClient } = renderEntry(item([first]));
+    // Relue après l'envoi : l'API ne l'a plus.
+    server.use(
+      http.get(`*/api/v1/workouts/${WORKOUT_ID}/`, () =>
+        HttpResponse.json({
+          id: WORKOUT_ID,
+          started_at: "2026-10-30T17:00:00Z",
+          ended_at: null,
+          volume_kg: 0,
+          exercises: [item(deleted ? [] : [first])],
+        }),
+      ),
+    );
 
     await user.click(await screen.findByRole("button", { name: "Modifier la série 1" }));
     await user.click(screen.getByRole("button", { name: "Supprimer la série" }));
@@ -349,7 +427,18 @@ describe("SetEntry", () => {
   it("rétablit la série si la suppression est refusée", async () => {
     lastTime([]);
     const first = set(80, 8);
-    server.use(http.delete("*/api/v1/sets/:id/", () => new HttpResponse(null, { status: 503 })));
+    server.use(http.delete("*/api/v1/sets/:id/", () => new HttpResponse(null, { status: 404 })));
+    server.use(
+      http.get(`*/api/v1/workouts/${WORKOUT_ID}/`, () =>
+        HttpResponse.json({
+          id: WORKOUT_ID,
+          started_at: "2026-10-30T17:00:00Z",
+          ended_at: null,
+          volume_kg: 0,
+          exercises: [item([first])],
+        }),
+      ),
+    );
     const user = userEvent.setup();
     const { queryClient } = renderEntry(item([first]));
 
@@ -357,7 +446,14 @@ describe("SetEntry", () => {
     await user.click(screen.getByRole("button", { name: "Supprimer la série" }));
     await user.click(screen.getByRole("button", { name: "Supprimer" }));
 
-    expect(await screen.findByText(SET_NOT_DELETED)).toBeVisible();
+    expect(await screen.findByText(DELETE_REFUSED)).toBeVisible();
+    await waitFor(() => {
+      expect(
+        queryClient
+          .getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID))
+          ?.exercises[0]?.sets.map((one) => one.id),
+      ).toEqual([first.id]);
+    });
     const cached = queryClient.getQueryData<Schemas["WorkoutDetailOut"]>(workoutKey(WORKOUT_ID));
     expect(cached?.exercises[0]?.sets.map((one) => one.id)).toEqual([first.id]);
   });
