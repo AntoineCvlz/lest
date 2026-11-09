@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { createQueryClient } from "@/shared/api/query-provider";
 
-import { loadStoredAccount } from "./account";
+import { listenForForget, loadStoredAccount } from "./account";
 import { dropQueuedWrites, QUEUED_KEY, resumeQueuedWrites, statusOf } from "./queue";
 import { createOfflinePersister, OFFLINE_MAX_AGE } from "./storage";
 
@@ -23,33 +23,49 @@ function keptOffline(query: Query): boolean {
   return query.state.status === "success" && isOfflineKey(query.queryKey);
 }
 
+/** Retire la copie restaurée de la mémoire (et donc de la copie écrite ensuite). */
+function forgetCopy(queryClient: QueryClient, failing?: Query): void {
+  const cache = queryClient.getQueryCache();
+  const kept = cache.getAll().filter((query) => isOfflineKey(query.queryKey));
+  for (const query of kept) {
+    if (query === failing) {
+      // Erreur gardée, donnée retirée : l'écran dit de se reconnecter, sans nouvel appel.
+      query.setState({ data: undefined, dataUpdatedAt: 0 });
+    } else if (query.getObserversCount() === 0) {
+      cache.remove(query);
+    } else {
+      void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
+    }
+  }
+}
+
 /**
- * Session terminée (une lecture reçoit 401, pas une coupure réseau) : la copie restaurée n'est
- * plus affichée ni gardée, comme le cache privé (`PRIVATE_QUERY_KEYS`). Les saisies en attente
- * restent pour ce compte, jusqu'à la reconnexion.
+ * Session terminée (une lecture ou une saisie reçoit 401, pas une coupure réseau) : la copie
+ * restaurée n'est plus affichée ni gardée, comme le cache privé (`PRIVATE_QUERY_KEYS`). Les
+ * saisies en attente restent pour ce compte, jusqu'à la reconnexion.
  */
 export function forgetOnSessionEnd(queryClient: QueryClient): () => void {
-  const cache = queryClient.getQueryCache();
-  return cache.subscribe((event) => {
+  const stopQueries = queryClient.getQueryCache().subscribe((event) => {
     if (event.type !== "updated" || event.action.type !== "error") return;
-    if (statusOf(event.action.error) !== 401) return;
-    const kept = cache.getAll().filter((query) => isOfflineKey(query.queryKey));
-    for (const query of kept) {
-      if (query === event.query) {
-        // Erreur gardée, donnée retirée : l'écran dit de se reconnecter, sans nouvel appel.
-        query.setState({ data: undefined, dataUpdatedAt: 0 });
-      } else if (query.getObserversCount() === 0) {
-        cache.remove(query);
-      } else {
-        void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
-      }
-    }
+    if (statusOf(event.action.error) === 401) forgetCopy(queryClient, event.query);
   });
+  const stopMutations = queryClient.getMutationCache().subscribe((event) => {
+    if (event.type !== "updated") return;
+    const { action } = event;
+    // `failed` : essai raté avant un nouvel essai ; `error` : dernier essai.
+    if (action.type !== "failed" && action.type !== "error") return;
+    if (statusOf(action.error) === 401) forgetCopy(queryClient);
+  });
+  return () => {
+    stopQueries();
+    stopMutations();
+  };
 }
 
 function createOfflineQueryClient(): QueryClient {
   const queryClient = createQueryClient();
   forgetOnSessionEnd(queryClient);
+  if (typeof window !== "undefined") listenForForget(queryClient);
   return queryClient;
 }
 

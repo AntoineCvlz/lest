@@ -1,13 +1,16 @@
 import { QueryClient } from "@tanstack/react-query";
 
-import { bindAccount, forgetAccount, loadStoredAccount } from "./account";
+import { waitFor } from "@testing-library/react";
+
+import { bindAccount, forgetAccount, listenForForget, loadStoredAccount } from "./account";
 import { QUEUED_KEY } from "./queue";
-import { readStoredAccount, storeAccount, wipeOfflineStore } from "./storage";
+import { readStoredAccount, releaseCopy, storeAccount, wipeOfflineStore } from "./storage";
 
 vi.mock("./storage", () => ({
   readStoredAccount: vi.fn(),
   storeAccount: vi.fn(),
   wipeOfflineStore: vi.fn(),
+  releaseCopy: vi.fn(),
 }));
 vi.mock("@/shared/pwa/service-worker", () => ({ clearCachedPages: vi.fn() }));
 
@@ -73,5 +76,21 @@ describe("forgetAccount", () => {
     expect(queryClient.getMutationCache().getAll()).toEqual([]);
     expect(queryClient.getQueryCache().getAll()).toEqual([]);
     expect(wipeOfflineStore).toHaveBeenCalledOnce();
+  });
+
+  it("fait tout oublier aux autres onglets, qui n'écrivent plus la copie", async () => {
+    const otherTab = clientOfA();
+    const stop = listenForForget(otherTab);
+    try {
+      await forgetAccount(new QueryClient());
+
+      await waitFor(() => {
+        expect(otherTab.getMutationCache().getAll()).toEqual([]);
+      });
+      expect(otherTab.getQueryCache().getAll()).toEqual([]);
+      expect(releaseCopy).toHaveBeenCalledTimes(2);
+    } finally {
+      stop();
+    }
   });
 });

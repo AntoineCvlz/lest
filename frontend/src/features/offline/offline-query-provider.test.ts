@@ -34,6 +34,21 @@ describe("forgetOnSessionEnd", () => {
     expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
   });
 
+  it("oublie aussi la copie quand une saisie reçoit 401", async () => {
+    const queryClient = restored();
+
+    await queryClient
+      .getMutationCache()
+      .build(queryClient, {
+        mutationKey: [...QUEUED_KEY, "autre"],
+        mutationFn: () => Promise.reject(new ProfileUnavailable(401)),
+      })
+      .execute(undefined)
+      .catch(() => undefined);
+
+    expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
+  });
+
   it("garde la copie quand seul le réseau manque", async () => {
     const queryClient = restored();
 

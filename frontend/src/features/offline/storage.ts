@@ -79,13 +79,25 @@ export function createOfflinePersister(onLost: () => void): Persister {
     },
     restoreClient: async () => {
       await locked;
-      return holding ? inner.restoreClient() : undefined;
+      if (!holding) return undefined;
+      // Copie sans compte (déconnexion pendant qu'un autre onglet écrivait encore) : jetée,
+      // jamais montrée au compte suivant.
+      if ((await readStoredAccount()) === undefined) {
+        await inner.removeClient();
+        return undefined;
+      }
+      return inner.restoreClient();
     },
     removeClient: async () => {
       await locked;
       if (holding) await inner.removeClient();
     },
   };
+}
+
+/** Cet onglet n'écrit plus la copie (déconnexion faite ailleurs), jusqu'à son rechargement. */
+export function releaseCopy(): void {
+  holding = false;
 }
 
 /** Compte auquel appartient la copie, ou `undefined`. */

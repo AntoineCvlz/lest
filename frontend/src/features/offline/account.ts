@@ -5,7 +5,11 @@ import { $api, fetchClient } from "@/shared/api/client";
 import { clearCachedPages } from "@/shared/pwa/service-worker";
 
 import { dropQueuedWrites, resumeQueuedWrites } from "./queue";
-import { readStoredAccount, storeAccount, wipeOfflineStore } from "./storage";
+import { readStoredAccount, releaseCopy, storeAccount, wipeOfflineStore } from "./storage";
+
+// Déconnexion annoncée aux autres onglets : chacun oublie ce qu'il a en mémoire et n'écrit plus.
+const CHANNEL = "lest-offline";
+const FORGET = "forget";
 
 // Compte de la copie hors ligne, connu sans réseau après la restauration.
 let known: string | null = null;
@@ -48,11 +52,33 @@ export async function startSession(queryClient: QueryClient): Promise<void> {
   await resumeQueuedWrites(queryClient);
 }
 
-/** Déconnexion ou suppression du compte : plus rien du compte sur cet appareil. */
-export async function forgetAccount(queryClient: QueryClient): Promise<void> {
+async function forgetHere(queryClient: QueryClient): Promise<void> {
+  releaseCopy();
   queryClient.clear();
   known = null;
   await Promise.all([wipeOfflineStore(), clearCachedPages()]);
+}
+
+/** Déconnexion ou suppression du compte : plus rien du compte sur cet appareil, tous onglets. */
+export async function forgetAccount(queryClient: QueryClient): Promise<void> {
+  if ("BroadcastChannel" in globalThis) {
+    const channel = new BroadcastChannel(CHANNEL);
+    channel.postMessage(FORGET);
+    channel.close();
+  }
+  await forgetHere(queryClient);
+}
+
+/** Écoute les déconnexions faites dans les autres onglets ; renvoie de quoi arrêter. */
+export function listenForForget(queryClient: QueryClient): () => void {
+  if (!("BroadcastChannel" in globalThis)) return () => undefined;
+  const channel = new BroadcastChannel(CHANNEL);
+  channel.onmessage = (event) => {
+    if (event.data === FORGET) void forgetHere(queryClient);
+  };
+  return () => {
+    channel.close();
+  };
 }
 
 /**
