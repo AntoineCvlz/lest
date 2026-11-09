@@ -47,11 +47,13 @@ const PUBLIC_IMAGE_PATH = /^\/api\/v1\/exercise-images\/[0-9a-f]{64}\.webp$/;
 const IMMUTABLE_CACHE = "public, max-age=31536000, immutable";
 
 // Ni `cookie` (les cookies sont ceux de Next.js), ni `authorization` : posés par le BFF.
+// `x-lest-account` : compte d'une saisie hors ligne, que Django compare à celui du jeton.
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
   "accept-language",
   "content-type",
   "user-agent",
+  "x-lest-account",
 ] as const;
 
 // En-têtes propres à la connexion amont, invalides une fois le corps relayé par Next.js ;
