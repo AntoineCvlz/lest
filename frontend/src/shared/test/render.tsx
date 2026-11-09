@@ -2,12 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
 
+import { registerQueuedWrites } from "@/features/offline/offline-query-provider";
+
 /**
  * Rendu avec un QueryClient neuf et sans nouvelle tentative, pour des tests déterministes.
  * Le client est renvoyé pour vérifier le cache (données retirées à la déconnexion…).
  */
 export function renderWithQuery(ui: ReactElement): RenderResult & { queryClient: QueryClient } {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // Saisies en file d'attente déclarées comme dans l'app (ADR 0015).
+  registerQueuedWrites(queryClient);
   const result = render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
   return { ...result, queryClient };
 }

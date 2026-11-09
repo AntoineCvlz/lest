@@ -1,10 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
+import { withPendingSets } from "./pending-sets";
 import { WORKOUTS_KEY } from "./query-keys";
 
-const ONGOING_KEY = [...WORKOUTS_KEY, "ongoing"] as const;
+export const ONGOING_KEY = [...WORKOUTS_KEY, "ongoing"] as const;
 const HISTORY_KEY = [...WORKOUTS_KEY, "history"] as const;
 const HISTORY_PAGE_SIZE = 20;
 
@@ -31,6 +33,8 @@ export function useOngoingWorkout() {
       return data.items[0] ?? null;
     },
     retry: false,
+    // Gardée hors ligne : pas oubliée avant la copie (ADR 0015).
+    gcTime: OFFLINE_MAX_AGE,
   });
 }
 
@@ -55,15 +59,17 @@ export function useWorkoutHistory() {
 export function useWorkout(id: string | undefined) {
   return useQuery({
     queryKey: workoutKey(id ?? ""),
-    queryFn: async (): Promise<Schemas["WorkoutDetailOut"]> => {
+    queryFn: async ({ client }): Promise<Schemas["WorkoutDetailOut"]> => {
       const { data, response } = await fetchClient.GET("/api/v1/workouts/{workout_id}/", {
         params: { path: { workout_id: id ?? "" } },
       });
       if (!data) throw new WorkoutRequestFailed(response.status);
-      return data;
+      // Séries saisies hors ligne pas encore envoyées : toujours affichées (ADR 0015).
+      return withPendingSets(client, data);
     },
     enabled: id !== undefined,
     retry: false,
+    gcTime: OFFLINE_MAX_AGE,
   });
 }
 

@@ -5,6 +5,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { useState, type ReactNode } from "react";
 
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
+import { isKeptForSession, registerSetWrites } from "@/features/training/use-sets";
 import { createQueryClient } from "@/shared/api/query-provider";
 
 import { listenForForget, loadStoredAccount } from "./account";
@@ -14,19 +15,24 @@ import { createOfflinePersister, OFFLINE_MAX_AGE } from "./storage";
 // Copie invalidée quand le schéma de l'API change (empreinte calculée au build, next.config.ts).
 const BUSTER = process.env.LEST_API_SCHEMA ?? "dev";
 
-/** Requêtes gardées hors ligne (ADR 0015, liste fermée). */
-function isOfflineKey(key: QueryKey): boolean {
-  return key[0] === PROFILE_QUERY_KEY[0];
+/** Déclare les saisies en file d'attente : leur fonction est retrouvée par leur clé. */
+export function registerQueuedWrites(queryClient: QueryClient): void {
+  registerSetWrites(queryClient);
 }
 
-function keptOffline(query: Query): boolean {
-  return query.state.status === "success" && isOfflineKey(query.queryKey);
+/** Requêtes gardées hors ligne (ADR 0015, liste fermée). */
+function isOfflineKey(queryClient: QueryClient, key: QueryKey): boolean {
+  return key[0] === PROFILE_QUERY_KEY[0] || isKeptForSession(queryClient, key);
+}
+
+function keptOffline(queryClient: QueryClient, query: Query): boolean {
+  return query.state.status === "success" && isOfflineKey(queryClient, query.queryKey);
 }
 
 /** Retire la copie restaurée de la mémoire (et donc de la copie écrite ensuite). */
 function forgetCopy(queryClient: QueryClient, failing?: Query): void {
   const cache = queryClient.getQueryCache();
-  const kept = cache.getAll().filter((query) => isOfflineKey(query.queryKey));
+  const kept = cache.getAll().filter((query) => isOfflineKey(queryClient, query.queryKey));
   for (const query of kept) {
     if (query === failing) {
       // Erreur gardée, donnée retirée : l'écran dit de se reconnecter, sans nouvel appel.
@@ -64,6 +70,7 @@ export function forgetOnSessionEnd(queryClient: QueryClient): () => void {
 
 function createOfflineQueryClient(): QueryClient {
   const queryClient = createQueryClient();
+  registerQueuedWrites(queryClient);
   forgetOnSessionEnd(queryClient);
   if (typeof window !== "undefined") listenForForget(queryClient);
   return queryClient;
@@ -90,7 +97,7 @@ export function OfflineQueryProvider({ children }: { children: ReactNode }) {
         maxAge: OFFLINE_MAX_AGE,
         buster: BUSTER,
         dehydrateOptions: {
-          shouldDehydrateQuery: keptOffline,
+          shouldDehydrateQuery: (query) => keptOffline(queryClient, query),
           shouldDehydrateMutation: (mutation) =>
             mutation.state.status === "pending" &&
             mutation.options.mutationKey?.[0] === QUEUED_KEY[0],

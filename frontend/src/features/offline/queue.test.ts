@@ -2,7 +2,15 @@ import { QueryClient } from "@tanstack/react-query";
 
 import { WorkoutRequestFailed } from "@/features/training/use-workout";
 
-import { accountHeaders, dropQueuedWrites, isRetryable, QUEUED_KEY, queuedWrite } from "./queue";
+import {
+  accountHeaders,
+  assertStillQueued,
+  DroppedWrite,
+  dropQueuedWrites,
+  isRetryable,
+  QUEUED_KEY,
+  queuedWrite,
+} from "./queue";
 
 describe("isRetryable", () => {
   it.each([
@@ -52,5 +60,39 @@ describe("dropQueuedWrites", () => {
     expect(cache.getAll().map((mutation) => mutation.options.mutationKey)).toEqual([
       ["profile", "save"],
     ]);
+  });
+});
+
+describe("assertStillQueued", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("n'envoie plus une saisie retirée de la file pendant ses nouveaux essais", async () => {
+    vi.useFakeTimers();
+    const queryClient = new QueryClient();
+    const key = [...QUEUED_KEY, "essai"];
+    const sent = vi.fn();
+    queryClient.setMutationDefaults(key, {
+      ...queuedWrite("refusée"),
+      mutationFn: (variables: unknown) => {
+        assertStillQueued(queryClient, variables);
+        sent();
+        return Promise.reject(new WorkoutRequestFailed(503));
+      },
+    });
+    const done = queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: key })
+      .execute({ id: "série" })
+      .catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toHaveBeenCalledOnce();
+
+    dropQueuedWrites(queryClient);
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(await done).toBeInstanceOf(DroppedWrite);
+    expect(sent).toHaveBeenCalledOnce();
   });
 });

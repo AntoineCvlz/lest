@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { TextLink } from "@/features/auth/text-link";
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
 import { useWakeLock } from "@/shared/lib/use-wake-lock";
@@ -121,10 +122,11 @@ function OngoingWorkout({
         {workout.isPending ? "Chargement de la séance…" : ""}
       </p>
       <div role="alert" className="empty:hidden">
-        {workout.isError && <Alert>{WORKOUT_UNAVAILABLE}</Alert>}
+        {/* Hors ligne, la copie gardée reste affichée (ADR 0015). */}
+        {workout.isError && !workout.data && <Alert>{WORKOUT_UNAVAILABLE}</Alert>}
         {failed && <Alert>{NOT_SAVED}</Alert>}
       </div>
-      {workout.isSuccess &&
+      {workout.data &&
         (exercises.length === 0 ? (
           <p>Ajoutez un premier exercice pour commencer.</p>
         ) : (
@@ -263,6 +265,15 @@ function ProgramStarts({
 
 /** Séance du jour : la démarrer, y ajouter des exercices, la terminer. */
 export function WorkoutSession() {
+  return (
+    <>
+      <PendingWrites />
+      <SessionScreen />
+    </>
+  );
+}
+
+function SessionScreen() {
   const ongoing = useOngoingWorkout();
   const profile = useProfile();
   const start = useStartWorkout();
@@ -275,7 +286,7 @@ export function WorkoutSession() {
       </p>
     );
   }
-  if (ongoing.isError) {
+  if (ongoing.isError && ongoing.data === undefined) {
     return (
       <div className="flex flex-col gap-4">
         <div role="alert">

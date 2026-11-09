@@ -2,21 +2,10 @@ import type { Page } from "@playwright/test";
 
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
+import { waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
-
-/** Attend que le service worker contrôle la page (ADR 0015). */
-async function waitForServiceWorker(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await navigator.serviceWorker.ready;
-  });
-  // Contrôle acquis au chargement suivant (ou par `clients.claim()`).
-  await page.reload();
-  await expect
-    .poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)))
-    .toBe(true);
-}
 
 /** Adresses et contenus de tous les caches du service worker. */
 function cachedEntries(page: Page): Promise<{ cache: string; url: string; body: string }[]> {
