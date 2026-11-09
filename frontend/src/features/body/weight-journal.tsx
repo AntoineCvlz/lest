@@ -1,8 +1,10 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { useProfile } from "@/features/profile/use-profile";
 import { formatNumber, parseDecimal } from "@/shared/lib/number";
 import { displayToKilograms, kilogramsToDisplay, WEIGHT_UNITS } from "@/shared/lib/units";
@@ -18,14 +20,10 @@ import {
   useDeleteWeight,
   useSaveWeight,
   useWeights,
-  WeightRequestFailed,
 } from "./use-weights";
 import { bodyWeightText, WeightChart } from "./weight-chart";
 
 export const WEIGHTS_UNAVAILABLE = "Pesées indisponibles pour le moment.";
-export const WEIGHT_NOT_SAVED = "Pesée non enregistrée. Vérifiez la connexion, puis réessayez.";
-export const WEIGHT_REFUSED = "Pesée refusée : vérifiez le poids et la date.";
-export const WEIGHT_NOT_DELETED = "Pesée non supprimée. Réessayez dans un instant.";
 export const NO_WEIGHT =
   "Aucune pesée sur la période. Pesez-vous le matin, à jeun, pour une courbe régulière.";
 export const DATE_OUT_OF_RANGE = "Choisissez une date entre le 1er janvier 2000 et aujourd’hui.";
@@ -37,6 +35,11 @@ const LIMITS = {
   metric: { min: 20, max: 400 },
   imperial: { min: 45, max: 880 },
 } as const;
+
+/** Hors ligne, la saisie est gardée sur l'appareil jusqu'au retour du réseau. */
+function savedWhere(): string {
+  return onlineManager.isOnline() ? "" : " sur cet appareil, envoi au retour du réseau";
+}
 
 /**
  * Journal du poids : pesée du jour (pré-remplie avec la dernière), courbe et moyenne sur 7 jours,
@@ -70,7 +73,6 @@ export function WeightJournal() {
   const shown =
     text ?? (prefill ? formatNumber(kilogramsToDisplay(prefill.weight_kg, system)) : "");
   const limits = LIMITS[system];
-  const refused = save.error instanceof WeightRequestFailed && save.error.status === 422;
 
   /** Donne le focus à un élément du formulaire, une fois le nouvel état affiché. */
   function focus(selector: string) {
@@ -79,8 +81,6 @@ export function WeightJournal() {
 
   function clearMessages() {
     setNotice("");
-    save.reset();
-    remove.reset();
   }
 
   function reset(message: string) {
@@ -106,6 +106,8 @@ export function WeightJournal() {
 
   return (
     <div className="flex flex-col gap-10">
+      {/* Saisies en attente et refus du serveur (ADR 0015). */}
+      <PendingWrites />
       <form
         ref={formRef}
         method="post"
@@ -114,8 +116,6 @@ export function WeightJournal() {
         aria-labelledby="weigh-in-title"
         onSubmit={(event) => {
           event.preventDefault();
-          // Pas de `disabled` pendant l'envoi (le focus serait perdu) : un second envoi est ignoré.
-          if (save.isPending) return;
           clearMessages();
           const value = parseDecimal(shown);
           const fault =
@@ -132,14 +132,9 @@ export function WeightJournal() {
             focus(fault === "date" ? "input[name=day]" : "input[name=weight]");
             return;
           }
-          save.mutate(
-            { day, kilograms: displayToKilograms(value, system) },
-            {
-              onSuccess: () => {
-                reset(`Pesée du ${longDay(day)} enregistrée.`);
-              },
-            },
-          );
+          // En file (ADR 0015) : affichée tout de suite, envoyée dès que le réseau le permet.
+          save.mutate({ day, kilograms: displayToKilograms(value, system) });
+          reset(`Pesée du ${longDay(day)} enregistrée${savedWhere()}.`);
         }}
       >
         <h2 id="weigh-in-title" className="text-xl font-extrabold [font-stretch:112%]">
@@ -185,13 +180,6 @@ export function WeightJournal() {
             }}
           />
         </div>
-        <div role="alert" className="empty:hidden">
-          {(save.isError || remove.isError) && (
-            <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-              {save.isError ? (refused ? WEIGHT_REFUSED : WEIGHT_NOT_SAVED) : WEIGHT_NOT_DELETED}
-            </p>
-          )}
-        </div>
         <p aria-live="polite" className="text-ink-muted empty:sr-only">
           {notice}
         </p>
@@ -201,7 +189,6 @@ export function WeightJournal() {
           size="lg"
           block
           disabled={!hydrated || shown.trim() === ""}
-          aria-disabled={save.isPending}
         >
           {existing ? "Remplacer la pesée" : "Enregistrer la pesée"}
         </Button>
@@ -210,17 +197,12 @@ export function WeightJournal() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="danger"
-                aria-disabled={remove.isPending}
                 onClick={() => {
-                  if (remove.isPending) return;
-                  remove.mutate(day, {
-                    onSuccess: () => {
-                      flushSync(() => {
-                        reset(`Pesée du ${longDay(day)} supprimée.`);
-                      });
-                      focus("input[name=weight]");
-                    },
+                  remove.mutate(day);
+                  flushSync(() => {
+                    reset(`Pesée du ${longDay(day)} supprimée${savedWhere()}.`);
                   });
+                  focus("input[name=weight]");
                 }}
               >
                 {`Confirmer la suppression de la pesée du ${shortDay(day)}`}
