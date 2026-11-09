@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext", "webworker"],
+    "types": [],
+    "plugins": []
+  },
+  "include": ["./**/*.ts", "../shared/pwa/constants.ts"],
+  "exclude": []
+}

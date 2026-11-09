@@ -14,6 +14,7 @@ import { DEVICE_SESSIONS_KEY, MFA_QUERY_KEY } from "@/features/security/query-ke
 import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
 import { $api } from "@/shared/api/client";
 import { authClient } from "@/shared/api/auth-client";
+import { clearCachedPages } from "@/shared/pwa/service-worker";
 import { Button } from "@/shared/ui/button";
 
 // Lien d’apparence bouton (44 px), pour les navigations du panneau.
@@ -53,12 +54,14 @@ export function SessionPanel({ shortcuts = true }: { shortcuts?: boolean } = {})
   useEffect(() => {
     if (!me.isError) return;
     for (const queryKey of PRIVATE_QUERY_KEYS) queryClient.removeQueries({ queryKey });
+    void clearCachedPages();
   }, [me.isError, queryClient]);
   const logout = useMutation({
     mutationFn: signOut,
     onSuccess: () => {
-      // Plus aucune donnée de l'utilisateur en mémoire.
+      // Plus aucune donnée de l'utilisateur en mémoire, ni de page gardée pour le hors-ligne.
       queryClient.clear();
+      void clearCachedPages();
     },
     onError: () => queryClient.invalidateQueries(),
   });
