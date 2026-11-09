@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState, type SubmitEvent } from "react";
 
+import { startSession } from "@/features/offline/account";
 import { authClient } from "@/shared/api/auth-client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { getPasskey, PASSKEY_FAILED, PasskeyError, passkeysSupported } from "@/shared/lib/webauthn";
@@ -106,7 +107,8 @@ export function SecondFactorForm({ redirectTo = "/" }: { redirectTo?: PrivateRou
         return;
       }
       setSignedIn(true);
-      queryClient.clear();
+      // Saisies hors ligne gardées si elles sont à ce compte (ADR 0015).
+      void startSession(queryClient);
       router.push(redirectTo);
     },
   });

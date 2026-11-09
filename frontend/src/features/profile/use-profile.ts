@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
 export const PROFILE_QUERY_KEY = ["profile"] as const;
@@ -25,6 +26,8 @@ export function useProfile(options: { enabled?: boolean } = {}) {
       return data;
     },
     retry: false,
+    // Unités et formule du 1RM, gardées hors ligne (ADR 0015).
+    gcTime: OFFLINE_MAX_AGE,
     enabled: options.enabled ?? true,
   });
 }

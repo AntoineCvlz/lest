@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
 import { connection } from "next/server";
 
-import { QueryProvider } from "@/shared/api/query-provider";
+import { OfflineQueryProvider } from "@/features/offline/offline-query-provider";
 import { ServiceWorker } from "@/shared/pwa/service-worker";
 
 import "./globals.css";
@@ -38,7 +38,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className={archivo.variable}>
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <OfflineQueryProvider>{children}</OfflineQueryProvider>
         <ServiceWorker />
       </body>
     </html>

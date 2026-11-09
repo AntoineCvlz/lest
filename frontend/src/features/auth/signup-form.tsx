@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import type { SubmitEvent } from "react";
 
+import { startSession } from "@/features/offline/account";
 import { authClient } from "@/shared/api/auth-client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
 import { Button } from "@/shared/ui/button";
@@ -45,7 +46,8 @@ export function SignupForm() {
     onSuccess: (outcome) => {
       if (outcome.kind === "verify-email") router.push("/verification");
       if (outcome.kind !== "signed-in") return;
-      queryClient.clear();
+      // Saisies hors ligne gardées si elles sont à ce compte (ADR 0015).
+      void startSession(queryClient);
       router.push("/");
     },
   });
