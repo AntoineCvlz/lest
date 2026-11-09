@@ -11,6 +11,9 @@ const RESPONSE_TIMEOUT = 15_000;
 
 /** Pages accessibles seulement connecté : analysées par axe pendant le parcours. */
 export async function expectNoAxeViolations(page: Page): Promise<void> {
+  // Après une navigation côté client, l'URL change avant que Next pose le titre de la page :
+  // axe lancé trop tôt verrait un document sans titre. Une page sans titre échoue toujours ici.
+  await expect(page).toHaveTitle(/\S/);
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
