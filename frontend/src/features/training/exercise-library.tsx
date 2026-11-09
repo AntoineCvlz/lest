@@ -15,6 +15,15 @@ import { useExerciseFilters, useExercises, type ExerciseSearch } from "./use-exe
 
 export const CATALOG_UNAVAILABLE = "Catalogue indisponible. Réessayez dans un instant.";
 export const NO_MATCH = "Aucun exercice ne correspond. Modifiez la recherche ou les filtres.";
+export const NO_SEEN_MATCH =
+  "Hors ligne : aucun exercice déjà consulté sur cet appareil ne correspond.";
+
+/** Résultats hors ligne : seuls les exercices déjà vus sur l'appareil sont connus. */
+export function seenSummary(count: number): string {
+  return count === 1
+    ? "Hors ligne : 1 exercice déjà consulté sur cet appareil."
+    : `Hors ligne : ${String(count)} exercices déjà consultés sur cet appareil.`;
+}
 export const SEARCH_DELAY_MS = 250;
 const CATEGORIES = Object.entries(CATEGORY_LABELS) as [Category, string][];
 
@@ -102,10 +111,14 @@ export function ExerciseLibrary({
   };
   const exercises = useExercises(search);
   const filters = useExerciseFilters();
-  const items = exercises.data?.pages.flatMap((page) => page.items) ?? [];
+  const offline = exercises.offline;
+  const items = offline ?? exercises.data?.pages.flatMap((page) => page.items) ?? [];
   const active = [category, muscle, equipment].filter((value) => value !== null).length;
   const filtered = q.trim() !== "" || active > 0;
-  const empty = items.length === 0 && !exercises.isPending && !exercises.isError;
+  const empty =
+    items.length === 0 && (offline !== null || (!exercises.isPending && !exercises.isError));
+  // Liste provisoire (recherche en cours) : pas de choix sur un résultat périmé.
+  const stale = exercises.isPlaceholderData && offline === null;
 
   function reset() {
     setQ("");
@@ -196,22 +209,26 @@ export function ExerciseLibrary({
       </search>
 
       <p role="status" className="text-ink-muted empty:hidden">
-        {exercises.isPending || exercises.isPlaceholderData
-          ? "Recherche des exercices…"
-          : exercises.isError
-            ? ""
-            : empty
-              ? NO_MATCH
-              : summary(items.length, exercises.hasNextPage)}
+        {offline
+          ? offline.length === 0
+            ? NO_SEEN_MATCH
+            : seenSummary(offline.length)
+          : exercises.isPending || exercises.isPlaceholderData
+            ? "Recherche des exercices…"
+            : exercises.isError
+              ? ""
+              : empty
+                ? NO_MATCH
+                : summary(items.length, exercises.hasNextPage)}
       </p>
       <div role="alert" className="empty:hidden">
-        {exercises.isError && (
+        {exercises.isError && offline === null && (
           <p className="rounded-control border-danger text-danger border p-4 font-semibold">
             {CATALOG_UNAVAILABLE}
           </p>
         )}
       </div>
-      {exercises.isError && (
+      {exercises.isError && offline === null && (
         <Button
           onClick={() => {
             void exercises.refetch();
@@ -225,7 +242,7 @@ export function ExerciseLibrary({
       {items.length > 0 && (
         <ul
           aria-label="Exercices"
-          aria-busy={exercises.isPlaceholderData}
+          aria-busy={stale}
           // Résultats de la recherche précédente : signalés par le statut et `aria-busy`, pas
           // par une opacité réduite (le texte secondaire passerait sous 4,5:1 de contraste).
           className="border-line-subtle border-t"
@@ -235,13 +252,12 @@ export function ExerciseLibrary({
               key={exercise.id}
               exercise={exercise}
               onSelect={onSelect}
-              // Liste provisoire (recherche en cours) : pas de choix sur un résultat périmé.
-              disabled={selecting || exercises.isPlaceholderData}
+              disabled={selecting || stale}
             />
           ))}
         </ul>
       )}
-      {exercises.hasNextPage && (
+      {exercises.hasNextPage && offline === null && (
         <Button
           onClick={() => {
             void exercises.fetchNextPage();

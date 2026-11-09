@@ -5,6 +5,9 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { useState, type ReactNode } from "react";
 
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
+import { isCatalogSearch, isRecentSearch } from "@/features/training/offline-catalog";
+import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
+import { EXERCISE_FILTERS_KEY, EXERCISES_QUERY_KEY } from "@/features/training/use-exercises";
 import { isKeptForSession, registerSetWrites } from "@/features/training/use-sets";
 import { registerWorkoutWrites } from "@/features/training/use-workout";
 import { createQueryClient } from "@/shared/api/query-provider";
@@ -22,13 +25,33 @@ export function registerQueuedWrites(queryClient: QueryClient): void {
   registerSetWrites(queryClient);
 }
 
-/** Requêtes gardées hors ligne (ADR 0015, liste fermée). */
+/** Requêtes privées gardées hors ligne (ADR 0015, liste fermée), oubliées à la fin de session. */
 function isOfflineKey(queryClient: QueryClient, key: QueryKey): boolean {
   return key[0] === PROFILE_QUERY_KEY[0] || isKeptForSession(queryClient, key);
 }
 
 function keptOffline(queryClient: QueryClient, query: Query): boolean {
-  return query.state.status === "success" && isOfflineKey(queryClient, query.queryKey);
+  if (query.state.status !== "success") return false;
+  // Catalogue public : les dernières recherches et les filtres, pour choisir un exercice.
+  if (isCatalogSearch(query)) return isRecentSearch(queryClient, query);
+  if (query.queryKey[0] === EXERCISE_FILTERS_KEY[0]) return true;
+  return isOfflineKey(queryClient, query.queryKey);
+}
+
+/**
+ * Requêtes gardées : 7 jours en mémoire, y compris restaurées sans écran qui les lise (sinon
+ * oubliées après 5 min, et absentes de la copie écrite ensuite).
+ */
+function keepOfflineQueries(queryClient: QueryClient): void {
+  for (const queryKey of [
+    PROFILE_QUERY_KEY,
+    PROGRAMS_KEY,
+    WORKOUTS_KEY,
+    EXERCISES_QUERY_KEY,
+    EXERCISE_FILTERS_KEY,
+  ]) {
+    queryClient.setQueryDefaults(queryKey, { gcTime: OFFLINE_MAX_AGE });
+  }
 }
 
 /** Retire la copie restaurée de la mémoire (et donc de la copie écrite ensuite). */
@@ -72,6 +95,7 @@ export function forgetOnSessionEnd(queryClient: QueryClient): () => void {
 
 function createOfflineQueryClient(): QueryClient {
   const queryClient = createQueryClient();
+  keepOfflineQueries(queryClient);
   registerQueuedWrites(queryClient);
   forgetOnSessionEnd(queryClient);
   if (typeof window !== "undefined") listenForForget(queryClient);

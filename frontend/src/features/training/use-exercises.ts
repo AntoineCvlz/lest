@@ -1,8 +1,14 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
 import type { Category } from "./categories";
+import { searchSeen, seenExercises } from "./offline-catalog";
 
 export interface ExerciseSearch {
   q: string;
@@ -17,9 +23,13 @@ const PAGE_SIZE = 30;
 // Catalogue commun, importé une fois par mois : inutile de le relire à chaque visite.
 const CATALOG_STALE_MS = 60 * 60 * 1000;
 
-/** Recherche dans le catalogue, page par page (curseur de l'API). */
+/**
+ * Recherche dans le catalogue, page par page (curseur de l'API). Sans réseau, `offline` donne
+ * les exercices déjà vus sur cet appareil qui correspondent (ADR 0015), sinon `null`.
+ */
 export function useExercises(search: ExerciseSearch) {
-  return useInfiniteQuery({
+  const queryClient = useQueryClient();
+  const query = useInfiniteQuery({
     queryKey: [...EXERCISES_QUERY_KEY, search],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }): Promise<Schemas["ExercisePageOut"]> => {
@@ -45,6 +55,11 @@ export function useExercises(search: ExerciseSearch) {
     staleTime: CATALOG_STALE_MS,
     retry: false,
   });
+  // En attente du réseau (navigateur hors ligne) ou réseau coupé pendant l'appel.
+  const waiting = query.fetchStatus === "paused" && (!query.data || query.isPlaceholderData);
+  const cut = query.isError && query.error instanceof TypeError;
+  const offline = waiting || cut ? searchSeen(seenExercises(queryClient), search) : null;
+  return { ...query, offline };
 }
 
 /** Valeurs proposées par les filtres (muscles et équipements utilisés). */
