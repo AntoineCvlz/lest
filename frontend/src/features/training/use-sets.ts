@@ -7,7 +7,12 @@ import {
 } from "@tanstack/react-query";
 
 import { useAccount } from "@/features/offline/account";
-import { accountHeaders, isLastQueuedWrite, queuedWrite } from "@/features/offline/queue";
+import {
+  accountHeaders,
+  assertStillQueued,
+  isLastQueuedWrite,
+  queuedWrite,
+} from "@/features/offline/queue";
 import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
@@ -92,7 +97,9 @@ async function show(
 export function registerSetWrites(queryClient: QueryClient): void {
   queryClient.setMutationDefaults<SetOut, Error, SaveSetVariables>(SAVE_SET, {
     ...queuedWrite(SET_REFUSED),
-    mutationFn: async ({ account, id, position, set }) => {
+    mutationFn: async (variables) => {
+      assertStillQueued(queryClient, variables);
+      const { account, id, position, set } = variables;
       const { data, response } = await fetchClient.PUT("/api/v1/sets/{set_id}/", {
         params: { path: { set_id: id } },
         headers: accountHeaders(account),
@@ -117,7 +124,9 @@ export function registerSetWrites(queryClient: QueryClient): void {
   });
   queryClient.setMutationDefaults<undefined, Error, DeleteSetVariables>(DELETE_SET, {
     ...queuedWrite(DELETE_REFUSED),
-    mutationFn: async ({ account, set }) => {
+    mutationFn: async (variables) => {
+      assertStillQueued(queryClient, variables);
+      const { account, set } = variables;
       const { response } = await fetchClient.DELETE("/api/v1/sets/{set_id}/", {
         params: { path: { set_id: set.id } },
         headers: accountHeaders(account),

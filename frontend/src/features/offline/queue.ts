@@ -81,6 +81,25 @@ export async function resumeQueuedWrites(queryClient: QueryClient): Promise<void
   );
 }
 
+/** Saisie retirée de la file pendant ses essais (abandon, autre compte, autre onglet). */
+export class DroppedWrite extends Error {
+  constructor() {
+    super("Saisie retirée de la file");
+  }
+}
+
+/**
+ * À appeler au début de chaque envoi : retirer une mutation du cache n'arrête pas ses nouveaux
+ * essais déjà programmés. Une saisie abandonnée ne doit jamais partir (erreur non rejouable).
+ */
+export function assertStillQueued(queryClient: QueryClient, variables: unknown): void {
+  const queued = queryClient
+    .getMutationCache()
+    .findAll({ mutationKey: QUEUED_KEY })
+    .some((mutation) => mutation.state.variables === variables);
+  if (!queued) throw new DroppedWrite();
+}
+
 /** Retire les saisies en file sans les envoyer (autre compte, abandon). */
 export function dropQueuedWrites(queryClient: QueryClient): void {
   const cache = queryClient.getMutationCache();
