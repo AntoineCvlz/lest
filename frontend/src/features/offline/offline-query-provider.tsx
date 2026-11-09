@@ -4,6 +4,7 @@ import type { Query, QueryClient, QueryKey } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useState, type ReactNode } from "react";
 
+import { registerWeightWrites } from "@/features/body/use-weights";
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { isCatalogSearch, isRecentSearch } from "@/features/training/offline-catalog";
 import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
@@ -23,6 +24,7 @@ const BUSTER = process.env.LEST_API_SCHEMA ?? "dev";
 export function registerQueuedWrites(queryClient: QueryClient): void {
   registerWorkoutWrites(queryClient);
   registerSetWrites(queryClient);
+  registerWeightWrites(queryClient);
 }
 
 /** Requêtes privées gardées hors ligne (ADR 0015, liste fermée), oubliées à la fin de session. */

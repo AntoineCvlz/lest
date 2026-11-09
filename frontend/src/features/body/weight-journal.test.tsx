@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -7,15 +8,9 @@ import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
 import { localDay, longDay, shiftDay } from "@/shared/lib/days";
+import { WEIGHT_REFUSED } from "./use-weights";
 import { bodyWeightText, trendSummary } from "./weight-chart";
-import {
-  DATE_OUT_OF_RANGE,
-  NO_WEIGHT,
-  WEIGHT_NOT_SAVED,
-  WEIGHT_REFUSED,
-  WeightJournal,
-  WEIGHTS_UNAVAILABLE,
-} from "./weight-journal";
+import { DATE_OUT_OF_RANGE, NO_WEIGHT, WeightJournal, WEIGHTS_UNAVAILABLE } from "./weight-journal";
 
 const TODAY = localDay();
 const YESTERDAY = shiftDay(TODAY, -1);
@@ -36,6 +31,9 @@ function api({
       query = new URL(request.url).search;
       return HttpResponse.json(weights);
     }),
+    http.get("*/api/v1/me/", () =>
+      HttpResponse.json({ id: "9b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", email: "a@example.com" }),
+    ),
     http.get("*/api/v1/me/profile/", () =>
       HttpResponse.json({
         height_m: 1.8,
@@ -128,18 +126,45 @@ describe("WeightJournal", () => {
     expect(called).toBe(false);
   });
 
-  it("annonce un échec d'enregistrement", async () => {
+  it("garde une pesée saisie hors ligne et l'envoie au retour du réseau", async () => {
     api();
+    const sent: string[] = [];
     server.use(
-      http.put("*/api/v1/body-weights/:day/", () => new HttpResponse(null, { status: 503 })),
+      http.put("*/api/v1/body-weights/:day/", ({ params }) => {
+        sent.push(String(params.day));
+        return HttpResponse.json({ date: params.day, weight_kg: 82 });
+      }),
     );
     const user = userEvent.setup();
     renderWithQuery(<WeightJournal />);
-
+    const field = await screen.findByRole("textbox", { name: "Poids (kg)" });
     await screen.findByRole("table");
-    await user.click(screen.getByRole("button", { name: "Enregistrer la pesée" }));
 
-    expect(await screen.findByText(WEIGHT_NOT_SAVED)).toBeVisible();
+    onlineManager.setOnline(false);
+    try {
+      await user.clear(field);
+      await user.type(field, "82");
+      await user.click(screen.getByRole("button", { name: "Enregistrer la pesée" }));
+
+      expect(
+        await screen.findByText(
+          `Pesée du ${longDay(TODAY)} enregistrée sur cet appareil, envoi au retour du réseau.`,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText("1 saisie en attente d’envoi, gardée sur cet appareil."),
+      ).toBeVisible();
+      expect(
+        within(screen.getByRole("table")).getAllByText(bodyWeightText(82, "metric")),
+      ).not.toHaveLength(0);
+      expect(sent).toEqual([]);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    await waitFor(() => {
+      expect(sent).toEqual([TODAY]);
+    });
   });
 
   it("affiche la courbe résumée et le tableau, plus récent d'abord", async () => {
