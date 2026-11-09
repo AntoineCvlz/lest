@@ -7,12 +7,7 @@ import {
 } from "@tanstack/react-query";
 
 import { useAccount } from "@/features/offline/account";
-import {
-  accountHeaders,
-  assertStillQueued,
-  isLastQueuedWrite,
-  queuedWrite,
-} from "@/features/offline/queue";
+import { accountHeaders, assertStillQueued, queuedWrite } from "@/features/offline/queue";
 import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
@@ -24,10 +19,14 @@ import {
   type DeleteSetVariables,
   type SaveSetVariables,
 } from "./pending-sets";
-import { WORKOUTS_KEY } from "./query-keys";
-import { newId, ONGOING_KEY, workoutKey, WorkoutRequestFailed } from "./use-workout";
-
-type WorkoutDetail = Schemas["WorkoutDetailOut"];
+import { PROGRAMS_KEY, WORKOUTS_KEY } from "./query-keys";
+import {
+  newId,
+  ONGOING_KEY,
+  refreshWorkout,
+  showInWorkout,
+  WorkoutRequestFailed,
+} from "./use-workout";
 type SetOut = Schemas["SetOut"];
 
 /** Séries de la dernière séance avec cet exercice, hors séance en cours (pré-remplissage). */
@@ -68,28 +67,6 @@ export const SET_REFUSED = "Série refusée par le serveur : elle n’a pas ét�
 export const DELETE_REFUSED = "Suppression refusée par le serveur : la série est gardée.";
 
 /**
- * Relit la séance une fois la file vide : records recalculés par l'API, et saisie refusée
- * retirée de l'affichage (l'état du serveur fait foi). Pas attendue : la saisie doit être
- * terminée quand la lecture réapplique celles qui restent en file (`withPendingSets`).
- */
-function refreshWorkout(queryClient: QueryClient, workoutId: string): void {
-  if (isLastQueuedWrite(queryClient)) {
-    void queryClient.invalidateQueries({ queryKey: workoutKey(workoutId) });
-  }
-}
-
-/** Montre tout de suite une saisie de série dans la séance en cache. */
-async function show(
-  queryClient: QueryClient,
-  workoutId: string,
-  change: (workout: WorkoutDetail) => WorkoutDetail,
-): Promise<void> {
-  const key = workoutKey(workoutId);
-  await queryClient.cancelQueries({ queryKey: key });
-  queryClient.setQueryData<WorkoutDetail>(key, (workout) => workout && change(workout));
-}
-
-/**
  * Séries enregistrées et supprimées en file d'attente (ADR 0015) : affichées tout de suite
  * (mise à jour optimiste), envoyées dès que possible et dans l'ordre (`PUT` et `DELETE`
  * idempotents, ADR 0003).
@@ -117,7 +94,7 @@ export function registerSetWrites(queryClient: QueryClient): void {
       return data;
     },
     onMutate: (variables) =>
-      show(queryClient, variables.workoutId, (workout) => applySave(workout, variables)),
+      showInWorkout(queryClient, variables.workoutId, (workout) => applySave(workout, variables)),
     onSettled: (_data, _error, { workoutId }) => {
       refreshWorkout(queryClient, workoutId);
     },
@@ -135,7 +112,7 @@ export function registerSetWrites(queryClient: QueryClient): void {
       return undefined;
     },
     onMutate: (variables) =>
-      show(queryClient, variables.workoutId, (workout) => applyDelete(workout, variables)),
+      showInWorkout(queryClient, variables.workoutId, (workout) => applyDelete(workout, variables)),
     onSettled: (_data, _error, { workoutId }) => {
       refreshWorkout(queryClient, workoutId);
     },
@@ -176,10 +153,12 @@ export function useDeleteSet(workoutId: string) {
 }
 
 /**
- * Requêtes de séance gardées hors ligne : la séance en cours et les dernières séries de ses
- * exercices (charge pré-remplie). L'historique reste en ligne.
+ * Requêtes de séance gardées hors ligne : les programmes (démarrer une séance type), la séance
+ * en cours et les dernières séries de ses exercices (charge pré-remplie). L'historique reste
+ * en ligne.
  */
 export function isKeptForSession(queryClient: QueryClient, key: QueryKey): boolean {
+  if (key[0] === PROGRAMS_KEY[0]) return true;
   if (key[0] !== WORKOUTS_KEY[0]) return false;
   if (key[1] === "ongoing") return true;
   const ongoing = queryClient.getQueryData<Schemas["WorkoutOut"] | null>(ONGOING_KEY);

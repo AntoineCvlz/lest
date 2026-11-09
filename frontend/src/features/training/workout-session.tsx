@@ -1,5 +1,6 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { TextLink } from "@/features/auth/text-link";
@@ -25,8 +26,8 @@ import {
 } from "./use-workout";
 
 export const WORKOUT_UNAVAILABLE = "Séance indisponible. Réessayez dans un instant.";
-export const NOT_SAVED = "Enregistrement impossible. Vérifiez la connexion et réessayez.";
 export const FINISHED = "Séance terminée et enregistrée.";
+export const FINISHED_OFFLINE = "Séance terminée sur cet appareil, envoi au retour du réseau.";
 
 const TIME = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
@@ -46,7 +47,8 @@ function OngoingWorkout({
   onFinished,
 }: {
   ongoing: Schemas["WorkoutOut"];
-  onFinished: () => void;
+  /** `online` : envoyée tout de suite, ou gardée sur l'appareil. */
+  onFinished: (online: boolean) => void;
 }) {
   const workout = useWorkout(ongoing.id);
   const add = useAddExercise(workout.data);
@@ -62,7 +64,6 @@ function OngoingWorkout({
   useWakeLock(true);
   const system = profile.data?.unit_system ?? "metric";
   const exercises = workout.data?.exercises ?? [];
-  const failed = add.isError || finish.isError;
   const activeItem = exercises.find((item) => item.id === active);
 
   if (activeItem) {
@@ -95,19 +96,12 @@ function OngoingWorkout({
             Annuler
           </Button>
         </div>
-        <div role="alert" className="empty:hidden">
-          {add.isError && <Alert>{NOT_SAVED}</Alert>}
-        </div>
         <ExerciseLibrary
-          selecting={add.isPending}
           onSelect={(exercise) => {
-            add.mutate(exercise.id, {
-              // Directement à la saisie de la première série de l'exercice ajouté.
-              onSuccess: (added) => {
-                setPicking(false);
-                setActive(added.id);
-              },
-            });
+            // En file (ADR 0015) : directement à la saisie de la première série de l'exercice.
+            const added = add.mutate(exercise);
+            setPicking(false);
+            if (added) setActive(added);
           }}
         />
       </section>
@@ -124,7 +118,6 @@ function OngoingWorkout({
       <div role="alert" className="empty:hidden">
         {/* Hors ligne, la copie gardée reste affichée (ADR 0015). */}
         {workout.isError && !workout.data && <Alert>{WORKOUT_UNAVAILABLE}</Alert>}
-        {failed && <Alert>{NOT_SAVED}</Alert>}
       </div>
       {workout.data &&
         (exercises.length === 0 ? (
@@ -169,7 +162,6 @@ function OngoingWorkout({
         block
         disabled={!workout.isSuccess}
         onClick={() => {
-          add.reset();
           setPicking(true);
         }}
       >
@@ -187,9 +179,9 @@ function OngoingWorkout({
               Continuer
             </Button>
             <Button
-              disabled={finish.isPending}
               onClick={() => {
-                finish.mutate(ongoing, { onSuccess: onFinished });
+                finish.mutate(ongoing);
+                onFinished(onlineManager.isOnline());
               }}
             >
               Terminer
@@ -211,13 +203,7 @@ function OngoingWorkout({
 }
 
 /** Un bouton par séance type des programmes : la séance démarre avec ses exercices. */
-function ProgramStarts({
-  pending,
-  onStart,
-}: {
-  pending: boolean;
-  onStart: (dayId: string) => void;
-}) {
+function ProgramStarts({ onStart }: { onStart: (day: Schemas["ProgramDayDetailOut"]) => void }) {
   const programs = usePrograms();
   const withDays = (programs.data ?? []).filter((program) => program.days.length > 0);
 
@@ -238,10 +224,9 @@ function ProgramStarts({
             {program.days.map((day) => (
               <Button
                 key={day.id}
-                disabled={pending}
                 aria-label={`Démarrer ${day.name} (${program.name})`}
                 onClick={() => {
-                  onStart(day.id);
+                  onStart(day);
                 }}
               >
                 {day.name}
@@ -277,7 +262,8 @@ function SessionScreen() {
   const ongoing = useOngoingWorkout();
   const profile = useProfile();
   const start = useStartWorkout();
-  const [finished, setFinished] = useState(false);
+  // Séance terminée : texte annoncé (envoyée, ou gardée sur l'appareil).
+  const [finished, setFinished] = useState("");
 
   if (ongoing.isPending) {
     return (
@@ -306,38 +292,35 @@ function SessionScreen() {
     return (
       <OngoingWorkout
         ongoing={ongoing.data}
-        onFinished={() => {
-          setFinished(true);
+        onFinished={(online) => {
+          setFinished(online ? FINISHED : FINISHED_OFFLINE);
         }}
       />
     );
   }
+  // Démarrage en file (ADR 0015) : la séance s'affiche tout de suite, réseau ou non. Les refus
+  // du serveur sont annoncés par `PendingWrites`.
   return (
     <div className="flex flex-col gap-6">
       <p role="status" className="empty:hidden">
-        {finished ? FINISHED : ""}
+        {finished}
       </p>
       <p className="text-ink-muted">Aucune séance en cours.</p>
-      <div role="alert" className="empty:hidden">
-        {start.isError && <Alert>{NOT_SAVED}</Alert>}
-      </div>
       <Button
         variant="primary"
         size="lg"
         block
-        disabled={start.isPending}
         onClick={() => {
-          setFinished(false);
-          start.mutate();
+          setFinished("");
+          void start.mutate();
         }}
       >
         Démarrer une séance
       </Button>
       <ProgramStarts
-        pending={start.isPending}
-        onStart={(dayId) => {
-          setFinished(false);
-          start.mutate(dayId);
+        onStart={(day) => {
+          setFinished("");
+          void start.mutate(day);
         }}
       />
       <WorkoutHistory system={profile.data?.unit_system ?? "metric"} />

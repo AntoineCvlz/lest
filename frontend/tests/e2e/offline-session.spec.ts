@@ -51,3 +51,48 @@ test("saisit une série hors ligne, la garde au rechargement et l'envoie au reto
   await expect(plan).toContainText("2 séries");
   expect(cspViolations).toEqual([]);
 });
+
+test("termine une séance et démarre la suivante sans réseau, puis les envoie dans l'ordre", async ({
+  page,
+  context,
+  makeAxeBuilder,
+  cspViolations,
+}, testInfo) => {
+  const { email, password } = freshAccount(testInfo, "cycle-hors-ligne");
+  await signUp(page, email, password);
+  await waitForServiceWorker(page);
+  await page.goto("/seance");
+  const start = page.getByRole("button", { name: "Démarrer une séance" });
+  await expect(start).toBeVisible();
+
+  await context.setOffline(true);
+  await start.click();
+  await expect(page.getByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
+  await page.getByRole("button", { name: "Terminer la séance" }).click();
+  await page.getByRole("button", { name: "Terminer", exact: true }).click();
+  await expect(
+    page.getByText("Séance terminée sur cet appareil, envoi au retour du réseau."),
+  ).toBeVisible();
+  await start.click();
+  const pending = page.getByText("3 saisies en attente d’envoi, gardées sur cet appareil.");
+  await expect(pending).toBeVisible();
+
+  // App rouverte sans réseau : la seconde séance est toujours en cours.
+  await expect.poll(() => storedQueuedWrites(page)).toBe(3);
+  await page.reload();
+  await expect(page.getByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
+  await expect(pending).toBeVisible();
+  expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
+
+  // Retour du réseau : la première séance rejoint l'historique, la seconde reste en cours.
+  await context.setOffline(false);
+  await expect(page.getByText(/en attente d’envoi/)).toBeHidden();
+  await page.reload();
+  await expect(page.getByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
+  await page.getByRole("button", { name: "Terminer la séance" }).click();
+  await page.getByRole("button", { name: "Terminer", exact: true }).click();
+  await expect(
+    page.getByRole("list", { name: "Séances passées" }).getByRole("listitem"),
+  ).toHaveCount(2);
+  expect(cspViolations).toEqual([]);
+});
