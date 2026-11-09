@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { isKeptForSession, registerSetWrites } from "@/features/training/use-sets";
+import { registerWorkoutWrites } from "@/features/training/use-workout";
 import { createQueryClient } from "@/shared/api/query-provider";
 
 import { listenForForget, loadStoredAccount } from "./account";
@@ -17,6 +18,7 @@ const BUSTER = process.env.LEST_API_SCHEMA ?? "dev";
 
 /** Déclare les saisies en file d'attente : leur fonction est retrouvée par leur clé. */
 export function registerQueuedWrites(queryClient: QueryClient): void {
+  registerWorkoutWrites(queryClient);
   registerSetWrites(queryClient);
 }
 

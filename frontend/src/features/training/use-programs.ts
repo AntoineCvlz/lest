@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
 import { fetchClient, type Schemas } from "@/shared/api/client";
 
 import { PROGRAMS_KEY } from "./query-keys";
@@ -17,6 +18,8 @@ export function usePrograms() {
       return data;
     },
     retry: false,
+    // Gardés hors ligne : démarrer une séance type en salle sans réseau (ADR 0015).
+    gcTime: OFFLINE_MAX_AGE,
   });
 }
 

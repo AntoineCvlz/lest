@@ -81,6 +81,21 @@ export async function resumeQueuedWrites(queryClient: QueryClient): Promise<void
   );
 }
 
+/** Vrai si `key` est la clé de saisie `expected`. */
+export function isWrite(key: readonly unknown[], expected: readonly string[]): boolean {
+  return key.length === expected.length && expected.every((part, index) => key[index] === part);
+}
+
+/** Saisies en attente, dans l'ordre de saisie, avec leur clé et leurs variables. */
+export function pendingWrites(
+  queryClient: QueryClient,
+): { key: readonly unknown[]; variables: unknown }[] {
+  return queued(queryClient, "pending").map((mutation) => ({
+    key: mutation.options.mutationKey ?? [],
+    variables: mutation.state.variables,
+  }));
+}
+
 /** Saisie retirée de la file pendant ses essais (abandon, autre compte, autre onglet). */
 export class DroppedWrite extends Error {
   constructor() {

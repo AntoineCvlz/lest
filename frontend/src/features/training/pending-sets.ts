@@ -1,7 +1,9 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { QUEUED_KEY } from "@/features/offline/queue";
+import { isWrite, pendingWrites, QUEUED_KEY } from "@/features/offline/queue";
 import type { Schemas } from "@/shared/api/client";
+
+import { ADD_EXERCISE, applyAddExercise, type AddExerciseVariables } from "./pending-workouts";
 
 type WorkoutDetail = Schemas["WorkoutDetailOut"];
 type SetOut = Schemas["SetOut"];
@@ -73,28 +75,23 @@ export function applyDelete(workout: WorkoutDetail, { set }: DeleteSetVariables)
   );
 }
 
-function sameKey(key: readonly unknown[] | undefined, expected: readonly string[]): boolean {
-  return key?.length === expected.length && expected.every((part, index) => key[index] === part);
-}
-
 /**
- * La séance lue sur le serveur, avec les séries encore en file réappliquées dans l'ordre de
- * saisie : une relecture (retour au premier plan, réseau instable) n'efface pas l'affichage des
- * saisies qui n'ont pas encore été envoyées.
+ * La séance lue sur le serveur, avec les exercices et séries encore en file réappliqués dans
+ * l'ordre de saisie : une relecture (retour au premier plan, réseau instable) n'efface pas
+ * l'affichage des saisies qui n'ont pas encore été envoyées.
  */
 export function withPendingSets(queryClient: QueryClient, workout: WorkoutDetail): WorkoutDetail {
-  const pending = queryClient
-    .getMutationCache()
-    .findAll({ mutationKey: QUEUED_KEY, status: "pending" });
-  return pending.reduce((shown, mutation) => {
-    const key = mutation.options.mutationKey;
-    if (sameKey(key, SAVE_SET)) {
-      const variables = mutation.state.variables as SaveSetVariables;
-      return variables.workoutId === workout.id ? applySave(shown, variables) : shown;
+  return pendingWrites(queryClient).reduce((shown, { key, variables }) => {
+    if (isWrite(key, ADD_EXERCISE)) {
+      return applyAddExercise(shown, variables as AddExerciseVariables);
     }
-    if (sameKey(key, DELETE_SET)) {
-      const variables = mutation.state.variables as DeleteSetVariables;
-      return variables.workoutId === workout.id ? applyDelete(shown, variables) : shown;
+    if (isWrite(key, SAVE_SET)) {
+      const save = variables as SaveSetVariables;
+      return save.workoutId === workout.id ? applySave(shown, save) : shown;
+    }
+    if (isWrite(key, DELETE_SET)) {
+      const remove = variables as DeleteSetVariables;
+      return remove.workoutId === workout.id ? applyDelete(shown, remove) : shown;
     }
     return shown;
   }, workout);
