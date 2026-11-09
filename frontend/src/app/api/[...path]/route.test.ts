@@ -164,6 +164,14 @@ describe("relais", () => {
     expect(await response.json()).toEqual({ ok: true });
   });
 
+  it("transmet le compte d'une saisie hors ligne, vérifié par Django (ADR 0015)", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+
+    await GET(request("/api/v1/me/", { headers: { "x-lest-account": "compte-a" } }));
+
+    expect(lastCall().headers.get("x-lest-account")).toBe("compte-a");
+  });
+
   it("relaie le corps des requêtes d'écriture", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 

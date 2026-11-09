@@ -119,6 +119,11 @@ Rien d'autre n'est gardé : historique, Bilan, courbes, photos et export restent
 
 - Lié au compte : la copie porte l'identifiant du compte. À la connexion d'un autre compte,
   elle est effacée **sans être rejouée**.
+- Chaque saisie en file porte aussi son compte, envoyé dans l'en-tête `X-Lest-Account` (relayé
+  par le BFF). Django répond 409 `account-mismatch` avant la route si le jeton est celui d'un
+  autre compte : une saisie rejouée après un changement de compte dans un autre onglet n'écrit
+  jamais chez l'autre, sans dépendre de l'ordre des événements côté navigateur. Ajouté le
+  2026-11-09, pendant la PR 3.
 - Déconnexion volontaire : la copie est effacée. Si des saisies sont en attente, l'écran
   demande d'abord : attendre leur envoi, ou les abandonner (nombre affiché).
 - Session expirée (refresh refusé) : le cache privé est retiré comme aujourd'hui, mais les
@@ -134,8 +139,8 @@ tiers.
 
 ## Conséquences
 
-- ✅ La séance se saisit sans réseau, et les autres saisies du quotidien aussi. Aucune
-  modification de l'API (ADR 0003).
+- ✅ La séance se saisit sans réseau, et les autres saisies du quotidien aussi. Les routes
+  ne changent pas (ADR 0003) ; seule l'authentification lit en plus `X-Lest-Account`.
 - ✅ Aucune réponse d'API dans le cache du service worker : une seule copie des données,
   purgée par le mécanisme existant.
 - ⚠️ Données de santé en clair sur le téléphone, jusqu'à 7 jours ou jusqu'à la déconnexion.
