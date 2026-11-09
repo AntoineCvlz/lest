@@ -1,0 +1,77 @@
+import { QueryClient } from "@tanstack/react-query";
+
+import { bindAccount, forgetAccount, loadStoredAccount } from "./account";
+import { QUEUED_KEY } from "./queue";
+import { readStoredAccount, storeAccount, wipeOfflineStore } from "./storage";
+
+vi.mock("./storage", () => ({
+  readStoredAccount: vi.fn(),
+  storeAccount: vi.fn(),
+  wipeOfflineStore: vi.fn(),
+}));
+vi.mock("@/shared/pwa/service-worker", () => ({ clearCachedPages: vi.fn() }));
+
+const A = "11111111-1111-4111-8111-111111111111";
+const B = "22222222-2222-4222-8222-222222222222";
+
+/** Client avec une saisie de A en attente et sa séance en cache. */
+function clientOfA(): QueryClient {
+  const queryClient = new QueryClient();
+  queryClient.getMutationCache().build(queryClient, { mutationKey: [...QUEUED_KEY, "set"] });
+  queryClient.setQueryData(["workouts", "ongoing"], { id: "séance de A" });
+  return queryClient;
+}
+
+beforeEach(async () => {
+  vi.mocked(readStoredAccount).mockResolvedValue(A);
+  // Compte connu en mémoire remis à zéro entre deux tests.
+  await forgetAccount(new QueryClient());
+  vi.clearAllMocks();
+  vi.mocked(readStoredAccount).mockResolvedValue(A);
+});
+
+describe("bindAccount", () => {
+  it("garde les saisies en attente du même compte", async () => {
+    const queryClient = clientOfA();
+    await loadStoredAccount();
+
+    await bindAccount(queryClient, A);
+
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
+    expect(queryClient.getQueryData(["workouts", "ongoing"])).toEqual({ id: "séance de A" });
+    expect(storeAccount).not.toHaveBeenCalled();
+  });
+
+  it("oublie sans les rejouer les saisies et les données d'un autre compte", async () => {
+    const queryClient = clientOfA();
+    await loadStoredAccount();
+
+    await bindAccount(queryClient, B);
+
+    expect(queryClient.getMutationCache().getAll()).toEqual([]);
+    expect(queryClient.getQueryData(["workouts", "ongoing"])).toBeUndefined();
+    expect(storeAccount).toHaveBeenCalledWith(B);
+  });
+
+  it("adopte le compte quand l'appareil n'en connaît aucun", async () => {
+    vi.mocked(readStoredAccount).mockResolvedValue(undefined);
+    const queryClient = clientOfA();
+
+    await bindAccount(queryClient, A);
+
+    expect(queryClient.getMutationCache().getAll()).toHaveLength(1);
+    expect(storeAccount).toHaveBeenCalledWith(A);
+  });
+});
+
+describe("forgetAccount", () => {
+  it("efface la mémoire et la copie de l'appareil", async () => {
+    const queryClient = clientOfA();
+
+    await forgetAccount(queryClient);
+
+    expect(queryClient.getMutationCache().getAll()).toEqual([]);
+    expect(queryClient.getQueryCache().getAll()).toEqual([]);
+    expect(wipeOfflineStore).toHaveBeenCalledOnce();
+  });
+});

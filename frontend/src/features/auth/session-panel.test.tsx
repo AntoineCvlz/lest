@@ -5,10 +5,11 @@ import { http, HttpResponse } from "msw";
 import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
+import { QUEUED_KEY } from "@/features/offline/queue";
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { DEVICE_SESSIONS_KEY } from "@/features/security/device-sessions";
 
-import { SessionPanel } from "./session-panel";
+import { OFFLINE_COPY, SessionPanel, unsentText } from "./session-panel";
 
 const ME_URL = "*/api/v1/me/";
 const SESSION_URL = "*/api/v1/auth/app/v1/auth/session";
@@ -150,5 +151,56 @@ describe("SessionPanel et cache des données de santé", () => {
       expect(queryClient.getQueryData(PROFILE_QUERY_KEY)).toBeUndefined();
     });
     expect(queryClient.getQueryData(health)).toEqual({ status: "ok" });
+  });
+  it("demande avant d'abandonner des saisies en attente à la déconnexion", async () => {
+    let signedOut = false;
+    server.use(
+      http.get(ME_URL, () => HttpResponse.json({ id: "u", email: "membre@example.com" })),
+      http.delete(SESSION_URL, () => {
+        signedOut = true;
+        return HttpResponse.json({ status: 401 }, { status: 401 });
+      }),
+    );
+    const user = userEvent.setup();
+    const { queryClient } = renderWithQuery(<SessionPanel />);
+    // Une série saisie hors ligne, pas encore envoyée.
+    queryClient.getMutationCache().build(
+      queryClient,
+      { mutationKey: [...QUEUED_KEY, "training", "save-set"] },
+      {
+        context: undefined,
+        data: undefined,
+        error: null,
+        failureCount: 0,
+        failureReason: null,
+        isPaused: true,
+        status: "pending",
+        variables: undefined,
+        submittedAt: 0,
+      },
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Se déconnecter" }));
+    expect(screen.getByText(unsentText(1))).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Attendre l’envoi" }));
+    expect(signedOut).toBe(false);
+
+    await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+    await user.click(screen.getByRole("button", { name: "Abandonner et se déconnecter" }));
+
+    await waitFor(() => {
+      expect(signedOut).toBe(true);
+    });
+    await waitFor(() => {
+      expect(queryClient.getMutationCache().getAll()).toEqual([]);
+    });
+  });
+
+  it("dit que la copie hors ligne est en clair sur l'appareil", async () => {
+    server.use(http.get(ME_URL, () => HttpResponse.json({ id: "u", email: "membre@example.com" })));
+
+    renderWithQuery(<SessionPanel />);
+
+    expect(await screen.findByText(OFFLINE_COPY)).toBeVisible();
   });
 });

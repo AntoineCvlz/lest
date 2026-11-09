@@ -4,9 +4,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type SubmitEvent } from "react";
 
+import { forgetAccount } from "@/features/offline/account";
 import { fetchClient } from "@/shared/api/client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
-import { clearCachedPages } from "@/shared/pwa/service-worker";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
@@ -103,8 +103,7 @@ export function MyData() {
     },
     onSuccess: (outcome) => {
       if (outcome !== "deleted") return;
-      queryClient.clear();
-      void clearCachedPages();
+      void forgetAccount(queryClient);
       router.push("/compte-supprime");
     },
   });

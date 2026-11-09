@@ -3,12 +3,14 @@
 import { ACTIVITIES_KEY } from "@/features/activities/query-keys";
 import { BASICFIT_KEY } from "@/features/basicfit/query-keys";
 import { INSIGHTS_KEY } from "@/features/insights/query-keys";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { BODY_KEY } from "@/features/body/query-keys";
 import { NUTRITION_KEY } from "@/features/nutrition/query-keys";
+import { forgetAccount } from "@/features/offline/account";
+import { QUEUED_KEY } from "@/features/offline/queue";
 import { PROFILE_QUERY_KEY, useProfile } from "@/features/profile/use-profile";
 import { DEVICE_SESSIONS_KEY, MFA_QUERY_KEY } from "@/features/security/query-keys";
 import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
@@ -35,6 +37,15 @@ const PRIVATE_QUERY_KEYS = [
   BASICFIT_KEY,
 ];
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
+export const OFFLINE_COPY =
+  "Pour la séance hors ligne, la séance en cours et les saisies en attente sont gardées en clair sur cet appareil, 7 jours au plus. La déconnexion les efface.";
+
+/** Avertissement avant une déconnexion qui abandonnerait des saisies. */
+export function unsentText(count: number): string {
+  return count === 1
+    ? "1 saisie n’est pas encore envoyée. Se déconnecter l’efface de cet appareil."
+    : `${String(count)} saisies ne sont pas encore envoyées. Se déconnecter les efface de cet appareil.`;
+}
 
 async function signOut(): Promise<void> {
   const { response } = await authClient.DELETE("/api/v1/auth/app/v1/auth/session");
@@ -51,17 +62,21 @@ export function SessionPanel({ shortcuts = true }: { shortcuts?: boolean } = {})
   // Session expirée ou révoquée : ne garder en mémoire aucune donnée privée de la session
   // précédente (profil, donnée de santé ; appareils et leurs IP ; facteurs), qu'un autre écran
   // de l'onglet afficherait encore. Les requêtes publiques (état de l'API) restent.
+  // Réseau coupé (`TypeError` de `fetch`) : la session n'a pas pris fin, la séance hors ligne reste.
+  const offline = (me.error as unknown) instanceof TypeError;
   useEffect(() => {
-    if (!me.isError) return;
+    if (!me.isError || offline) return;
     for (const queryKey of PRIVATE_QUERY_KEYS) queryClient.removeQueries({ queryKey });
     void clearCachedPages();
-  }, [me.isError, queryClient]);
+  }, [me.isError, offline, queryClient]);
+  const pending = useMutationState({ filters: { mutationKey: QUEUED_KEY, status: "pending" } });
+  const [confirming, setConfirming] = useState(false);
   const logout = useMutation({
     mutationFn: signOut,
     onSuccess: () => {
-      // Plus aucune donnée de l'utilisateur en mémoire, ni de page gardée pour le hors-ligne.
-      queryClient.clear();
-      void clearCachedPages();
+      // Plus aucune donnée de l'utilisateur en mémoire ni sur l'appareil (copie hors ligne,
+      // saisies en attente, pages gardées).
+      void forgetAccount(queryClient);
     },
     onError: () => queryClient.invalidateQueries(),
   });
@@ -115,14 +130,38 @@ export function SessionPanel({ shortcuts = true }: { shortcuts?: boolean } = {})
               Mon profil
             </Link>
           )}
-          <Button
-            onClick={() => {
-              logout.mutate();
-            }}
-            disabled={logout.isPending}
-          >
-            Se déconnecter
-          </Button>
+          {confirming && pending.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <p className="font-semibold">{unsentText(pending.length)}</p>
+              <Button
+                onClick={() => {
+                  setConfirming(false);
+                }}
+              >
+                Attendre l’envoi
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  logout.mutate();
+                }}
+                disabled={logout.isPending}
+              >
+                Abandonner et se déconnecter
+              </Button>
+            </div>
+          ) : (
+            <Button
+              onClick={() => {
+                if (pending.length > 0) setConfirming(true);
+                else logout.mutate();
+              }}
+              disabled={logout.isPending}
+            >
+              Se déconnecter
+            </Button>
+          )}
+          <p className="text-ink-muted text-sm">{OFFLINE_COPY}</p>
         </>
       ) : (
         !me.isPending && (
