@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Image Docker de prod : serveur autonome sans node_modules complets.
   output: "standalone",
+  // Compile le service worker au build (`@serwist/turbopack`, ADR 0015) : binaire natif, à ne
+  // pas embarquer dans le bundle serveur.
+  serverExternalPackages: ["esbuild"],
   turbopack: {
     rules: {
       "*.css": {

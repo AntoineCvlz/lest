@@ -6,6 +6,7 @@ import type { SubmitEvent } from "react";
 
 import { authClient } from "@/shared/api/auth-client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
+import { clearCachedPages } from "@/shared/pwa/service-worker";
 import { getPasskey, PASSKEY_FAILED, PasskeyError, passkeysSupported } from "@/shared/lib/webauthn";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
@@ -93,6 +94,7 @@ export function LoginForm({ redirectTo = "/" }: { redirectTo?: PrivateRoute | "/
       if (outcome.kind !== "signed-in") return;
       // Les données en cache appartenaient peut-être à une autre session.
       queryClient.clear();
+      void clearCachedPages();
       router.push(redirectTo);
     },
   });

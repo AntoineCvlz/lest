@@ -3,6 +3,7 @@ import { Archivo } from "next/font/google";
 import { connection } from "next/server";
 
 import { QueryProvider } from "@/shared/api/query-provider";
+import { ServiceWorker } from "@/shared/pwa/service-worker";
 
 import "./globals.css";
 
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="fr" className={archivo.variable}>
       <body>
         <QueryProvider>{children}</QueryProvider>
+        <ServiceWorker />
       </body>
     </html>
   );

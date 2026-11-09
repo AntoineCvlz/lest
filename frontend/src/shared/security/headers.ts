@@ -31,6 +31,7 @@ export function buildContentSecurityPolicy({ nonce, isDev }: SecurityHeadersOpti
     "connect-src": ["'self'"],
     // App installable (ADR 0015) : le manifest vient de notre origine seulement.
     "manifest-src": ["'self'"],
+    "worker-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],

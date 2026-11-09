@@ -6,6 +6,7 @@ import { useRef, useState, type SubmitEvent } from "react";
 
 import { fetchClient } from "@/shared/api/client";
 import { useHydrated } from "@/shared/lib/use-hydrated";
+import { clearCachedPages } from "@/shared/pwa/service-worker";
 import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
@@ -103,6 +104,7 @@ export function MyData() {
     onSuccess: (outcome) => {
       if (outcome !== "deleted") return;
       queryClient.clear();
+      void clearCachedPages();
       router.push("/compte-supprime");
     },
   });
