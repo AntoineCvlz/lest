@@ -14,6 +14,11 @@ const FORGET = "forget";
 // Compte de la copie hors ligne, connu sans réseau après la restauration.
 let known: string | null = null;
 
+// Canal écouté par chaque client de cet onglet. L'annonce part par ce canal : un canal ne reçoit
+// pas ses propres messages, alors qu'un autre canal du même onglet les recevrait, et le second
+// `clear()` annulerait la relecture de la session lancée par le premier.
+const listening = new WeakMap<QueryClient, BroadcastChannel>();
+
 /** Lit le compte de la copie restaurée (au démarrage, avant de reprendre la file). */
 export async function loadStoredAccount(): Promise<void> {
   known = (await readStoredAccount()) ?? null;
@@ -61,7 +66,10 @@ async function forgetHere(queryClient: QueryClient): Promise<void> {
 
 /** Déconnexion ou suppression du compte : plus rien du compte sur cet appareil, tous onglets. */
 export async function forgetAccount(queryClient: QueryClient): Promise<void> {
-  if ("BroadcastChannel" in globalThis) {
+  const own = listening.get(queryClient);
+  if (own) {
+    own.postMessage(FORGET);
+  } else if ("BroadcastChannel" in globalThis) {
     const channel = new BroadcastChannel(CHANNEL);
     channel.postMessage(FORGET);
     channel.close();
@@ -76,7 +84,9 @@ export function listenForForget(queryClient: QueryClient): () => void {
   channel.onmessage = (event) => {
     if (event.data === FORGET) void forgetHere(queryClient);
   };
+  listening.set(queryClient, channel);
   return () => {
+    listening.delete(queryClient);
     channel.close();
   };
 }

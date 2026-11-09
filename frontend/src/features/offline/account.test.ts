@@ -93,4 +93,24 @@ describe("forgetAccount", () => {
       stop();
     }
   });
+
+  it("ne reçoit pas sa propre annonce : la session relue après la déconnexion reste", async () => {
+    const queryClient = new QueryClient();
+    const stop = listenForForget(queryClient);
+    const otherTab = clientOfA();
+    const stopOther = listenForForget(otherTab);
+    try {
+      await forgetAccount(queryClient);
+      queryClient.setQueryData(["get", "/api/v1/me/", {}], null);
+
+      await waitFor(() => {
+        expect(otherTab.getQueryCache().getAll()).toEqual([]);
+      });
+      expect(queryClient.getQueryData(["get", "/api/v1/me/", {}])).toBeNull();
+      expect(releaseCopy).toHaveBeenCalledTimes(2);
+    } finally {
+      stop();
+      stopOther();
+    }
+  });
 });
