@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -6,6 +7,7 @@ import { server } from "@/shared/test/msw-server";
 import { renderWithQuery } from "@/shared/test/render";
 
 import { localDay, longDay, shiftDay } from "@/shared/lib/days";
+import { MEASUREMENT_REFUSED } from "./use-measurements";
 import {
   changeText,
   MeasurementJournal,
@@ -26,6 +28,9 @@ const rows = [
 function api({ measurements = [...rows] as object[], unitSystem = "metric" } = {}) {
   server.use(
     http.get("*/api/v1/body-measurements/", () => HttpResponse.json(measurements)),
+    http.get("*/api/v1/me/", () =>
+      HttpResponse.json({ id: "9b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", email: "a@example.com" }),
+    ),
     http.get("*/api/v1/me/profile/", () =>
       HttpResponse.json({
         height_m: 1.8,
@@ -164,13 +169,12 @@ describe("MeasurementJournal", () => {
     expect(screen.getByLabelText("Date")).toHaveFocus();
   });
 
-  it("nomme les mesures non enregistrées après un échec partiel", async () => {
+  it("annonce une mesure refusée par le serveur, sans perdre les autres", async () => {
     api();
+    const writes = recordWrites();
     server.use(
-      http.put("*/api/v1/body-measurements/:day/:site/", ({ params }) =>
-        params.site === "waist"
-          ? new HttpResponse(null, { status: 503 })
-          : HttpResponse.json({ date: params.day, site: params.site, length_m: 0.4 }),
+      http.put("*/api/v1/body-measurements/:day/waist/", () =>
+        HttpResponse.json({ status: 422 }, { status: 422 }),
       ),
     );
     const user = userEvent.setup();
@@ -181,9 +185,8 @@ describe("MeasurementJournal", () => {
     await user.type(screen.getByRole("textbox", { name: "Taille (cm)" }), "81");
     await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
 
-    expect(
-      await screen.findByText("Mesure non enregistrée : Taille. Les autres le sont ; réessayez."),
-    ).toBeVisible();
+    expect(await screen.findByText(MEASUREMENT_REFUSED)).toBeVisible();
+    expect(writes).toEqual([`PUT ${TODAY} neck 0.4`]);
   });
 
   it("dit quand rien n'a changé", async () => {
@@ -197,19 +200,35 @@ describe("MeasurementJournal", () => {
     expect(screen.getByText(NOTHING_CHANGED)).toBeVisible();
   });
 
-  it("annonce un échec d'enregistrement", async () => {
+  it("garde les mesures saisies hors ligne et les envoie dans l'ordre au retour du réseau", async () => {
     api();
-    recordWrites(503);
+    const writes = recordWrites();
     const user = userEvent.setup();
     renderWithQuery(<MeasurementJournal />);
-
     await screen.findByRole("list", { name: "Mensurations par date" });
-    await user.type(screen.getByRole("textbox", { name: "Cou (cm)" }), "40");
-    await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
 
-    expect(
-      await screen.findByText("Mesure non enregistrée : Cou. Les autres le sont ; réessayez."),
-    ).toBeVisible();
+    onlineManager.setOnline(false);
+    try {
+      await user.type(screen.getByRole("textbox", { name: "Cou (cm)" }), "40");
+      await user.type(screen.getByRole("textbox", { name: "Taille (cm)" }), "81");
+      await user.click(screen.getByRole("button", { name: "Enregistrer les mesures" }));
+
+      expect(
+        await screen.findByText(
+          `Mensurations du ${longDay(TODAY)} enregistrées sur cet appareil, envoi au retour du réseau.`,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText("2 saisies en attente d’envoi, gardées sur cet appareil."),
+      ).toBeVisible();
+      expect(writes).toEqual([]);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    await waitFor(() => {
+      expect(writes).toEqual([`PUT ${TODAY} neck 0.4`, `PUT ${TODAY} waist 0.81`]);
+    });
   });
 
   it("affiche en pouces pour un profil impérial et envoie des mètres", async () => {
