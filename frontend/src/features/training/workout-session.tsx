@@ -12,7 +12,7 @@ import { Button } from "@/shared/ui/button";
 
 import { ExerciseImage } from "./exercise-image";
 import { ExerciseLibrary } from "./exercise-library";
-import { RestTimer } from "./rest-timer";
+import { RestNotificationToggle, RestTimer } from "./rest-timer";
 import { SetEntry } from "./set-entry";
 import { usePrograms } from "./use-programs";
 import { useRestTimer } from "./use-rest-timer";
@@ -112,6 +112,7 @@ function OngoingWorkout({
     <div className="flex flex-col gap-6">
       <p className="text-ink-muted">Commencée à {TIME.format(new Date(ongoing.started_at))}</p>
       <RestTimer timer={timer} />
+      {timer.remaining !== null && <RestNotificationToggle />}
       <p role="status" className="text-ink-muted empty:hidden">
         {workout.isPending ? "Chargement de la séance…" : ""}
       </p>

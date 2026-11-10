@@ -2,8 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { notifyRestOver, REST_NOTIFICATION_TITLE } from "./rest-notification";
-import { NOTIFY_DENIED, RestTimer } from "./rest-timer";
-import type { RestTimer as Timer } from "./use-rest-timer";
+import { NOTIFY_DENIED, RestNotificationToggle } from "./rest-timer";
 
 const showNotification = vi.fn<(title: string, options?: NotificationOptions) => Promise<void>>();
 
@@ -26,15 +25,6 @@ function visibility(state: DocumentVisibilityState) {
   Object.defineProperty(document, "visibilityState", { configurable: true, value: state });
 }
 
-const resting: Timer = {
-  remaining: 90,
-  duration: 120,
-  finished: false,
-  start: vi.fn(),
-  adjust: vi.fn(),
-  stop: vi.fn(),
-};
-
 afterEach(() => {
   vi.unstubAllGlobals();
   Reflect.deleteProperty(navigator, "serviceWorker");
@@ -43,11 +33,11 @@ afterEach(() => {
   showNotification.mockReset();
 });
 
-describe("RestTimer : notification de fin de repos", () => {
+describe("RestNotificationToggle", () => {
   it("demande la permission au clic seulement, puis notifie l'app en arrière-plan", async () => {
     const requestPermission = browser("default", "granted");
     const user = userEvent.setup();
-    render(<RestTimer timer={resting} />);
+    render(<RestNotificationToggle />);
     expect(requestPermission).not.toHaveBeenCalled();
 
     const toggle = screen.getByRole("checkbox", { name: "Me prévenir à la fin du repos" });
@@ -84,7 +74,7 @@ describe("RestTimer : notification de fin de repos", () => {
     browser("granted");
     localStorage.setItem("lest-rest-notification", "on");
     const user = userEvent.setup();
-    render(<RestTimer timer={resting} />);
+    render(<RestNotificationToggle />);
 
     const toggle = screen.getByRole("checkbox", { name: "Me prévenir à la fin du repos" });
     expect(toggle).toBeChecked();
@@ -98,14 +88,14 @@ describe("RestTimer : notification de fin de repos", () => {
 
   it("dit comment réautoriser les notifications refusées", () => {
     browser("denied");
-    render(<RestTimer timer={resting} />);
+    render(<RestNotificationToggle />);
 
     expect(screen.getByText(NOTIFY_DENIED)).toBeVisible();
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("ne propose rien si le navigateur ne sait pas notifier", () => {
-    render(<RestTimer timer={resting} />);
+    render(<RestNotificationToggle />);
 
     expect(screen.queryByRole("checkbox")).toBeNull();
   });
