@@ -26,6 +26,12 @@ function hasIndexedDb(): boolean {
 
 // Faux dès qu'un onglet plus récent (ou la page rechargée) a pris le verrou.
 let holding = false;
+// Une seule demande de verrou par page. React peut rappeler les initialiseurs d'état (rendu
+// abandonné puis repris) : une seconde demande volerait la première, dont l'échec remettrait
+// `holding` à faux alors que la page tient le verrou, et la copie ne serait plus écrite.
+let lock: Promise<void> | undefined;
+// Le fournisseur monté en dernier : c'est sa file qu'il faut lâcher si le verrou est volé.
+let onLostLock: (() => void) | undefined;
 
 /**
  * Prend le verrou, au besoin à un autre onglet : le plus récent garde et rejoue la file. Sans
@@ -33,7 +39,8 @@ let holding = false;
  * rien. `onLost` : l'onglet dépossédé lâche sa file, déjà copiée pour le nouveau.
  */
 function takeLock(onLost: () => void): Promise<void> {
-  return new Promise((resolve) => {
+  onLostLock = onLost;
+  lock ??= new Promise((resolve) => {
     if (!("locks" in navigator)) {
       holding = true;
       resolve();
@@ -48,9 +55,10 @@ function takeLock(onLost: () => void): Promise<void> {
       })
       .catch(() => {
         holding = false;
-        onLost();
+        onLostLock?.();
       });
   });
+  return lock;
 }
 
 /**
