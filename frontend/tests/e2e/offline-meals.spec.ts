@@ -1,6 +1,6 @@
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
-import { storedQueuedWrites, waitForServiceWorker } from "./pwa";
+import { expectStoredWrites, waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
@@ -46,7 +46,7 @@ test("ajoute un aliment récent et de l'eau hors ligne, les garde au rechargemen
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   // App rouverte sans réseau : le journal du jour et les saisies en attente sont toujours là.
-  await expect.poll(() => storedQueuedWrites(page)).toBe(2);
+  await expectStoredWrites(page, 2);
   await page.reload();
   await expect(page.getByRole("list", { name: "Dîner" }).getByRole("listitem")).toHaveCount(1);
   await expect(page.getByRole("group", { name: "Eau bue" })).toContainText("250");

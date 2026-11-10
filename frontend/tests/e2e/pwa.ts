@@ -53,3 +53,43 @@ export async function storedQuery(page: Page, prefix: string): Promise<boolean> 
   const copy = await storedCopy(page);
   return copy?.queries.some((query) => query.queryKey[0] === prefix) ?? false;
 }
+
+/** État utile pour comprendre une copie hors ligne absente : verrou, clés, visibilité. */
+async function offlineDiagnostics(page: Page): Promise<string> {
+  const state = await page.evaluate(async () => {
+    const locks = "locks" in navigator ? await navigator.locks.query() : null;
+    const keys = await new Promise<string[]>((resolve) => {
+      const request = indexedDB.open("lest-offline");
+      request.onsuccess = () => {
+        const db = request.result;
+        const all = db.transaction("keyval").objectStore("keyval").getAllKeys();
+        all.onsuccess = () => {
+          db.close();
+          resolve(all.result.map(String));
+        };
+      };
+      request.onerror = () => {
+        resolve([]);
+      };
+    });
+    return {
+      held: locks?.held?.map((lock) => lock.name) ?? null,
+      pending: locks?.pending?.map((lock) => lock.name) ?? null,
+      keys,
+      visibility: document.visibilityState,
+      online: navigator.onLine,
+    };
+  });
+  const copy = await storedCopy(page);
+  return JSON.stringify({ ...state, storedWrites: copy?.mutations.length ?? null });
+}
+
+/** Attend `count` saisies dans la copie hors ligne ; sinon, l'erreur dit pourquoi. */
+export async function expectStoredWrites(page: Page, count: number): Promise<void> {
+  try {
+    await expect.poll(() => storedQueuedWrites(page)).toBe(count);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`${reason}\nCopie hors ligne : ${await offlineDiagnostics(page)}`);
+  }
+}

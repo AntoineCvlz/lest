@@ -1,6 +1,6 @@
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
-import { storedQuery, storedQueuedWrites, waitForServiceWorker } from "./pwa";
+import { storedQuery, expectStoredWrites, waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
@@ -37,7 +37,7 @@ test("note une activité hors ligne sur une page rouverte sans réseau, puis l'e
   const pending = page.getByText("1 saisie en attente d’envoi, gardée sur cet appareil.");
   await expect(pending).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
-  await expect.poll(() => storedQueuedWrites(page)).toBe(1);
+  await expectStoredWrites(page, 1);
 
   await context.setOffline(false);
   await expect(pending).toBeHidden({ timeout: QUEUE_DRAIN_TIMEOUT });

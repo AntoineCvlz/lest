@@ -1,6 +1,6 @@
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
-import { storedQueuedWrites, waitForServiceWorker } from "./pwa";
+import { expectStoredWrites, waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
@@ -51,7 +51,7 @@ test("note une pesée et des mensurations hors ligne, les garde au rechargement 
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   // App rouverte sans réseau : les deux saisies attendent toujours leur envoi.
-  await expect.poll(() => storedQueuedWrites(page)).toBe(2);
+  await expectStoredWrites(page, 2);
   await page.reload();
   await expect(pending).toBeVisible();
 
