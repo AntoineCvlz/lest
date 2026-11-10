@@ -210,10 +210,17 @@ export function registerNutritionWrites(queryClient: QueryClient): void {
 /** Ajoute un aliment au journal (UUID du client, ADR 0003), en file d'attente. */
 export function useAddEntry() {
   const account = useAccount();
+  const queryClient = useQueryClient();
   const mutation = useMutation<unknown, Error, SaveEntryVariables>({ mutationKey: SAVE_ENTRY });
   return {
     ...mutation,
     mutate: (food: Food, place: { date: string; meal: Meal; grams: number }) => {
+      // En tête des aliments récents tout de suite : proposé au repas suivant, même si le
+      // réseau tombe avant la relecture du serveur.
+      queryClient.setQueryData<Food[]>(
+        RECENT_KEY,
+        (foods) => foods && [food, ...foods.filter((one) => one.id !== food.id)],
+      );
       mutation.mutate({
         account,
         entry: entryFromFood(food, { id: crypto.randomUUID(), ...place }),

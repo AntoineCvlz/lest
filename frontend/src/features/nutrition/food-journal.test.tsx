@@ -187,6 +187,25 @@ describe("FoodJournal", () => {
     );
   });
 
+  it("propose aussitôt dans les récents l'aliment ajouté, même sans réseau", async () => {
+    api({ journal: day([]), recent: [] });
+    const user = userEvent.setup();
+    renderWithQuery(<FoodJournal />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajouter à la collation" }));
+    await user.type(screen.getByRole("searchbox", { name: "Rechercher un aliment" }), "barre");
+    await user.click(await screen.findByRole("button", { name: /^Barre témoin, Marque/ }));
+    onlineManager.setOnline(false);
+    try {
+      await user.click(screen.getByRole("button", { name: "Ajouter à la collation" }));
+      await user.click(await screen.findByRole("button", { name: "Ajouter au dîner" }));
+
+      expect(await screen.findByRole("button", { name: /^Barre témoin, Marque/ })).toBeVisible();
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
   it("annonce l'état de la recherche sans quitter le champ", async () => {
     api({ journal: day([]) });
     const user = userEvent.setup();
