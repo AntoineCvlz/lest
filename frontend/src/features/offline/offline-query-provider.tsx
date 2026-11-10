@@ -6,6 +6,12 @@ import { useState, type ReactNode } from "react";
 
 import { registerMeasurementWrites } from "@/features/body/use-measurements";
 import { registerWeightWrites } from "@/features/body/use-weights";
+import {
+  isKeptForNutrition,
+  JOURNAL_KEY,
+  RECENT_KEY,
+  registerNutritionWrites,
+} from "@/features/nutrition/use-nutrition";
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { isCatalogSearch, isRecentSearch } from "@/features/training/offline-catalog";
 import { PROGRAMS_KEY, WORKOUTS_KEY } from "@/features/training/query-keys";
@@ -27,11 +33,14 @@ export function registerQueuedWrites(queryClient: QueryClient): void {
   registerSetWrites(queryClient);
   registerWeightWrites(queryClient);
   registerMeasurementWrites(queryClient);
+  registerNutritionWrites(queryClient);
 }
 
 /** Requêtes privées gardées hors ligne (ADR 0015, liste fermée), oubliées à la fin de session. */
 function isOfflineKey(queryClient: QueryClient, key: QueryKey): boolean {
-  return key[0] === PROFILE_QUERY_KEY[0] || isKeptForSession(queryClient, key);
+  return (
+    key[0] === PROFILE_QUERY_KEY[0] || isKeptForSession(queryClient, key) || isKeptForNutrition(key)
+  );
 }
 
 function keptOffline(queryClient: QueryClient, query: Query): boolean {
@@ -53,6 +62,8 @@ function keepOfflineQueries(queryClient: QueryClient): void {
     WORKOUTS_KEY,
     EXERCISES_QUERY_KEY,
     EXERCISE_FILTERS_KEY,
+    JOURNAL_KEY,
+    RECENT_KEY,
   ]) {
     queryClient.setQueryDefaults(queryKey, { gcTime: OFFLINE_MAX_AGE });
   }
