@@ -384,8 +384,7 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
   - application `gyms` (salles, équipements disponibles) : non commencée ;
   - focus masqué par la barre d'onglets fixe avec le texte agrandi à 200 % (WCAG 2.4.11) : `scroll-padding-bottom` suppose une barre d'une rangée ;
   - plafond de séances par jour : aucun, ce qui laisse `export_workouts` et l'export RGPD charger un volume illimité ;
-  - Basic-Fit : un processus tué pendant l'appel perd la rotation des jetons (reconnexion) ; une pesée de la balance supprimée revient si elle date de la semaine relue ; pas de révocation possible des jetons chez Basic-Fit ;
-  - `.env.example` : ajouter `BASICFIT_ENABLED=false` (le hook du projet interdit à Claude d'écrire dans `.env*`).
+  - Basic-Fit : un processus tué pendant l'appel perd la rotation des jetons (reconnexion) ; une pesée de la balance supprimée revient si elle date de la semaine relue ; pas de révocation possible des jetons chez Basic-Fit.
 
 ## Décisions et constats de la Phase 5 (à respecter)
 
