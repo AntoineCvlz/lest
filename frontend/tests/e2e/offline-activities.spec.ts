@@ -1,6 +1,6 @@
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
-import { storedQuery, expectStoredWrites, waitForServiceWorker } from "./pwa";
+import { expectStoredQuery, expectStoredWrites, waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
@@ -22,7 +22,7 @@ test("note une activité hors ligne sur une page rouverte sans réseau, puis l'e
   await expect(page.getByText(/^Aucune activité sur les 30 derniers jours\./)).toBeVisible();
 
   // Catalogue écrit dans la copie avant de couper : sinon le rechargement peut la devancer.
-  await expect.poll(() => storedQuery(page, "sports")).toBe(true);
+  await expectStoredQuery(page, "sports");
   await context.setOffline(true);
   await page.reload();
   await expect(

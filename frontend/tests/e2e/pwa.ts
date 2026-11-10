@@ -93,3 +93,13 @@ export async function expectStoredWrites(page: Page, count: number): Promise<voi
     throw new Error(`${reason}\nCopie hors ligne : ${await offlineDiagnostics(page)}`);
   }
 }
+
+/** Attend une requête dont la clé commence par `prefix` dans la copie ; sinon, dit pourquoi. */
+export async function expectStoredQuery(page: Page, prefix: string): Promise<void> {
+  try {
+    await expect.poll(() => storedQuery(page, prefix)).toBe(true);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`${reason}\nCopie hors ligne : ${await offlineDiagnostics(page)}`);
+  }
+}
