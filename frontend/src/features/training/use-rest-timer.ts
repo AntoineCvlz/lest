@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { notifyRestOver } from "./rest-notification";
+
 export const DEFAULT_REST_SECONDS = 120;
 export const MIN_REST_SECONDS = 15;
 export const MAX_REST_SECONDS = 600;
@@ -46,6 +48,8 @@ export function useRestTimer(): RestTimer {
         setFinished(true);
         // Absente de Safari sur iOS : la fin reste annoncée à l'écran.
         if ("vibrate" in navigator) navigator.vibrate(END_VIBRATION);
+        // App en arrière-plan : notification, si elle est activée (ADR 0015). Au mieux.
+        notifyRestOver().catch(() => undefined);
       }
     };
     const timer = setInterval(tick, 250);

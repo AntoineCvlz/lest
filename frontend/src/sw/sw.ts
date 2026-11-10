@@ -6,7 +6,8 @@
  *   pour une page jamais ouverte ; seules les réponses 200 finales sont gardées (pas une
  *   page de connexion obtenue par redirection) ;
  * - images d'exercices (publiques) : cache d'abord ;
- * - tout le reste de `/api/` n'est pas intercepté : aucune réponse de l'API n'est copiée.
+ * - tout le reste de `/api/` n'est pas intercepté : aucune réponse de l'API n'est copiée ;
+ * - notification de fin de repos touchée : retour à l'app (ADR 0015).
  */
 import {
   CacheFirst,
@@ -74,6 +75,18 @@ const serwist = new Serwist({
       },
     ],
   },
+});
+
+// Notification de fin de repos touchée : retour à l'app ouverte, sinon à la séance.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    (async () => {
+      const [open] = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      if (open) await open.focus();
+      else await self.clients.openWindow("/seance");
+    })(),
+  );
 });
 
 serwist.addEventListeners();
