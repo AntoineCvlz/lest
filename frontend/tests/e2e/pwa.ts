@@ -14,8 +14,10 @@ export async function waitForServiceWorker(page: Page): Promise<void> {
     .toBe(true);
 }
 
-/** Nombre de saisies en attente dans la copie hors ligne (IndexedDB), lu comme l'app la relit. */
-export function storedQueuedWrites(page: Page): Promise<number> {
+/** Copie hors ligne (IndexedDB), lue comme l'app la relit au lancement. */
+async function storedCopy(
+  page: Page,
+): Promise<{ mutations: unknown[]; queries: { queryKey: unknown[] }[] } | null> {
   return page.evaluate(async () => {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
       const request = indexedDB.open("lest-offline");
@@ -33,8 +35,21 @@ export function storedQueuedWrites(page: Page): Promise<number> {
       };
     });
     db.close();
-    if (typeof raw !== "string") return 0;
-    const client = JSON.parse(raw) as { clientState: { mutations: unknown[] } };
-    return client.clientState.mutations.length;
+    if (typeof raw !== "string") return null;
+    const client = JSON.parse(raw) as {
+      clientState: { mutations: unknown[]; queries: { queryKey: unknown[] }[] };
+    };
+    return client.clientState;
   });
+}
+
+/** Nombre de saisies en attente dans la copie hors ligne. */
+export async function storedQueuedWrites(page: Page): Promise<number> {
+  return (await storedCopy(page))?.mutations.length ?? 0;
+}
+
+/** Vrai si la copie hors ligne contient une requête dont la clé commence par `prefix`. */
+export async function storedQuery(page: Page, prefix: string): Promise<boolean> {
+  const copy = await storedCopy(page);
+  return copy?.queries.some((query) => query.queryKey[0] === prefix) ?? false;
 }
