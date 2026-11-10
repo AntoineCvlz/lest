@@ -1,8 +1,10 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { useProfile } from "@/features/profile/use-profile";
 import { localDay, longDay, shortDay } from "@/shared/lib/days";
 import { formatNumber, parseDecimal } from "@/shared/lib/number";
@@ -29,9 +31,8 @@ import {
 } from "./use-activities";
 
 export const ACTIVITIES_UNAVAILABLE = "Activités indisponibles pour le moment.";
-export const ACTIVITY_NOT_SAVED =
-  "Activité non enregistrée. Vérifiez les valeurs et la connexion, puis réessayez.";
-export const ACTIVITY_NOT_DELETED = "Activité non supprimée. Réessayez dans un instant.";
+export const ACTIVITIES_OFFLINE =
+  "Hors ligne : l’historique s’affichera au retour du réseau. Une activité notée est gardée sur cet appareil.";
 export const NO_ACTIVITY =
   "Aucune activité sur les 30 derniers jours. Notez votre prochaine sortie, match ou séance.";
 
@@ -41,6 +42,11 @@ const MIN_HEART_RATE = 30;
 const MAX_HEART_RATE = 230;
 // Espace insécable : un nombre ne se sépare jamais de son unité.
 const NBSP = " ";
+
+/** Hors ligne, la saisie est gardée sur l'appareil jusqu'au retour du réseau. */
+function savedWhere(): string {
+  return onlineManager.isOnline() ? "" : " sur cet appareil, envoi au retour du réseau";
+}
 
 export const FEELINGS = [
   { value: 1, label: "1 : très mauvais" },
@@ -202,8 +208,6 @@ export function ActivityJournal() {
 
   function startEdit(activity: Activity) {
     flushSync(() => {
-      save.reset();
-      remove.reset();
       setDraft(draftOf(activity, system));
       setEditingId(activity.id);
       setConfirming(false);
@@ -216,8 +220,7 @@ export function ActivityJournal() {
   }
 
   function submit() {
-    if (save.isPending || !sport) return;
-    save.reset();
+    if (!sport) return;
     setNotice("");
     const faults: Field[] = [];
     if (!draft.day || draft.day < EARLIEST || draft.day > today) faults.push("day");
@@ -259,33 +262,30 @@ export function ActivityJournal() {
     const label = sport.label;
     const day = draft.day;
     const wasEditing = editingId;
-    save.mutate(
-      {
-        id: draft.id,
-        body: {
-          date: day,
-          sport: sport.key,
-          duration_s: minutes * 60,
-          distance_m: distance,
-          avg_heart_rate: heartRate,
-          feeling: draft.feeling === "" ? null : Number(draft.feeling),
-          metrics,
-        },
+    // En file (ADR 0015) : affichée tout de suite, envoyée dès que le réseau le permet.
+    save.mutate({
+      id: draft.id,
+      body: {
+        date: day,
+        sport: sport.key,
+        duration_s: minutes * 60,
+        distance_m: distance,
+        avg_heart_rate: heartRate,
+        feeling: draft.feeling === "" ? null : Number(draft.feeling),
+        metrics,
       },
-      {
-        onSuccess: () => {
-          reset(
-            `Activité ${wasEditing ? "modifiée" : "enregistrée"} : ${label.toLowerCase()}, ${longDay(day)}.`,
-          );
-          // Après une modification, retour à la ligne d'où l'on venait.
-          if (wasEditing) focusRow(wasEditing);
-        },
-      },
+    });
+    reset(
+      `Activité ${wasEditing ? "modifiée" : "enregistrée"}${savedWhere()} : ${label.toLowerCase()}, ${longDay(day)}.`,
     );
+    // Après une modification, retour à la ligne d'où l'on venait.
+    if (wasEditing) focusRow(wasEditing);
   }
 
   return (
     <div className="flex flex-col gap-10">
+      {/* Saisies en attente et refus du serveur (ADR 0015). */}
+      <PendingWrites />
       {sports.isPending && <p className="text-ink-muted">Chargement des sports…</p>}
       {sports.isError && (
         <div role="alert" className="flex flex-col items-start gap-3">
@@ -456,16 +456,6 @@ export function ActivityJournal() {
                 {`${String(invalid.length)} ${invalid.length > 1 ? "champs à corriger" : "champ à corriger"} : ${faultNames(invalid)}.`}
               </p>
             )}
-            {save.isError && (
-              <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-                {ACTIVITY_NOT_SAVED}
-              </p>
-            )}
-            {remove.isError && (
-              <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-                {ACTIVITY_NOT_DELETED}
-              </p>
-            )}
           </div>
           {confirming ? (
             <div className="flex flex-col gap-3">
@@ -475,17 +465,12 @@ export function ActivityJournal() {
               <div className="grid grid-cols-2 gap-3">
                 <Button
                   variant="danger"
-                  aria-disabled={remove.isPending}
                   onClick={() => {
-                    if (remove.isPending) return;
-                    const label = sport.label;
-                    const day = draft.day;
-                    remove.mutate(draft.id, {
-                      onSuccess: () => {
-                        reset(`Activité supprimée : ${label.toLowerCase()}, ${longDay(day)}.`);
-                        focus("select[name=sport]");
-                      },
-                    });
+                    remove.mutate(draft.id);
+                    reset(
+                      `Activité supprimée${savedWhere()} : ${sport.label.toLowerCase()}, ${longDay(draft.day)}.`,
+                    );
+                    focus("select[name=sport]");
                   }}
                 >
                   Supprimer
@@ -506,14 +491,7 @@ export function ActivityJournal() {
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                block
-                disabled={!hydrated}
-                aria-disabled={save.isPending}
-              >
+              <Button type="submit" variant="primary" size="lg" block disabled={!hydrated}>
                 {editing ? "Enregistrer les modifications" : "Enregistrer l’activité"}
               </Button>
               {editing && (
@@ -522,7 +500,6 @@ export function ActivityJournal() {
                     variant="secondary"
                     onClick={() => {
                       const id = editingId;
-                      save.reset();
                       reset("Modification annulée.");
                       if (id) focusRow(id);
                     }}
@@ -533,7 +510,6 @@ export function ActivityJournal() {
                     variant="danger"
                     data-focus="delete"
                     onClick={() => {
-                      remove.reset();
                       flushSync(() => {
                         setConfirming(true);
                       });
@@ -560,7 +536,12 @@ export function ActivityJournal() {
         <h2 id="history-title" className="text-xl font-extrabold [font-stretch:112%]">
           {`${String(JOURNAL_DAYS)} derniers jours`}
         </h2>
-        {activities.isPending && <p className="text-ink-muted">Chargement des activités…</p>}
+        {activities.isPending && (
+          <p className="text-ink-muted">
+            {/* Pas gardées hors ligne (ADR 0015) : la saisie, elle, est gardée. */}
+            {activities.fetchStatus === "paused" ? ACTIVITIES_OFFLINE : "Chargement des activités…"}
+          </p>
+        )}
         {activities.isError && (
           <div role="alert" className="flex flex-col items-start gap-3">
             <p className="text-danger font-semibold">{ACTIVITIES_UNAVAILABLE}</p>
