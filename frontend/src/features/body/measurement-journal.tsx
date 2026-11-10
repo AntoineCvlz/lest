@@ -1,8 +1,10 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
 import { formatNumber, parseDecimal } from "@/shared/lib/number";
@@ -12,19 +14,14 @@ import { Button } from "@/shared/ui/button";
 import { TextField } from "@/shared/ui/text-field";
 
 import { localDay, longDay, shortDay } from "@/shared/lib/days";
-import {
-  type MeasurementChange,
-  MeasurementSaveFailed,
-  useMeasurements,
-  useSaveMeasurements,
-} from "./use-measurements";
+import { type MeasurementChange, useMeasurements, useSaveMeasurements } from "./use-measurements";
 import { type Site, SITES } from "./sites";
 
 type Row = Schemas["MeasurementOut"];
 
 export const MEASUREMENTS_UNAVAILABLE = "Mensurations indisponibles pour le moment.";
-export const MEASUREMENTS_NOT_SAVED =
-  "Mensurations non enregistrées, en tout ou partie. Vérifiez la connexion, puis réessayez.";
+export const MEASUREMENTS_OFFLINE =
+  "Hors ligne : l’historique s’affichera au retour du réseau. Une mesure notée est gardée sur cet appareil.";
 export const NO_MEASUREMENT =
   "Aucune mensuration sur l’année. Mesurez-vous au même moment de la journée, ruban à plat, sans serrer.";
 export const NOTHING_CHANGED = "Aucune mesure modifiée.";
@@ -68,17 +65,6 @@ export function sitesText(sites: readonly Site[]): string {
   return labels.length > 0 ? `${labels.join(", ")} et ${last}` : last;
 }
 
-/** « Mesures non enregistrées : Cou et Taille. Les autres le sont ; réessayez. » */
-export function failureText({ failed, refused }: MeasurementSaveFailed): string {
-  const plural = failed.length > 1;
-  const what = refused
-    ? `${plural ? "Mesures refusées" : "Mesure refusée"} par le serveur`
-    : plural
-      ? "Mesures non enregistrées"
-      : "Mesure non enregistrée";
-  return `${what} : ${sitesText(failed)}. Les autres le sont ; ${refused ? "vérifiez les valeurs" : "réessayez"}.`;
-}
-
 /**
  * Mensurations : saisie du jour (seulement les endroits mesurés ; vider un champ retire sa mesure,
  * après confirmation), dernière valeur et évolution par endroit, historique par date.
@@ -109,7 +95,6 @@ export function MeasurementJournal() {
   const bySite = new Map<Site, Row[]>(SITES.map((s) => [s.value, []]));
   for (const row of rows) bySite.get(row.site)?.push(row);
   const dates = [...new Set(rows.map((r) => r.date))].toSorted().toReversed();
-  const failure = save.error instanceof MeasurementSaveFailed ? save.error : null;
   const removals = (pending ?? []).filter((c) => c.metres === null).map((c) => c.site);
 
   function shown(site: Site): string {
@@ -136,33 +121,25 @@ export function MeasurementJournal() {
 
   function send(changes: MeasurementChange[]) {
     const removed = changes.filter((c) => c.metres === null).map((c) => c.site);
-    save.mutate(
-      { day, changes },
-      {
-        onSuccess: () => {
-          flushSync(() => {
-            setPending(null);
-            setTexts(null);
-            setDay(today);
-            setNotice(
-              `Mensurations du ${longDay(day)} enregistrées${
-                removed.length === 0
-                  ? ""
-                  : ` ; ${removed.length > 1 ? "mesures retirées" : "mesure retirée"} : ${sitesText(removed)}`
-              }.`,
-            );
-          });
-        },
-        onError: () => {
-          setPending(null);
-        },
-      },
-    );
+    // En file (ADR 0015) : affichées tout de suite, envoyées dès que le réseau le permet.
+    save.mutate({ day, changes });
+    const where = onlineManager.isOnline() ? "" : " sur cet appareil, envoi au retour du réseau";
+    flushSync(() => {
+      setPending(null);
+      setTexts(null);
+      setDay(today);
+      setNotice(
+        `Mensurations du ${longDay(day)} enregistrées${where}${
+          removed.length === 0
+            ? ""
+            : ` ; ${removed.length > 1 ? "mesures retirées" : "mesure retirée"} : ${sitesText(removed)}`
+        }.`,
+      );
+    });
   }
 
   function edit(date: string) {
     flushSync(() => {
-      save.reset();
       setDay(date);
       setTexts(null);
       setInvalid([]);
@@ -175,6 +152,8 @@ export function MeasurementJournal() {
 
   return (
     <div className="flex flex-col gap-10">
+      {/* Saisies en attente et refus du serveur (ADR 0015). */}
+      <PendingWrites />
       <form
         ref={formRef}
         method="post"
@@ -183,9 +162,6 @@ export function MeasurementJournal() {
         className="flex flex-col gap-4"
         onSubmit={(event) => {
           event.preventDefault();
-          // Pas de `disabled` pendant l'envoi (le focus serait perdu) : un second envoi est ignoré.
-          if (save.isPending) return;
-          save.reset();
           setNotice("");
           const changes: MeasurementChange[] = [];
           const faults: Site[] = [];
@@ -289,11 +265,6 @@ export function MeasurementJournal() {
               {`${String(invalid.length)} mesures à corriger : ${sitesText(invalid)}.`}
             </p>
           )}
-          {save.isError && (
-            <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-              {failure ? failureText(failure) : MEASUREMENTS_NOT_SAVED}
-            </p>
-          )}
         </div>
         <p aria-live="polite" className="text-ink-muted empty:sr-only">
           {notice}
@@ -306,9 +277,8 @@ export function MeasurementJournal() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="danger"
-                aria-disabled={save.isPending}
                 onClick={() => {
-                  if (!save.isPending) send(pending);
+                  send(pending);
                 }}
               >
                 Retirer
@@ -329,14 +299,7 @@ export function MeasurementJournal() {
             </div>
           </div>
         ) : (
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            block
-            disabled={!hydrated}
-            aria-disabled={save.isPending}
-          >
+          <Button type="submit" variant="primary" size="lg" block disabled={!hydrated}>
             Enregistrer les mesures
           </Button>
         )}
@@ -350,7 +313,13 @@ export function MeasurementJournal() {
         <h2 id="progress-title" className="text-xl font-extrabold [font-stretch:112%]">
           Évolution sur l’année
         </h2>
-        {measurements.isPending && <p className="text-ink-muted">Chargement des mensurations…</p>}
+        {measurements.isPending && (
+          <p className="text-ink-muted">
+            {measurements.fetchStatus === "paused"
+              ? MEASUREMENTS_OFFLINE
+              : "Chargement des mensurations…"}
+          </p>
+        )}
         {measurements.isError && (
           <div role="alert" className="flex flex-col items-start gap-3">
             <p className="text-danger font-semibold">{MEASUREMENTS_UNAVAILABLE}</p>

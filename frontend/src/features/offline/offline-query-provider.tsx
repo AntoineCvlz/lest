@@ -1,9 +1,10 @@
 "use client";
 
-import type { Query, QueryClient, QueryKey } from "@tanstack/react-query";
+import { onlineManager, type Query, type QueryClient, type QueryKey } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useState, type ReactNode } from "react";
 
+import { registerMeasurementWrites } from "@/features/body/use-measurements";
 import { registerWeightWrites } from "@/features/body/use-weights";
 import { PROFILE_QUERY_KEY } from "@/features/profile/use-profile";
 import { isCatalogSearch, isRecentSearch } from "@/features/training/offline-catalog";
@@ -25,6 +26,7 @@ export function registerQueuedWrites(queryClient: QueryClient): void {
   registerWorkoutWrites(queryClient);
   registerSetWrites(queryClient);
   registerWeightWrites(queryClient);
+  registerMeasurementWrites(queryClient);
 }
 
 /** Requêtes privées gardées hors ligne (ADR 0015, liste fermée), oubliées à la fin de session. */
@@ -100,7 +102,13 @@ function createOfflineQueryClient(): QueryClient {
   keepOfflineQueries(queryClient);
   registerQueuedWrites(queryClient);
   forgetOnSessionEnd(queryClient);
-  if (typeof window !== "undefined") listenForForget(queryClient);
+  if (typeof window !== "undefined") {
+    listenForForget(queryClient);
+    // TanStack suppose le réseau présent au lancement et n'écoute que ses changements : une app
+    // ouverte sans réseau enverrait ses saisies (échecs puis délais croissants) au lieu de les
+    // mettre en pause, et dirait « enregistrée » au lieu de « sur cet appareil ».
+    onlineManager.setOnline(navigator.onLine);
+  }
   return queryClient;
 }
 

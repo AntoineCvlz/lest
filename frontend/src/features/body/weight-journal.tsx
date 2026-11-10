@@ -24,6 +24,8 @@ import {
 import { bodyWeightText, WeightChart } from "./weight-chart";
 
 export const WEIGHTS_UNAVAILABLE = "Pesées indisponibles pour le moment.";
+export const WEIGHTS_OFFLINE =
+  "Hors ligne : la courbe s’affichera au retour du réseau. Une pesée notée est gardée sur cet appareil.";
 export const NO_WEIGHT =
   "Aucune pesée sur la période. Pesez-vous le matin, à jeun, pour une courbe régulière.";
 export const DATE_OUT_OF_RANGE = "Choisissez une date entre le 1er janvier 2000 et aujourd’hui.";
@@ -252,7 +254,12 @@ export function WeightJournal() {
           onChange={setDays}
           layout="row"
         />
-        {weights.isPending && <p className="text-ink-muted">Chargement des pesées…</p>}
+        {weights.isPending && (
+          <p className="text-ink-muted">
+            {/* Pas gardées hors ligne (ADR 0015) : la saisie, elle, est gardée. */}
+            {weights.fetchStatus === "paused" ? WEIGHTS_OFFLINE : "Chargement des pesées…"}
+          </p>
+        )}
         {weights.isError && (
           <div role="alert" className="flex flex-col items-start gap-3">
             <p className="text-danger font-semibold">{WEIGHTS_UNAVAILABLE}</p>
