@@ -21,7 +21,6 @@ function clock(seconds: number): string {
  */
 export function RestTimer({ timer }: { timer: Timer }) {
   const labelId = useId();
-  const notification = useRestNotification();
   return (
     <>
       <p role="status" className="font-semibold empty:hidden">
@@ -62,7 +61,6 @@ export function RestTimer({ timer }: { timer: Timer }) {
           </Button>
         </div>
       )}
-      {timer.remaining !== null && <NotifyToggle notification={notification} />}
     </>
   );
 }
@@ -70,11 +68,12 @@ export function RestTimer({ timer }: { timer: Timer }) {
 /**
  * Activation de la notification de fin de repos, sur cet appareil. La permission du navigateur
  * n'est demandée qu'à cet appui (ADR 0015). Absente si le navigateur ne sait pas notifier.
+ * Hors du bloc collé au bas de l'écran pendant la saisie : il masquerait la charge.
  */
-function NotifyToggle({ notification }: { notification: ReturnType<typeof useRestNotification> }) {
+export function RestNotificationToggle() {
   const inputId = useId();
   const hintId = useId();
-  const { state, enable, disable } = notification;
+  const { state, enable, disable } = useRestNotification();
   if (state === "unsupported") return null;
   if (state === "denied") return <p className="text-ink-muted text-sm">{NOTIFY_DENIED}</p>;
   return (

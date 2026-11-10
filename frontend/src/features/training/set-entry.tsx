@@ -17,7 +17,7 @@ import { Stepper } from "@/shared/ui/stepper";
 
 import { ExerciseImage } from "./exercise-image";
 import { recordsLine, RECORD_LABELS, setLine, setText, weightText } from "./format";
-import { RestTimer } from "./rest-timer";
+import { RestNotificationToggle, RestTimer } from "./rest-timer";
 import type { RestTimer as Timer } from "./use-rest-timer";
 import { nextSet, useDeleteSet, useLastSets, useSaveSet } from "./use-sets";
 
@@ -269,6 +269,7 @@ function SetForm({
           Série d’échauffement
         </label>
       </div>
+      {!editing && timer.remaining !== null && <RestNotificationToggle />}
       {editing &&
         (confirming ? (
           <div className="flex flex-col gap-3">
