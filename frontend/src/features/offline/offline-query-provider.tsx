@@ -4,6 +4,7 @@ import { onlineManager, type Query, type QueryClient, type QueryKey } from "@tan
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { useState, type ReactNode } from "react";
 
+import { registerActivityWrites, SPORTS_KEY } from "@/features/activities/use-activities";
 import { registerMeasurementWrites } from "@/features/body/use-measurements";
 import { registerWeightWrites } from "@/features/body/use-weights";
 import {
@@ -34,6 +35,7 @@ export function registerQueuedWrites(queryClient: QueryClient): void {
   registerWeightWrites(queryClient);
   registerMeasurementWrites(queryClient);
   registerNutritionWrites(queryClient);
+  registerActivityWrites(queryClient);
 }
 
 /** Requêtes privées gardées hors ligne (ADR 0015, liste fermée), oubliées à la fin de session. */
@@ -47,7 +49,9 @@ function keptOffline(queryClient: QueryClient, query: Query): boolean {
   if (query.state.status !== "success") return false;
   // Catalogue public : les dernières recherches et les filtres, pour choisir un exercice.
   if (isCatalogSearch(query)) return isRecentSearch(queryClient, query);
-  if (query.queryKey[0] === EXERCISE_FILTERS_KEY[0]) return true;
+  if (query.queryKey[0] === EXERCISE_FILTERS_KEY[0] || query.queryKey[0] === SPORTS_KEY[0]) {
+    return true;
+  }
   return isOfflineKey(queryClient, query.queryKey);
 }
 
@@ -64,6 +68,7 @@ function keepOfflineQueries(queryClient: QueryClient): void {
     EXERCISE_FILTERS_KEY,
     JOURNAL_KEY,
     RECENT_KEY,
+    SPORTS_KEY,
   ]) {
     queryClient.setQueryDefaults(queryKey, { gcTime: OFFLINE_MAX_AGE });
   }

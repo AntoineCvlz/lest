@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -46,6 +47,9 @@ function api({ activities = [RUN] as Activity[], unitSystem = "metric" } = {}) {
   server.use(
     http.get("*/api/v1/sports/", () => HttpResponse.json(SPORTS)),
     http.get("*/api/v1/activities/", () => HttpResponse.json(activities)),
+    http.get("*/api/v1/me/", () =>
+      HttpResponse.json({ id: "9b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", email: "a@example.com" }),
+    ),
     http.get("*/api/v1/me/profile/", () =>
       HttpResponse.json({
         height_m: 1.8,
@@ -107,6 +111,36 @@ describe("ActivityJournal", () => {
     });
   });
 
+  it("garde une activité notée hors ligne et l'envoie au retour du réseau", async () => {
+    const writes = api({ activities: [] });
+    const user = userEvent.setup();
+    renderWithQuery(<ActivityJournal />);
+    expect(await screen.findByText(NO_ACTIVITY)).toBeVisible();
+
+    onlineManager.setOnline(false);
+    try {
+      await user.type(screen.getByRole("textbox", { name: "Durée (min)" }), "45");
+      await user.click(screen.getByRole("button", { name: "Enregistrer l’activité" }));
+
+      expect(
+        await screen.findByText(
+          `Activité enregistrée sur cet appareil, envoi au retour du réseau : course à pied, ${longDay(TODAY)}.`,
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText("1 saisie en attente d’envoi, gardée sur cet appareil."),
+      ).toBeVisible();
+      expect(screen.queryByText(NO_ACTIVITY)).toBeNull();
+      expect(writes).toEqual([]);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    await waitFor(() => {
+      expect(writes).toHaveLength(1);
+    });
+  });
+
   it("change les champs avec le sport : pas de distance au yoga, des rounds au combat", async () => {
     api({ activities: [] });
     const user = userEvent.setup();
@@ -132,7 +166,10 @@ describe("ActivityJournal", () => {
     expect(duration).toHaveAccessibleDescription(
       /^En minutes entières\. Nombre entier de 1 à 1\s440\.$/,
     );
-    expect(screen.getByRole("alert")).toHaveTextContent("2 champs à corriger : durée, FC moyenne.");
+    // Annoncé dans une alerte (`PendingWrites` en tient une autre, vide, au-dessus).
+    expect(
+      screen.getByText("2 champs à corriger : durée, FC moyenne.").closest("[role=alert]"),
+    ).not.toBeNull();
     expect(screen.getByRole("textbox", { name: "FC moyenne (bpm)" })).toHaveAccessibleDescription(
       /Nombre entier de 30 à 230\.$/,
     );
