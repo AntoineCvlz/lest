@@ -1,8 +1,10 @@
 "use client";
 
+import { onlineManager } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { PendingWrites } from "@/features/offline/pending-writes";
 import { localDay, longDay, shiftDay } from "@/shared/lib/days";
 import { formatNumber, parseDecimal } from "@/shared/lib/number";
 import { useHydrated } from "@/shared/lib/use-hydrated";
@@ -17,13 +19,13 @@ import {
   type Meal,
   MEALS,
   useDayJournal,
+  useAddEntry,
   useDeleteEntry,
   useSaveEntry,
   useSaveWater,
 } from "./use-nutrition";
 
 export const JOURNAL_UNAVAILABLE = "Journal indisponible pour le moment.";
-export const NOT_SAVED = "Modification non enregistrée. Vérifiez la connexion, puis réessayez.";
 const NBSP = " ";
 const WATER_STEP_ML = 250;
 
@@ -45,6 +47,11 @@ function toMeal(meal: Meal): string {
   return meal === "snack" ? "à la collation" : `au ${mealLabel(meal).toLowerCase()}`;
 }
 
+/** Hors ligne, la saisie est gardée sur l'appareil jusqu'au retour du réseau. */
+function savedWhere(): string {
+  return onlineManager.isOnline() ? "" : " sur cet appareil, envoi au retour du réseau";
+}
+
 /**
  * Journal alimentaire d'un jour (ADR 0010) : totaux, eau, quatre repas ; ajout depuis les
  * aliments récents, la recherche ou un code-barres ; correction de la quantité, retrait confirmé.
@@ -55,6 +62,7 @@ export function FoodJournal() {
   const today = localDay();
   const [day, setDay] = useState(today);
   const journal = useDayJournal(day);
+  const add = useAddEntry();
   const save = useSaveEntry();
   const remove = useDeleteEntry();
   const water = useSaveWater();
@@ -65,8 +73,6 @@ export function FoodJournal() {
   const [editInvalid, setEditInvalid] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState("");
-  // Eau saisie à l'instant : deux appuis rapides partent de la dernière valeur, pas du serveur.
-  const [waterDraft, setWaterDraft] = useState<{ day: string; ml: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const data = journal.data;
@@ -97,7 +103,6 @@ export function FoodJournal() {
         className="flex flex-col gap-3 py-3"
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending) return;
           if (invalid) {
             flushSync(() => {
               setEditInvalid(true);
@@ -105,19 +110,11 @@ export function FoodJournal() {
             focus("input[name=edit-grams]");
             return;
           }
-          save.mutate(
-            {
-              id: entry.id,
-              date: entry.date,
-              meal: entry.meal,
-              foodId: entry.food_id,
-              grams: amount,
-            },
-            {
-              onSuccess: () => {
-                closeEditor(`[data-entry="${entry.id}"]`, `${entry.name} : ${grams(amount)}.`);
-              },
-            },
+          // En file (ADR 0015) : affichée tout de suite, envoyée dès que le réseau le permet.
+          save.mutate(entry, amount);
+          closeEditor(
+            `[data-entry="${entry.id}"]`,
+            `${entry.name} : ${grams(amount)}${savedWhere()}.`,
           );
         }}
       >
@@ -135,12 +132,7 @@ export function FoodJournal() {
           }}
         />
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={!hydrated}
-            aria-disabled={save.isPending}
-          >
+          <Button type="submit" variant="primary" disabled={!hydrated}>
             Enregistrer
           </Button>
           <Button
@@ -159,14 +151,9 @@ export function FoodJournal() {
             <div className="grid grid-cols-2 gap-3">
               <Button
                 variant="danger"
-                aria-disabled={remove.isPending}
                 onClick={() => {
-                  if (remove.isPending) return;
-                  remove.mutate(entry.id, {
-                    onSuccess: () => {
-                      closeEditor(`[data-add="${entry.meal}"]`, `${entry.name} retiré.`);
-                    },
-                  });
+                  remove.mutate(entry);
+                  closeEditor(`[data-add="${entry.meal}"]`, `${entry.name} retiré${savedWhere()}.`);
                 }}
               >
                 Retirer
@@ -204,6 +191,8 @@ export function FoodJournal() {
 
   return (
     <div ref={rootRef} className="flex flex-col gap-8">
+      {/* Saisies en attente et refus du serveur (ADR 0015). */}
+      <PendingWrites />
       <nav aria-label="Jour du journal" className="flex items-center justify-between gap-2">
         <Button
           aria-label="Jour précédent"
@@ -293,7 +282,7 @@ export function FoodJournal() {
 
           <Stepper
             label="Eau bue"
-            value={waterDraft?.day === day ? waterDraft.ml : data.water_ml}
+            value={data.water_ml}
             unit="millilitres"
             stepUnit="millilitres"
             step={WATER_STEP_ML}
@@ -301,27 +290,11 @@ export function FoodJournal() {
             max={10000}
             size="md"
             onChange={(ml) => {
-              save.reset();
-              remove.reset();
-              setWaterDraft({ day, ml });
-              water.mutate(
-                { day, ml },
-                {
-                  onError: () => {
-                    setWaterDraft(null);
-                  },
-                },
-              );
+              // En file : le total affiché suit l'appui, deux appuis rapides s'additionnent.
+              water.mutate({ day, ml });
             }}
           />
 
-          <div role="alert" className="empty:hidden">
-            {(save.isError || remove.isError || water.isError) && (
-              <p className="rounded-control border-danger text-danger border p-4 font-semibold">
-                {NOT_SAVED}
-              </p>
-            )}
-          </div>
           <p aria-live="polite" className="text-ink-muted empty:sr-only">
             {notice}
           </p>
@@ -353,12 +326,9 @@ export function FoodJournal() {
                                 setAdding(null);
                                 setEditing(entry.id);
                                 setEditInvalid(false);
-                                water.reset();
-                                remove.reset();
                                 setEditGrams(formatNumber(entry.grams));
                                 setConfirming(false);
                                 setNotice("");
-                                save.reset();
                               });
                               focus("input[name=edit-grams]");
                             }}
@@ -383,7 +353,6 @@ export function FoodJournal() {
                 {adding === meal ? (
                   <FoodPicker
                     mealLabel={toMeal(meal)}
-                    pending={save.isPending}
                     onCancel={() => {
                       flushSync(() => {
                         setAdding(null);
@@ -391,24 +360,12 @@ export function FoodJournal() {
                       focus(`[data-add="${meal}"]`);
                     }}
                     onAdd={(food, amount) => {
-                      save.mutate(
-                        {
-                          id: crypto.randomUUID(),
-                          date: day,
-                          meal,
-                          foodId: food.id,
-                          grams: amount,
-                        },
-                        {
-                          onSuccess: () => {
-                            flushSync(() => {
-                              setAdding(null);
-                              setNotice(`${foodLabel(food)} ajouté ${toMeal(meal)}.`);
-                            });
-                            focus(`[data-add="${meal}"]`);
-                          },
-                        },
-                      );
+                      add.mutate(food, { date: day, meal, grams: amount });
+                      flushSync(() => {
+                        setAdding(null);
+                        setNotice(`${foodLabel(food)} ajouté ${toMeal(meal)}${savedWhere()}.`);
+                      });
+                      focus(`[data-add="${meal}"]`);
                     }}
                   />
                 ) : (
@@ -418,10 +375,7 @@ export function FoodJournal() {
                       flushSync(() => {
                         setEditing(null);
                         setAdding(meal);
-                        water.reset();
-                        remove.reset();
                         setNotice("");
-                        save.reset();
                       });
                     }}
                   >

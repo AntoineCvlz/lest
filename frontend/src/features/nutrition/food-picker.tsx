@@ -74,7 +74,6 @@ export function kcalFor(food: Food, grams: number): string {
 export interface FoodPickerProps {
   /** « au déjeuner » : complète le libellé du bouton d'ajout. */
   mealLabel: string;
-  pending: boolean;
   onAdd: (food: Food, grams: number) => void;
   onCancel: () => void;
 }
@@ -83,7 +82,7 @@ export interface FoodPickerProps {
  * Choix d'un aliment à ajouter : aliments récents, recherche locale (sans accents), code-barres
  * saisi au clavier ; puis la quantité en grammes (portion de la source ou 100 g par défaut).
  */
-export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerProps) {
+export function FoodPicker({ mealLabel, onAdd, onCancel }: FoodPickerProps) {
   const hydrated = useHydrated();
   const [query, setQuery] = useState("");
   const [barcode, setBarcode] = useState("");
@@ -149,7 +148,6 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
           className="flex flex-col gap-3"
           onSubmit={(event) => {
             event.preventDefault();
-            if (pending) return;
             if (amount === null || amount <= 0 || amount > MAX_GRAMS) {
               flushSync(() => {
                 setInvalid(true);
@@ -174,13 +172,7 @@ export function FoodPicker({ mealLabel, pending, onAdd, onCancel }: FoodPickerPr
               setInvalid(false);
             }}
           />
-          <Button
-            type="submit"
-            variant="primary"
-            block
-            disabled={!hydrated}
-            aria-disabled={pending}
-          >
+          <Button type="submit" variant="primary" block disabled={!hydrated}>
             {`Ajouter ${mealLabel}`}
           </Button>
           <Button

@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -65,6 +66,9 @@ function api({ journal = day(), recent = [RICE] as object[] } = {}) {
       return HttpResponse.json({ ...journal, date: params.day });
     }),
     http.get("*/api/v1/foods/recent/", () => HttpResponse.json(recent)),
+    http.get("*/api/v1/me/", () =>
+      HttpResponse.json({ id: "9b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed", email: "a@example.com" }),
+    ),
     http.get("*/api/v1/foods/", ({ request }) =>
       HttpResponse.json(new URL(request.url).searchParams.get("q") === "barre" ? [BAR] : []),
     ),
@@ -128,6 +132,46 @@ describe("FoodJournal", () => {
     expect(screen.getByRole("button", { name: "Ajouter au dîner" })).toHaveFocus();
   });
 
+  it("ajoute un aliment hors ligne, l'affiche avec les totaux et l'envoie au retour du réseau", async () => {
+    api({ journal: day([]) });
+    const sent: unknown[] = [];
+    server.use(
+      http.put("*/api/v1/journal-entries/:id/", async ({ request, params }) => {
+        sent.push(await request.json());
+        return HttpResponse.json({ ...ENTRY, id: String(params.id) }, { status: 201 });
+      }),
+    );
+    const user = userEvent.setup();
+    renderWithQuery(<FoodJournal />);
+    await user.click(await screen.findByRole("button", { name: "Ajouter au dîner" }));
+    await user.click(await screen.findByRole("button", { name: /^Riz témoin, cuit/ }));
+
+    onlineManager.setOnline(false);
+    try {
+      await user.click(screen.getByRole("button", { name: "Ajouter au dîner" }));
+
+      expect(
+        await screen.findByText(
+          "Riz témoin, cuit ajouté au dîner sur cet appareil, envoi au retour du réseau.",
+        ),
+      ).toBeVisible();
+      expect(
+        screen.getByText("1 saisie en attente d’envoi, gardée sur cet appareil."),
+      ).toBeVisible();
+      // 100 g à 150 kcal pour 100 g, avant la relecture du serveur.
+      expect(
+        within(screen.getByRole("list", { name: "Dîner" })).getByText("150 kcal"),
+      ).toBeVisible();
+      expect(sent).toEqual([]);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    await waitFor(() => {
+      expect(sent).toEqual([{ date: TODAY, meal: "dinner", food_id: RICE.id, grams: 100 }]);
+    });
+  });
+
   it("cherche un aliment et propose sa portion", async () => {
     api({ journal: day([]) });
     const user = userEvent.setup();
@@ -141,6 +185,25 @@ describe("FoodJournal", () => {
     expect(screen.getByRole("textbox", { name: "Quantité (g)" })).toHaveAccessibleDescription(
       "60 kcal",
     );
+  });
+
+  it("propose aussitôt dans les récents l'aliment ajouté, même sans réseau", async () => {
+    api({ journal: day([]), recent: [] });
+    const user = userEvent.setup();
+    renderWithQuery(<FoodJournal />);
+
+    await user.click(await screen.findByRole("button", { name: "Ajouter à la collation" }));
+    await user.type(screen.getByRole("searchbox", { name: "Rechercher un aliment" }), "barre");
+    await user.click(await screen.findByRole("button", { name: /^Barre témoin, Marque/ }));
+    onlineManager.setOnline(false);
+    try {
+      await user.click(screen.getByRole("button", { name: "Ajouter à la collation" }));
+      await user.click(await screen.findByRole("button", { name: "Ajouter au dîner" }));
+
+      expect(await screen.findByRole("button", { name: /^Barre témoin, Marque/ })).toBeVisible();
+    } finally {
+      onlineManager.setOnline(true);
+    }
   });
 
   it("annonce l'état de la recherche sans quitter le champ", async () => {
@@ -233,12 +296,16 @@ describe("FoodJournal", () => {
   it("ajoute de l'eau par pas de 250 ml, sans perdre un appui rapide", async () => {
     api();
     const sent: number[] = [];
+    // Le serveur garde le dernier total reçu : la relecture après l'envoi le renvoie.
     server.use(
       http.put("*/api/v1/water/:day/", async ({ request }) => {
         const { ml } = (await request.json()) as { ml: number };
         sent.push(ml);
         return HttpResponse.json({ date: TODAY, ml });
       }),
+      http.get("*/api/v1/journal/:day/", ({ params }) =>
+        HttpResponse.json({ ...day(), date: params.day, water_ml: sent.at(-1) ?? day().water_ml }),
+      ),
     );
     const user = userEvent.setup();
     renderWithQuery(<FoodJournal />);
