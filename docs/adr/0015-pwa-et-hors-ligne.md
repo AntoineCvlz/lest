@@ -1,6 +1,6 @@
 # ADR 0015 — Rendre l'app installable et utilisable hors ligne, saisies en file d'attente
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-05
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

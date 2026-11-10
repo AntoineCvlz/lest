@@ -2,13 +2,14 @@
 
 Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé d'une main entre deux séries, même sans réseau en salle.
 
-> Phases 1 à 4 terminées :
+> Phases 1 à 5 terminées :
 > - comptes sécurisés : code e-mail, double authentification, passkeys, export et suppression RGPD ;
 > - **musculation** : catalogue de 701 exercices illustrés, saisie d'une série en un appui, minuteur de repos, records et programmes ;
 > - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés ;
-> - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil, liaison Basic-Fit optionnelle.
+> - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil, liaison Basic-Fit optionnelle ;
+> - **mobile** : application installable, utilisable sans réseau (séance, repas, pesées, mensurations, activités), notification de fin de repos.
 >
-> Prochaine étape, le mobile : application installable et hors ligne (Phase 5) : voir la [roadmap](CLAUDE.md#roadmap).
+> Suite possible : application native réutilisant le client API typé, voir la [roadmap](CLAUDE.md#roadmap).
 
 ## Ce que fait Lest
 
@@ -20,6 +21,16 @@ Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé 
 - **Basic-Fit** (optionnel, désactivé par défaut) : club principal, visites en club et poids des balances du club, rien d'autre ; une pesée saisie à la main n'est jamais remplacée.
 
 Les données appartiennent à l'utilisateur : export CSV/JSON et suppression complète du compte.
+
+### Installable et hors ligne
+
+Lest s'installe comme une application (« Ajouter à l'écran d'accueil ») et fonctionne sans réseau en salle :
+
+- les pages déjà ouvertes, le catalogue d'exercices et de sports déjà consulté, le programme, la séance en cours, le journal du jour et les aliments récents restent disponibles ;
+- une série, un exercice, une séance démarrée ou terminée, un repas, l'eau, une pesée, une mensuration ou une activité saisis sans réseau s'affichent tout de suite, sont gardés sur l'appareil et partent dans l'ordre au retour du réseau ; l'écran dit combien de saisies attendent ;
+- notification de fin de repos, si vous l'activez, quand l'app est en arrière-plan (iOS : application installée, 16.4 ou plus).
+
+À savoir : ces données (saisies en attente comprises) sont gardées **en clair** sur l'appareil, 7 jours au plus, et effacées à la déconnexion ; leur protection est celle du téléphone (verrouillage, chiffrement du stockage). Choix et limites : [ADR 0015](docs/adr/0015-pwa-et-hors-ligne.md).
 
 ## Démarrage
 
