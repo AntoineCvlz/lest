@@ -1,8 +1,15 @@
 import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { notifyRestOver } from "./rest-notification";
 import { REST_OVER, RestTimer } from "./rest-timer";
 import { DEFAULT_REST_SECONDS, MIN_REST_SECONDS, useRestTimer } from "./use-rest-timer";
+
+// Notification couverte par `rest-notification.test.tsx` : ici, seulement son déclenchement.
+vi.mock("./rest-notification", () => ({
+  notifyRestOver: vi.fn(() => Promise.resolve()),
+  useRestNotification: () => ({ state: "unsupported", enable: vi.fn(), disable: vi.fn() }),
+}));
 
 describe("useRestTimer", () => {
   beforeEach(() => {
@@ -35,6 +42,8 @@ describe("useRestTimer", () => {
     expect(result.current.remaining).toBeNull();
     expect(result.current.finished).toBe(true);
     expect(vibrate).toHaveBeenCalledOnce();
+    // Prévient aussi l'app en arrière-plan, si c'est activé (ADR 0015).
+    expect(notifyRestOver).toHaveBeenCalledOnce();
   });
 
   it("ajuste le repos en cours et les suivants, sans descendre sous le minimum", () => {

@@ -1,6 +1,6 @@
 import { freshAccount, signUp } from "./accounts";
 import { expect, test } from "./fixtures";
-import { storedQueuedWrites, waitForServiceWorker } from "./pwa";
+import { expectStoredWrites, waitForServiceWorker } from "./pwa";
 
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
@@ -39,7 +39,7 @@ test("saisit une série hors ligne, la garde au rechargement et l'envoie au reto
   await expect(page.getByRole("list", { name: "Séries de la séance" })).toContainText("Série 2");
 
   // App rouverte sans réseau : la séance et la série en attente sont toujours là.
-  await expect.poll(() => storedQueuedWrites(page)).toBe(1);
+  await expectStoredWrites(page, 1);
   await page.reload();
   const plan = page.getByRole("list", { name: "Exercices de la séance" });
   await expect(plan).toContainText("2 séries");
@@ -99,7 +99,7 @@ test("termine une séance et démarre la suivante sans réseau, puis les envoie 
   await expect(pending).toBeVisible();
 
   // App rouverte sans réseau : la seconde séance est toujours en cours.
-  await expect.poll(() => storedQueuedWrites(page)).toBe(3);
+  await expectStoredWrites(page, 3);
   await page.reload();
   await expect(page.getByText("Ajoutez un premier exercice pour commencer.")).toBeVisible();
   await expect(pending).toBeVisible();

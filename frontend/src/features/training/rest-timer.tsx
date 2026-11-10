@@ -2,9 +2,12 @@ import { useId } from "react";
 
 import { Button } from "@/shared/ui/button";
 
+import { useRestNotification } from "./rest-notification";
 import type { RestTimer as Timer } from "./use-rest-timer";
 
 export const REST_OVER = "Repos terminé.";
+export const NOTIFY_DENIED =
+  "Notifications refusées pour Lest : autorisez-les dans les réglages du navigateur pour être prévenu.";
 const STEP_SECONDS = 15;
 
 function clock(seconds: number): string {
@@ -18,6 +21,7 @@ function clock(seconds: number): string {
  */
 export function RestTimer({ timer }: { timer: Timer }) {
   const labelId = useId();
+  const notification = useRestNotification();
   return (
     <>
       <p role="status" className="font-semibold empty:hidden">
@@ -58,6 +62,42 @@ export function RestTimer({ timer }: { timer: Timer }) {
           </Button>
         </div>
       )}
+      {timer.remaining !== null && <NotifyToggle notification={notification} />}
     </>
+  );
+}
+
+/**
+ * Activation de la notification de fin de repos, sur cet appareil. La permission du navigateur
+ * n'est demandée qu'à cet appui (ADR 0015). Absente si le navigateur ne sait pas notifier.
+ */
+function NotifyToggle({ notification }: { notification: ReturnType<typeof useRestNotification> }) {
+  const inputId = useId();
+  const hintId = useId();
+  const { state, enable, disable } = notification;
+  if (state === "unsupported") return null;
+  if (state === "denied") return <p className="text-ink-muted text-sm">{NOTIFY_DENIED}</p>;
+  return (
+    <div className="flex min-h-11 items-center gap-3">
+      <input
+        id={inputId}
+        type="checkbox"
+        className="accent-accent size-6 shrink-0"
+        checked={state === "on"}
+        aria-describedby={hintId}
+        onChange={(event) => {
+          if (event.target.checked) void enable();
+          else disable();
+        }}
+      />
+      <div className="flex flex-col">
+        <label htmlFor={inputId} className="font-semibold">
+          Me prévenir à la fin du repos
+        </label>
+        <span id={hintId} className="text-ink-muted text-sm">
+          Quand l’app est en arrière-plan, sur cet appareil.
+        </span>
+      </div>
+    </div>
   );
 }
