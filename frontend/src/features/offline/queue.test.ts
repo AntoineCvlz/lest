@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 
 import { WorkoutRequestFailed } from "@/features/training/use-workout";
 
@@ -10,6 +10,7 @@ import {
   isRetryable,
   QUEUED_KEY,
   queuedWrite,
+  refetchAfterQueue,
 } from "./queue";
 
 describe("isRetryable", () => {
@@ -38,6 +39,38 @@ describe("queuedWrite", () => {
     const { retryDelay } = queuedWrite("refusée");
 
     expect([0, 1, 2, 10].map(retryDelay)).toEqual([1000, 2000, 4000, 30_000]);
+  });
+});
+
+describe("refetchAfterQueue", () => {
+  it("relit après l'écriture, même si la première lecture de l'écran était partie avant", async () => {
+    const queryClient = new QueryClient();
+    let written = false;
+    let answerEarlyRead: () => void = () => undefined;
+    let reads = 0;
+    // Écran monté pendant l'envoi : sa première lecture part avant l'écriture.
+    const screen = new QueryObserver(queryClient, {
+      queryKey: ["history"],
+      queryFn: () => {
+        reads += 1;
+        const answer = written ? "après" : "avant";
+        if (reads > 1) return Promise.resolve(answer);
+        return new Promise<string>((resolve) => {
+          answerEarlyRead = () => {
+            resolve(answer);
+          };
+        });
+      },
+    });
+    const unsubscribe = screen.subscribe(() => undefined);
+
+    written = true;
+    const refresh = refetchAfterQueue(queryClient, { queryKey: ["history"] });
+    answerEarlyRead();
+    await refresh;
+
+    expect(queryClient.getQueryData(["history"])).toBe("après");
+    unsubscribe();
   });
 });
 

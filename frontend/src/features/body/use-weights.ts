@@ -5,6 +5,7 @@ import {
   accountHeaders,
   assertStillQueued,
   isLastQueuedWrite,
+  refetchAfterQueue,
   queuedWrite,
 } from "@/features/offline/queue";
 import { fetchClient, type Schemas } from "@/shared/api/client";
@@ -81,7 +82,7 @@ async function show(
 /** Relit les pesées une fois la file vide : moyenne recalculée, refus retirés de l'affichage. */
 function refreshWeights(queryClient: QueryClient): void {
   if (isLastQueuedWrite(queryClient)) {
-    void queryClient.invalidateQueries({ queryKey: WEIGHTS_KEY });
+    void refetchAfterQueue(queryClient, { queryKey: WEIGHTS_KEY });
   }
 }
 

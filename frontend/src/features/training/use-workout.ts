@@ -5,6 +5,7 @@ import {
   accountHeaders,
   assertStillQueued,
   isLastQueuedWrite,
+  refetchAfterQueue,
   queuedWrite,
 } from "@/features/offline/queue";
 import { OFFLINE_MAX_AGE } from "@/features/offline/storage";
@@ -127,8 +128,8 @@ export async function showInWorkout(
  */
 export function refreshWorkout(queryClient: QueryClient, workoutId: string): void {
   if (!isLastQueuedWrite(queryClient)) return;
-  void queryClient.invalidateQueries({ queryKey: ONGOING_KEY, exact: true });
-  void queryClient.invalidateQueries({ queryKey: workoutKey(workoutId) });
+  void refetchAfterQueue(queryClient, { queryKey: ONGOING_KEY, exact: true });
+  void refetchAfterQueue(queryClient, { queryKey: workoutKey(workoutId) });
 }
 
 async function putWorkout(account: string | null, workout: WorkoutOut): Promise<WorkoutOut> {
@@ -206,9 +207,9 @@ export function registerWorkoutWrites(queryClient: QueryClient): void {
     },
     onSettled: (_data, _error, { workout }) => {
       refreshWorkout(queryClient, workout.id);
-      // La séance terminée rejoint l'historique.
+      // La séance terminée rejoint l'historique, même lu pendant l'envoi.
       if (isLastQueuedWrite(queryClient)) {
-        void queryClient.invalidateQueries({ queryKey: HISTORY_KEY });
+        void refetchAfterQueue(queryClient, { queryKey: HISTORY_KEY });
       }
     },
   });

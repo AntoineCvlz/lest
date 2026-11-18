@@ -1,4 +1,4 @@
-import type { Mutation, QueryClient } from "@tanstack/react-query";
+import type { InvalidateQueryFilters, Mutation, QueryClient } from "@tanstack/react-query";
 
 declare module "@tanstack/react-query" {
   interface Register {
@@ -65,6 +65,19 @@ export function isAccountMismatch(error: unknown): boolean {
  */
 export function isLastQueuedWrite(queryClient: QueryClient): boolean {
   return queryClient.isMutating({ mutationKey: QUEUED_KEY }) <= 1;
+}
+
+/**
+ * Relit l'état du serveur après la file. Une lecture partie avant la dernière écriture (écran
+ * monté pendant l'envoi) est d'abord annulée : sans données, TanStack la réutiliserait au lieu
+ * d'en lancer une nouvelle, et l'écran garderait l'état d'avant l'écriture.
+ */
+export async function refetchAfterQueue(
+  queryClient: QueryClient,
+  filters: InvalidateQueryFilters,
+): Promise<void> {
+  await queryClient.cancelQueries(filters);
+  await queryClient.invalidateQueries(filters);
 }
 
 function queued(queryClient: QueryClient, status?: "pending"): Mutation[] {
