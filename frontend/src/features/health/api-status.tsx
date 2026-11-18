@@ -39,7 +39,7 @@ export function ApiStatus() {
       <h2 id="api-status-title" className="text-ink-muted text-sm font-semibold">
         État du service
       </h2>
-      <p role="status" className="text-xl font-bold [font-stretch:112%]">
+      <p role="status" className="text-xl font-bold type-value">
         {message}
       </p>
       {checks && (

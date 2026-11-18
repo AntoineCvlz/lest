@@ -215,7 +215,10 @@ importers:
       '@axe-core/playwright':
         specifier: 4.14.0
         version: 4.14.0(playwright-core@1.65.0)
-      '@fontsource-variable/archivo':
+      '@fontsource-variable/anybody':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource-variable/public-sans':
         specifier: 5.3.0
         version: 5.3.0
       '@playwright/test':
@@ -649,8 +652,11 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@fontsource-variable/archivo@5.3.0':
-    resolution: {integrity: sha512-HogK8FJelrD1o7TlZlkIVtHgc20bO5PZRWE7mUeUTdMN055alznQV6/00J00IBeu8FQAH4s3zW9UJNvKExXf+g==}
+  '@fontsource-variable/anybody@5.3.0':
+    resolution: {integrity: sha512-3u/FSV3mGv9xW3x+CdK9lAZYT1Y3NaRA1bexeoIuk9s5QE8sD8OOTcofvpPx0Z6M0Fq1WAJ06ZAw8hivdRQWHQ==}
+
+  '@fontsource-variable/public-sans@5.3.0':
+    resolution: {integrity: sha512-AVfkmAt50BMXWpOO21FAntiJFKGX6xTc2dSL8dxtDteONe9IuRXJWGbs0EbG955vAMCq23ENeuopuW87cGWDSQ==}
 
   '@hookform/resolvers@7.0.6':
     resolution: {integrity: sha512-LSTMwW4tmRWtM7pS5HkSqahi71USbhrmjc9pNHNa7UyYTbKIK/e0G1EAw6xsEnp9GahTjXhunxRJp0Bd8E6NZA==}
@@ -4731,7 +4737,9 @@ snapshots:
 
   '@exodus/bytes@1.16.0': {}
 
-  '@fontsource-variable/archivo@5.3.0': {}
+  '@fontsource-variable/anybody@5.3.0': {}
+
+  '@fontsource-variable/public-sans@5.3.0': {}
 
   '@hookform/resolvers@7.0.6(react-hook-form@7.92.0(@types/react@19.3.0)(react@19.3.1))(zod@4.6.7)':
     dependencies:

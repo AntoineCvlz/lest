@@ -32,18 +32,33 @@
   --color-accent: var(--lest-accent);
   --color-on-accent: var(--lest-on-accent);
   --color-accent-ink: var(--lest-accent-ink);
+  --color-done: var(--lest-done);
+  --color-warmup: var(--lest-warmup);
   --color-danger: var(--lest-danger);
   --color-qr-light: var(--lest-qr-light);
   --color-qr-dark: var(--lest-qr-dark);
   --color-tile: var(--lest-tile);
   --color-tile-ink: var(--lest-tile-ink);
 
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-anybody), var(--font-public-sans), ui-sans-serif, sans-serif;
 
   --radius-control: var(--lest-radius-control);
   --radius-plate: var(--lest-radius-plate);
 
   --ease-out: var(--lest-ease-out);
+}
+
+/* Typographie « Magnésie » (docs/design-system.md) : Anybody étroite pour les titres et les
+   chiffres saillants, Public Sans pour le texte. */
+@utility type-title {
+  font-family: var(--font-display);
+  font-stretch: 72%;
+}
+
+@utility type-value {
+  font-family: var(--font-display);
+  font-stretch: 82%;
 }
 
 @layer base {

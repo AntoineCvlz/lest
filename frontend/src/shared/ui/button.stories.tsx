@@ -21,15 +21,15 @@ export const Principal: Story = {
   args: { variant: "primary", size: "lg", block: true },
   play: async ({ args, canvasElement }) => {
     const button = within(canvasElement).getByRole("button", { name: "Valider la série 3" });
-    // Garde-fou : les tokens sont réellement appliqués (fond jaune, 64 px de haut).
-    await expect(getComputedStyle(button).backgroundColor).toBe("rgb(242, 194, 48)");
+    // Garde-fou : les tokens sont réellement appliqués (fond cobalt, 64 px de haut).
+    await expect(getComputedStyle(button).backgroundColor).toBe("rgb(91, 155, 255)");
     await expect(button.getBoundingClientRect().height).toBeGreaterThanOrEqual(64);
     // `document.fonts.ready` peut se résoudre avant le début du téléchargement : on force le
     // chargement de la police réellement utilisée par le bouton, puis on vérifie qu'elle existe.
     const { fontFamily, fontWeight, fontSize } = getComputedStyle(button);
-    await expect(fontFamily).toMatch(/Archivo/);
+    await expect(fontFamily).toMatch(/Public Sans/);
     const loaded = await document.fonts.load(`${fontWeight} ${fontSize} ${fontFamily}`);
-    await expect(loaded.some((face) => face.family.includes("Archivo"))).toBe(true);
+    await expect(loaded.some((face) => face.family.includes("Public Sans"))).toBe(true);
     await userEvent.click(button);
     await expect(args.onClick).toHaveBeenCalledOnce();
   },

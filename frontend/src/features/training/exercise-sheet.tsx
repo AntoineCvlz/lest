@@ -65,7 +65,7 @@ function Records({ id, system }: { id: string; system: UnitSystem }) {
         {bests(records.data).map((record) => (
           <div key={record.kind} className="rounded-control bg-surface flex flex-col gap-1 p-4">
             <dt className="text-ink-muted text-sm">{RECORD_LABELS[record.kind]}</dt>
-            <dd className="text-[28px] leading-none font-extrabold [font-stretch:112%] [font-variant-numeric:tabular-nums]">
+            <dd className="text-[28px] leading-none font-extrabold type-value [font-variant-numeric:tabular-nums]">
               {weightText(record.value_kg, system)}
             </dd>
             <dd className="text-ink-muted text-sm">{DATE.format(new Date(record.achieved_at))}</dd>
@@ -149,7 +149,7 @@ export function ExerciseSheet({ id }: { id: string }) {
         <h1
           id="exercice"
           lang={sheet.name_language}
-          className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]"
+          className="text-[30px] leading-[1.05] font-extrabold type-title"
         >
           {sheet.name}
         </h1>

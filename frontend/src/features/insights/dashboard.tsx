@@ -35,7 +35,7 @@ const NONE = (
   </>
 );
 const SECTION = "border-line-subtle flex flex-col gap-4 border-t pt-6";
-const TITLE = "text-xl font-extrabold [font-stretch:112%]";
+const TITLE = "text-xl font-extrabold type-value";
 
 const GOALS = { gain: "prise de masse", maintain: "maintien", cut: "sèche" } as const;
 const STATUS = {
@@ -91,7 +91,7 @@ function WeightBlock({ weight, system }: { weight: Weight; system: UnitSystem })
         <>
           <p className="flex flex-col gap-1">
             <span className="text-ink-muted text-sm">Moyenne sur 7 jours</span>
-            <span className="text-[40px] leading-none font-extrabold tabular-nums [font-stretch:112%]">
+            <span className="text-[40px] leading-none font-extrabold tabular-nums type-value">
               {bodyWeightText(weight.trend_kg, system)}
             </span>
           </p>

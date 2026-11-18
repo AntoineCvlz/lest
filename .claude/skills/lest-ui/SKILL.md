@@ -1,6 +1,6 @@
 ---
 name: lest-ui
-description: Règles et checklist à suivre avant et pendant la création de tout composant ou écran de Lest (tokens « Fonte calibrée », composants existants, accessibilité, CSP, vérification du rendu réel). À utiliser dès qu'une tâche touche à l'interface.
+description: Règles et checklist à suivre avant et pendant la création de tout composant ou écran de Lest (tokens « Magnésie », composants existants, accessibilité, CSP, vérification du rendu réel). À utiliser dès qu'une tâche touche à l'interface.
 ---
 
 # Construire l'interface de Lest
@@ -13,7 +13,7 @@ Composants existants dans `frontend/src/shared/ui/` (chacun avec test et story) 
 
 | Composant | Usage |
 | --- | --- |
-| `Button` | Actions. `variant="primary"` : **une seule** action principale par écran (jaune). `size="lg"` (64 px) pour l'action en séance, `block` en bas d'écran. `type="button"` par défaut. |
+| `Button` | Actions. `variant="primary"` : **une seule** action principale par écran (cobalt). `size="lg"` (64 px) pour l'action en séance, `block` en bas d'écran. `type="button"` par défaut. |
 | `Stepper` | Valeur par pas (±2,5 kg, ±1 rep). `stepUnit` construit le nom accessible des boutons à partir du texte visible. |
 | `ChoiceGroup` | Choix unique court (RPE). Boutons radio natifs mis en forme. |
 | `TextField` | Champ de saisie de 56 px, libellé visible, aide et erreur reliées. |
@@ -26,12 +26,14 @@ Utilitaires : `formatNumber` (format français) et `stepValue` (pas sans erreur 
 
 - Uniquement les **tokens** via Tailwind : `bg-ground`, `bg-surface`, `bg-surface-raised`,
   `text-ink`, `text-ink-muted`, `border-line`, `border-line-subtle`, `bg-accent`,
-  `text-on-accent`, `text-accent-ink`, `text-danger`, `rounded-control`. Jamais de couleur en dur.
-- Largeur Archivo : `[font-stretch:125%]` (titres), `[font-stretch:112%]` (valeurs).
+  `text-on-accent`, `text-accent-ink`, `text-danger`, `bg-done` (série faite), `text-warmup`
+  (repère d'échauffement, toujours avec sa lettre), `rounded-control`. Jamais de couleur en dur.
+- Typographie : `type-title` (Anybody étroite, titres) et `type-value` (Anybody, chiffres
+  saillants) ; le texte est en Public Sans (`font-sans`, par défaut). Jamais de `font-stretch` à la main.
 - **Aucun attribut `style` en ligne** : rendu côté serveur, il devient `style="…"` dans le HTML,
   refusé par la CSP de prod (pas de `'unsafe-inline'`, le nonce ne couvre pas les attributs).
-- Jaune = action principale, sélection active, focus. Jamais décoratif ; en thème clair, jamais
-  comme texte (`text-accent-ink`).
+- Cobalt = action principale, sélection active, focus. Jamais décoratif ; comme texte ou trait,
+  `text-accent-ink` (plus clair en sombre pour rester lisible sur les cartes).
 
 ## 3. Accessibilité (WCAG 2.2 AA), à prévoir dès la conception
 

@@ -1,7 +1,9 @@
-# Design system — « Fonte calibrée »
+# Design system — « Magnésie »
 
-- **Statut** : direction choisie le 2026-10-27, parmi trois propositions (A — Fonte calibrée,
-  B — Carnet, C — Cockpit). Maquettes : canevas privé « Lest — directions visuelles ».
+- **Statut** : direction choisie le 2026-11-18, parmi trois propositions (A — Magnésie,
+  B — Caoutchouc, C — Tableau blanc), pour le recentrage du produit sur un carnet de
+  musculation complet. Elle remplace « Fonte calibrée » (2026-10-27). Maquettes : canevas privé
+  « Lest — directions visuelles ».
 - **Source de vérité des valeurs** : les tokens CSS `--lest-*` de
   `frontend/src/shared/ui/tokens.css`, exposés à Tailwind sous des noms d'usage dans
   `frontend/src/app/globals.css` (`bg-ground`, `text-ink`, `bg-accent`…). Ce document en donne
@@ -12,105 +14,90 @@
 
 ## Intention
 
-L'univers des **disques de fonte calibrés** de compétition et de l'acier de la salle : des
-chiffres frappés, larges et lourds, sur un fond ardoise. L'interface se lit d'un coup d'œil,
-d'une main, entre deux séries, dans une salle souvent mal éclairée.
+La poussière de **magnésie** sur une barre, l'ardoise d'une salle peu éclairée : un carnet
+d'entraînement **précis et dense**, qui fait instrument de mesure. L'écran de séance montre toutes
+les séries d'un exercice en tableau, avec ce qu'on a fait la dernière fois, et se coche d'un pouce.
 
-- **L'élément signature est utile** : le schéma de chargement de la barre (disques par côté,
-  recalculés à chaque changement de charge) évite le calcul de tête. Pas de décoration gratuite.
-- **Une seule couleur d'accent**, le jaune du disque de 15 kg, réservée à l'action principale
-  et à l'état actif. Tout le reste est en gris acier.
-- **La typographie porte le caractère** : Archivo en largeur étendue et graisse lourde pour les
-  titres et les chiffres ; même famille, largeur normale, pour le texte.
+- **Une carte par exercice**, un tableau serré par carte (Série, Précédent, kg, Reps, coche) :
+  on compare d'un coup d'œil, sans changer d'écran.
+- **Une seule couleur d'accent**, le cobalt, réservée à l'action principale, à la sélection et au
+  focus. La série faite se lit à son fond (`done`) **et** à sa case cochée.
+- **La typographie porte le caractère** : Anybody, étroite et lourde, pour les titres et les
+  chiffres qui comptent (durée, charge, minuteur) ; Public Sans, sobre, pour tout le reste.
 
 ## Couleurs
 
-Thème sombre **par défaut** (salle peu éclairée) ; thème clair complet. Contrastes calculés sur
-le fond de chaque thème, à revérifier par axe à chaque composant.
+Contrastes calculés (WCAG) sur le fond de chaque thème, à revérifier par axe à chaque composant.
 
 | Rôle (classe Tailwind / token) | Sombre | Contraste ≈ | Clair | Contraste ≈ |
 | --- | --- | --- | --- | --- |
-| fond — `ground` / `--lest-ground` | `#1B242D` ardoise | — | `#EEF1F4` | — |
-| surfaces, champs — `surface` | `#24303B` acier | — | `#FFFFFF` | — |
-| zones (schéma de barre) — `surface-raised` | `#222D38` | — | `#E2E7EC` | — |
-| texte — `ink` | `#E9EEF2` givre | 13,4:1 | `#1B242D` | 13,6:1 |
-| texte secondaire — `ink-muted` | `#9AA8B5` zinc | 6,4:1 | `#4F5D6B` | 5,9:1 |
-| contour des commandes — `line` | `#66788A` | 3,4:1 | `#6B7C8C` | 3,6:1 |
-| séparateurs (décoratifs) — `line-subtle` | `#2E3B48` | — | `#D3DAE1` | — |
-| **jaune disque 15 kg** — `accent` | `#F2C230` | 9,4:1 | `#F2C230` (fond seulement) | — |
-| texte sur l'accent — `on-accent` | `#1B242D` | 9,4:1 | `#1B242D` | 9,4:1 |
-| accent utilisé comme texte — `accent-ink` | `#F2C230` | 9,4:1 | `#7A5900` ocre | 5,4:1 |
-| erreur — `danger` | `#FF8A7A` | 6,5:1 | `#B3261E` | 5,9:1 |
+| fond — `ground` | `#1A222C` ardoise | — | `#F3F5F8` | — |
+| cartes, champs — `surface` | `#232E3A` | — | `#FFFFFF` | — |
+| série en cours, zones — `surface-raised` | `#2D3A48` | — | `#E4E9EF` | — |
+| série faite — `done` | `#1F3350` | — | `#DCE8FA` | — |
+| texte — `ink` | `#EDF1F5` | 14,1:1 | `#16202B` | 15,1:1 |
+| texte secondaire — `ink-muted` | `#A7B3C0` | 7,5:1 (5,4:1 sur `surface-raised`) | `#4E5C6B` | 6,3:1 |
+| contour des commandes — `line` | `#7A8DA2` | 4,7:1 (3,4:1 sur `surface-raised`) | `#6C7E90` | 3,8:1 |
+| séparateurs (décoratifs) — `line-subtle` | `#3A4A5B` | — | `#C9D2DC` | — |
+| **cobalt** — `accent` | `#5B9BFF` | 5,8:1 | `#1F5FC9` | 5,4:1 |
+| texte sur l'accent — `on-accent` | `#0B1A2E` | 6,3:1 | `#FFFFFF` | 5,9:1 |
+| accent comme texte — `accent-ink` | `#8DB8FF` | 6,8:1 sur `surface` | `#1F5FC9` | 5,9:1 sur `surface` |
+| échauffement — `warmup` | `#F2C14E` | — | `#8A5A00` | — |
+| erreur — `danger` | `#FF8A7A` | 7,0:1 | `#B3261E` | 6,0:1 |
 
 Règles :
 
-- L'accent n'est **jamais** décoratif : bouton d'action principale (« Valider la série »),
-  sélection active, focus. Une seule action principale en jaune par écran.
-- En thème clair, le jaune reste un **fond** (texte `on-accent` posé dessus) ; comme texte ou
-  trait fin, utiliser `accent-ink`.
-- Jamais la couleur seule pour porter un sens : un état sélectionné change aussi de fond
-  **et** porte `aria-pressed` / `aria-current` ; une erreur a un texte explicite.
-- Les disques du schéma de barre sont en **gris acier**, du plus clair (25 kg) au plus foncé
-  (1,25 kg), et leur taille suit leur poids ; ils ne portent pas les couleurs IWF (qui
-  multiplieraient les accents).
+- L'accent n'est **jamais** décoratif : une seule action principale en cobalt par écran.
+- `warmup` repère la série d'échauffement, **toujours avec sa lettre « É »** : jamais la couleur
+  seule pour porter un sens. De même, une série faite a son fond **et** sa case cochée.
+- Les disques du schéma de barre restent en gris acier (tokens `--lest-plate-*` inchangés).
 
 ## Typographie
 
-**Archivo** (police variable, axes `wdth` 62–125 et `wght` 100–900, licence OFL), **auto-hébergée**
-par `next/font` : la CSP n'autorise que `font-src 'self'`, et aucune requête vers un tiers.
+Deux familles variables sous licence OFL, **auto-hébergées** par `next/font` (CSP :
+`font-src 'self'`, aucune requête vers un tiers) ; Fontsource dans Storybook.
 
-| Rôle | Largeur | Graisse | Taille / interligne |
+| Rôle | Police | Utilitaire | Graisse / taille indicatives |
 | --- | --- | --- | --- |
-| Titre d'écran (nom de l'exercice) | 125 % | 800 | 30 / 1,05 |
-| Valeur principale (charge en cours) | 112 % | 800 | 52 / 1 |
-| Valeur secondaire (répétitions) | 112 % | 800 | 40 / 1 |
-| Titre de section | 100 % | 600 | 14 / 1,3, couleur `--color-text-muted` |
-| Texte courant | 100 % | 400 | 16 / 1,5 |
-| Libellé de bouton | 100–112 % | 700–800 | 17–20 |
-| Petit texte (aide, unités) | 100 % | 400 | 14 / 1,4 (jamais en dessous de 13) |
+| Titre d'écran, nom de séance | Anybody, largeur 72 % | `type-title` | 800, 26–30 |
+| Chiffres saillants (durée, charge, minuteur, numéro de série) | Anybody, largeur 82 % | `type-value` | 700–900, 17–52 |
+| Texte courant, libellés, tableaux | Public Sans | (défaut) | 400–700, 15–17 |
+| Petit texte (aide, en-têtes de colonne) | Public Sans | (défaut) | 400–600, 12–14 (jamais en dessous de 12) |
 
-- Chiffres **tabulaires et alignés** partout où des nombres se comparent
-  (`font-variant-numeric: tabular-nums lining-nums`).
-- Nombres au format français : virgule décimale (`82,5 kg`), espace fine avant les unités
-  quand l'API `Intl.NumberFormat('fr-FR')` la fournit.
-- Pas de majuscules pour les libellés, pas de surtitres en petites capitales.
+- Chiffres **tabulaires et alignés** partout (`tabular-nums lining-nums` sur `body`).
+- Nombres au format français (`82,5 kg`) par `Intl.NumberFormat('fr-FR')`.
+- Pas de majuscules pour les libellés ni les en-têtes de colonne, pas de surtitres.
+- Jamais de `font-stretch` écrit à la main : passer par `type-title` / `type-value`.
 
 ## Espacements, rayons, ombres, mouvement
 
 - **Espacement** : base 4 px ; échelle 4, 8, 12, 16, 20, 24, 32, 48. Marges latérales d'écran
-  mobile : 20 px.
-- **Rayons** : 6 px pour les commandes et zones ; les disques du schéma 3 px ; pas de pastilles
-  entièrement arrondies.
-- **Ombres** : aucune en thème sombre (les surfaces se distinguent par leur valeur) ; une ombre
-  unique et nette en thème clair pour les éléments flottants (feuilles, menus).
-- **Mouvement** : 120–180 ms, `ease-out`, uniquement en réponse à une action (le disque qui
-  apparaît, la série qui s'ajoute). Tout est désactivé sous `prefers-reduced-motion: reduce`.
+  mobile : 16 px.
+- **Rayons** : 10 px pour les commandes, 14 px pour les cartes d'exercice.
+- **Ombres** : aucune en sombre (les surfaces se distinguent par leur valeur) ; une ombre nette
+  en clair pour les éléments flottants (feuilles, menus).
+- **Mouvement** : 120–180 ms, `ease-out`, uniquement en réponse à une action (série cochée,
+  ligne ajoutée). Tout est coupé sous `prefers-reduced-motion: reduce`.
 
 ## Ergonomie et accessibilité (rappel des règles de CLAUDE.md appliquées ici)
 
-- Cibles tactiles **≥ 44 × 44 px** ; boutons de saisie en séance **56–64 px** de haut.
-- Action principale **en bas de l'écran**, pleine largeur, dans la zone du pouce.
-- Pas de ±2,5 kg pour la charge, ±1 pour les répétitions, RPE par boutons (7 à 9,5 par 0,5).
-- Focus visible (style global) : contour de 3 px `--lest-focus` (jaune en sombre, ocre en
-  clair), décalé de 2 px.
+- Cibles tactiles **≥ 44 × 44 px** ; lignes de série de 48 px au moins ; minuteur et ses
+  boutons de 52 px, en bas d'écran, dans la zone du pouce.
+- Focus visible : contour de 3 px `--lest-focus` (cobalt), décalé de 2 px.
 - Toute valeur qui change suite à une action est annoncée (`aria-live="polite"`).
-- Les icônes sont des SVG au trait, `aria-hidden` quand un texte les accompagne,
-  `aria-label` sur les boutons qui n'ont qu'une icône. Jamais d'emoji.
+- Icônes en SVG au trait, `aria-hidden` avec un texte, `aria-label` sur les boutons qui n'ont
+  qu'une icône. Jamais d'emoji.
 
 ## Composants et Storybook
 
-- Composants de base dans `frontend/src/shared/ui/`, chacun avec son test (`*.test.tsx`) et sa
-  story (`*.stories.tsx`).
+- Composants de base dans `frontend/src/shared/ui/`, chacun avec son test et sa story.
 - `pnpm --dir frontend storybook` (port 6006) : barre d'outils « Thème » (sombre / clair).
-- **Chaque story est un test** (`pnpm --dir frontend test:storybook`, et en CI) : rendue dans
-  Chromium, interactions `play`, et **axe en mode `error`** : toute violation fait échouer.
-- Les stories clés vérifient aussi que les tokens et Archivo sont **réellement appliqués**
-  (un HTML sans style passe axe : ce garde-fou a révélé un Tailwind non branché).
-- Archivo dans Storybook : Fontsource (`@fontsource-variable/archivo`, même police, licence
-  OFL), embarquée dans le build ; `next/font` y chargerait la police depuis Google.
+- **Chaque story est un test** (`pnpm --dir frontend test:storybook`, et en CI), avec **axe en
+  mode `error`** ; les stories clés vérifient que les tokens et Public Sans sont réellement
+  appliqués.
 
-## Option non retenue, à rediscuter
+## Passage de « Fonte calibrée » à « Magnésie »
 
-De la direction C : afficher la **cible du programme** à côté de la valeur réelle (« cible
-82,5 », « 2,5 au-dessus de la cible »). Utile en séance ; à introduire avec les programmes
-(Phase 2), sans nouvelle couleur : en texte secondaire.
+Fait dans la PR du 2026-11-18 : tokens, polices, `type-title` / `type-value` à la place des
+largeurs Archivo. L'écran de séance en tableau, les cartes d'exercice et le minuteur en bas
+d'écran arrivent avec la refonte de la séance (PR suivantes).

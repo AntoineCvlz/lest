@@ -9,7 +9,7 @@ export default function ExercisesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pt-8 pb-10 sm:pt-16">
       <div className="flex flex-col gap-3">
-        <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">Exercices</h1>
+        <h1 className="text-[30px] leading-[1.05] font-extrabold type-title">Exercices</h1>
         <p className="text-ink-muted">
           Catalogue illustré issu de RepDB. Les noms d’exercices sont en anglais pour l’instant.
         </p>

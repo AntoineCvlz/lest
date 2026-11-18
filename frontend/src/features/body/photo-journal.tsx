@@ -213,7 +213,7 @@ export function PhotoJournal() {
           );
         }}
       >
-        <h2 id="photo-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="photo-title" className="text-xl font-extrabold type-value">
           Nouvelle photo
         </h2>
         <p id="photo-privacy" className="text-ink-muted text-sm">
@@ -303,7 +303,7 @@ export function PhotoJournal() {
       </form>
 
       <section aria-labelledby="compare-title" className="flex flex-col gap-5">
-        <h2 id="compare-title" tabIndex={-1} className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="compare-title" tabIndex={-1} className="text-xl font-extrabold type-value">
           Comparer
         </h2>
         {photos.isPending && <p className="text-ink-muted">Chargement des photos…</p>}
@@ -395,11 +395,7 @@ export function PhotoJournal() {
 
       {photos.isSuccess && all.length > 0 && (
         <section aria-labelledby="gallery-title" className="flex flex-col gap-4">
-          <h2
-            id="gallery-title"
-            tabIndex={-1}
-            className="text-xl font-extrabold [font-stretch:112%]"
-          >
+          <h2 id="gallery-title" tabIndex={-1} className="text-xl font-extrabold type-value">
             Toutes les photos
           </h2>
           <div role="alert" className="empty:hidden">
