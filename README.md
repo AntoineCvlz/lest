@@ -81,6 +81,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0014 — Basic-Fit : les données du membre seulement, par un adaptateur isolé et désactivable](docs/adr/0014-integration-basic-fit.md)
 - [ADR 0015 — App installable et hors ligne, saisies en file d'attente](docs/adr/0015-pwa-et-hors-ligne.md)
 - [ADR 0016 — Retirer l'intégration Basic-Fit](docs/adr/0016-retrait-basic-fit.md)
+- [ADR 0017 — Modèle de séance complet : types d'exercice et de série, supersets, routines, activités fusionnées](docs/adr/0017-modele-seance-type-hevy.md)
 
 ## Qualité et sécurité
 
