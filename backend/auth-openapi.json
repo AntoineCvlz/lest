@@ -219,6 +219,14 @@
                 "id": "reauthenticate"
               },
               {
+                "id": "reauthenticate_by_code",
+                "recipients": [
+                  {
+                    "email": "email@domain.org"
+                  }
+                ]
+              },
+              {
                 "id": "mfa_reauthenticate"
               }
             ],
@@ -475,15 +483,6 @@
         "in": "header",
         "name": "X-Password-Reset-Key",
         "required": true,
-        "schema": {
-          "type": "string"
-        }
-      },
-      "SessionToken": {
-        "description": "Session token. Only needed when `client` is equal to `app`.\n",
-        "in": "header",
-        "name": "X-Session-Token",
-        "required": false,
         "schema": {
           "type": "string"
         }
@@ -836,6 +835,17 @@
           }
         },
         "description": "Request password.",
+        "required": true
+      },
+      "RequestReauthenticationCode": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/RequestReauthenticationCode"
+            }
+          }
+        },
+        "description": "Request a reauthentication code.",
         "required": true
       },
       "ResetPassword": {
@@ -1276,6 +1286,14 @@
                     "flows": [
                       {
                         "id": "reauthenticate"
+                      },
+                      {
+                        "id": "reauthenticate_by_code",
+                        "recipients": [
+                          {
+                            "email": "email@domain.org"
+                          }
+                        ]
                       },
                       {
                         "id": "mfa_reauthenticate"
@@ -1785,6 +1803,12 @@
                   "code"
                 ],
                 "type": "string"
+              },
+              "reauthenticated": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
               }
             },
             "required": [
@@ -1792,7 +1816,7 @@
               "email",
               "method"
             ],
-            "title": "Authenticated by confirming a code sent by email.\n",
+            "title": "(Re)authenticated by confirming a code sent by email.\n",
             "type": "object"
           },
           {
@@ -1808,6 +1832,12 @@
               },
               "phone": {
                 "$ref": "#/components/schemas/Phone"
+              },
+              "reauthenticated": {
+                "enum": [
+                  true
+                ],
+                "type": "boolean"
               }
             },
             "required": [
@@ -1815,7 +1845,7 @@
               "method",
               "phone"
             ],
-            "title": "Authenticated by confirming a code sent by phone.\n",
+            "title": "(Re)authenticated by confirming a code sent by phone.\n",
             "type": "object"
           },
           {
@@ -2240,6 +2270,7 @@
               "provider_signup",
               "provider_token",
               "reauthenticate",
+              "reauthenticate_by_code",
               "signup",
               "verify_email",
               "verify_phone"
@@ -2254,6 +2285,13 @@
           },
           "provider": {
             "$ref": "#/components/schemas/Provider"
+          },
+          "recipients": {
+            "description": "Verified destinations that can receive a reauthentication code.\n",
+            "items": {
+              "$ref": "#/components/schemas/ReauthenticationCodeRecipient"
+            },
+            "type": "array"
           },
           "types": {
             "description": "Matches `settings.MFA_SUPPORTED_TYPES`.",
@@ -2619,6 +2657,36 @@
         ],
         "type": "object"
       },
+      "ReauthenticationCodeRecipient": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "email": {
+                "$ref": "#/components/schemas/Email"
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "title": "Email recipient",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "phone": {
+                "$ref": "#/components/schemas/Phone"
+              }
+            },
+            "required": [
+              "phone"
+            ],
+            "title": "Phone recipient",
+            "type": "object"
+          }
+        ]
+      },
       "ReauthenticationRequired": {
         "properties": {
           "flows": {
@@ -2742,6 +2810,37 @@
         },
         "required": [
           "email"
+        ],
+        "type": "object"
+      },
+      "RequestReauthenticationCode": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "phone": {
+                "$ref": "#/components/schemas/Phone"
+              }
+            },
+            "required": [
+              "phone"
+            ],
+            "title": "Request reauthentication code by phone",
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "email": {
+                "$ref": "#/components/schemas/Email"
+              }
+            },
+            "required": [
+              "email"
+            ],
+            "title": "Request reauthentication code by email",
+            "type": "object"
+          }
         ],
         "type": "object"
       },
@@ -3082,6 +3181,20 @@
         ],
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "JWT": {
+        "bearerFormat": "JWT",
+        "description": "JWT access token, using the `Bearer` authorization scheme. Only needed when `client` is equal to `app`.",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "SessionToken": {
+        "description": "Session token. Only needed when `client` is equal to `app`.",
+        "in": "header",
+        "name": "X-Session-Token",
+        "type": "apiKey"
+      }
     }
   },
   "externalDocs": {
@@ -3103,11 +3216,6 @@
   "paths": {
     "/api/v1/auth/app/v1/account/authenticators": {
       "get": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/Authenticators"
@@ -3119,6 +3227,15 @@
             "$ref": "#/components/responses/SessionGone"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "List authenticators",
         "tags": [
           "Account: 2FA"
@@ -3128,11 +3245,6 @@
     "/api/v1/auth/app/v1/account/authenticators/recovery-codes": {
       "get": {
         "description": "List recovery codes.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/RecoveryCodes"
@@ -3144,17 +3256,21 @@
             "$ref": "#/components/responses/NotFound"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "List recovery codes",
         "tags": [
           "Account: 2FA"
         ]
       },
       "post": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "400": {
             "content": {
@@ -3175,6 +3291,15 @@
             "$ref": "#/components/responses/ReauthenticationRequired"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Regenerate recovery codes",
         "tags": [
           "Account: 2FA"
@@ -3184,11 +3309,6 @@
     "/api/v1/auth/app/v1/account/authenticators/totp": {
       "delete": {
         "description": "Deactivates TOTP authentication. If the user authentication is not\nsufficiently recent, a reauthentication flow (`401`) will is presented.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/StatusOK"
@@ -3197,6 +3317,15 @@
             "$ref": "#/components/responses/ReauthenticationRequired"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Deactivate TOTP",
         "tags": [
           "Account: 2FA"
@@ -3204,11 +3333,6 @@
       },
       "get": {
         "description": "Retrieve the information about the current TOTP authenticator, if any.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/TOTPAuthenticator"
@@ -3220,6 +3344,15 @@
             "$ref": "#/components/responses/AddAuthenticatorConflict"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "TOTP authenticator status",
         "tags": [
           "Account: 2FA"
@@ -3227,11 +3360,6 @@
       },
       "post": {
         "description": "The code should be provided from the consuming TOTP authenticator\napplication which was generated using the TOTP authenticator secret\nretrieved from the TOTP authenticator status endpoint.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/SetupTOTP"
         },
@@ -3261,6 +3389,15 @@
             "$ref": "#/components/responses/AddAuthenticatorConflict"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Activate TOTP",
         "tags": [
           "Account: 2FA"
@@ -3269,11 +3406,6 @@
     },
     "/api/v1/auth/app/v1/account/authenticators/webauthn": {
       "delete": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/DeleteWebAuthn"
         },
@@ -3285,6 +3417,15 @@
             "$ref": "#/components/responses/ReauthenticationRequired"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Delete a WebAuthn credential\n",
         "tags": [
           "Account: WebAuthn"
@@ -3293,9 +3434,6 @@
       "get": {
         "description": "Returns the WebAuthn credential creation options, that can be\nprocessed using `parseCreationOptionsFromJSON()` on the frontend.\n",
         "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          },
           {
             "$ref": "#/components/parameters/PasswordLess"
           }
@@ -3311,17 +3449,21 @@
             "$ref": "#/components/responses/AddAuthenticatorConflict"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get WebAuthn credential creation options\n",
         "tags": [
           "Account: WebAuthn"
         ]
       },
       "post": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/AddWebAuthnAuthenticator"
         },
@@ -3336,6 +3478,15 @@
             "$ref": "#/components/responses/AddAuthenticatorConflict"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Add a WebAuthn credential\n",
         "tags": [
           "Account: WebAuthn"
@@ -3343,11 +3494,6 @@
       },
       "put": {
         "description": "You can alter the name of a WebAuthn credential by PUT'ting the ID and\nname of the authenticator representing that credential. You can obtain\nthe credentials via the \"List authenticators\" endpoint.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/UpdateWebAuthn"
         },
@@ -3359,6 +3505,15 @@
             "$ref": "#/components/responses/ReauthenticationRequired"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Rename a WebAuthn credential\n",
         "tags": [
           "Account: WebAuthn"
@@ -3368,11 +3523,6 @@
     "/api/v1/auth/app/v1/account/email": {
       "delete": {
         "description": "Used to remove an email address.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/Email"
         },
@@ -3396,6 +3546,15 @@
             "description": "An input error occurred."
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Remove an email address",
         "tags": [
           "Account: Email"
@@ -3403,11 +3562,6 @@
       },
       "get": {
         "description": "Retrieves the list of email addresses of the account.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/EmailAddresses"
@@ -3416,6 +3570,15 @@
             "$ref": "#/components/responses/Authentication"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "List email addresses",
         "tags": [
           "Account: Email"
@@ -3423,11 +3586,6 @@
       },
       "patch": {
         "description": "Used to change primary email address to a different one. Note that only verified email addresses\ncan be marked as primary.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/MarkPrimaryEmail"
         },
@@ -3451,6 +3609,15 @@
             "description": "An input error occurred."
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Change primary email address",
         "tags": [
           "Account: Email"
@@ -3458,11 +3625,6 @@
       },
       "post": {
         "description": "The following functionality is available:\n\n  - Adding a new email address for an already signed in user (`ACCOUNT_CHANGE_EMAIL = False`).\n  - Change to a new email address for an already signed in user   (`ACCOUNT_CHANGE_EMAIL = True`).\n  - Change to a new email address during the email verification process at signup (`ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_CHANGE = True`).\n\nIn all cases, an email verification mail will be sent containing a link or code that needs to be verified.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/Email"
         },
@@ -3499,6 +3661,15 @@
             "description": "Conflict. For example, when no user is authenticated and no email verification flow is pending.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Add/Change email address\n",
         "tags": [
           "Account: Email"
@@ -3506,11 +3677,6 @@
       },
       "put": {
         "description": "Requests for (another) email verification email to be sent. Note that\nsending emails is rate limited, so when you send too many requests the\nemail will not be sent.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/Email"
         },
@@ -3544,6 +3710,15 @@
             "description": "Too many email verification mails were already sent.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Request email verification",
         "tags": [
           "Account: Email"
@@ -3553,11 +3728,6 @@
     "/api/v1/auth/app/v1/account/password/change": {
       "post": {
         "description": "In order to change the password of an account, the current and new\npassword must be provider.  However, accounts that were created by\nsigning up using a third-party provider do not have a password set. In\nthat case, the current password is not required.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/ChangePassword"
         },
@@ -3569,6 +3739,15 @@
             "$ref": "#/components/responses/Authentication"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Change password",
         "tags": [
           "Account: Password"
@@ -3578,11 +3757,6 @@
     "/api/v1/auth/app/v1/account/phone": {
       "get": {
         "description": "Retrieves the phone number of the account, if any. Note that while the\nendpoint returns a list of phone numbers, at most one entry is returned.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/PhoneNumbers"
@@ -3591,6 +3765,15 @@
             "$ref": "#/components/responses/Authentication"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get the phone number",
         "tags": [
           "Account: Phone"
@@ -3598,11 +3781,6 @@
       },
       "post": {
         "description": "The following functionality is available:\n\n- Initiate the phone number change process for signed in users.\n- Change to a new phone number during the phone number verification\n  process at signup for unauthenticated users. Note that this requires:\n  `ACCOUNT_PHONE_VERIFICATION_SUPPORTS_CHANGE = True`.\n\nIn both cases, after posting a new phone number, proceed with the phone\nverification endpoint to confirm the change of the phone number by\nposting the verification code.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/Phone"
         },
@@ -3641,6 +3819,15 @@
             "description": "Conflict. For example, when no user is authenticated and no phone verification flow is pending.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Change the phone number\n",
         "tags": [
           "Account: Phone"
@@ -3650,11 +3837,6 @@
     "/api/v1/auth/app/v1/auth/2fa/authenticate": {
       "post": {
         "description": "If, during authentication,  a response with status 401 is encountered where one of the pending\nflows has ID `mfa_authenticate`, that indicates that the Two-Factor Authentication stage needs to\nbe completed.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/MFAAuthenticate"
         },
@@ -3681,6 +3863,15 @@
             "$ref": "#/components/responses/Authentication"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Two-factor authentication",
         "tags": [
           "Authentication: 2FA"
@@ -3690,11 +3881,6 @@
     "/api/v1/auth/app/v1/auth/2fa/reauthenticate": {
       "post": {
         "description": "In order to safeguard the account, some actions require the user to be\nrecently authenticated.  If you try to perform such an action without\nhaving been recently authenticated, a `401` status is returned, listing\nflows that can be performed to reauthenticate. One such flow is the flow\nwith ID `mfa_reauthenticate`, which allows for the user to input an\nauthenticator code (e.g. TOTP or recovery code). This is the endpoint\nrelated towards that flow.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/MFAAuthenticate"
         },
@@ -3716,8 +3902,20 @@
               }
             },
             "description": "An input error occurred."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Reauthenticate using 2FA",
         "tags": [
           "Authentication: 2FA"
@@ -3826,11 +4024,6 @@
       },
       "post": {
         "description": "Complete the email verification process. Depending on the configuration,\nemail addresses are either verified by opening a link that is sent to\ntheir email address, or, by inputting a code that is sent. On the API,\nboth cases are handled identically. Meaning, the required key is either\nthe one from the link, or, the code itself.\n\nNote that a status code of 401 does not imply failure. It indicates that\nthe email verification was successful, yet, the user is still not signed\nin. For example, in case `ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION` is set to\n`False`, a 401 is returned when verifying as part of login/signup.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/VerifyEmail"
         },
@@ -3867,6 +4060,15 @@
             "description": "Conflict. The email verification (by code) flow is not pending.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Verify an email",
         "tags": [
           "Authentication: Account"
@@ -3876,11 +4078,6 @@
     "/api/v1/auth/app/v1/auth/email/verify/resend": {
       "post": {
         "description": "Requests a new email verification code.\nRequires `ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True`.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/StatusOK"
@@ -3899,6 +4096,15 @@
             "$ref": "#/components/responses/TooManyRequests"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Resend email verification code",
         "tags": [
           "Authentication: Account"
@@ -4093,11 +4299,6 @@
     "/api/v1/auth/app/v1/auth/phone/verify": {
       "post": {
         "description": "Complete the phone number verification process. Note that a status code\nof 401 does not imply failure. It merely indicates that the phone number\nverification was successful, yet, the user is still not signed in.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/VerifyPhone"
         },
@@ -4129,6 +4330,15 @@
             "description": "Conflict. The phone verification flow is not pending.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Verify a phone number",
         "tags": [
           "Authentication: Account"
@@ -4138,11 +4348,6 @@
     "/api/v1/auth/app/v1/auth/phone/verify/resend": {
       "post": {
         "description": "Requests a new phone number verification code.\nRequires `ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True`.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/StatusOK"
@@ -4161,6 +4366,15 @@
             "$ref": "#/components/responses/TooManyRequests"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Resend phone number verification code",
         "tags": [
           "Authentication: Account"
@@ -4170,11 +4384,6 @@
     "/api/v1/auth/app/v1/auth/reauthenticate": {
       "post": {
         "description": "In order to safeguard the account, some actions require the user to be\nrecently authenticated.  If you try to perform such an action without\nhaving been recently authenticated, a `401` status is returned, listing\nflows that can be performed to reauthenticate. One such flow is the flow\nwith ID `reauthenticate`, which allows for the user to input the\npassword. This is the endpoint related towards that flow.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/Reauthenticate"
         },
@@ -4196,9 +4405,160 @@
               }
             },
             "description": "An input error occurred."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Reauthenticate",
+        "tags": [
+          "Authentication: Account"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/confirm": {
+      "post": {
+        "description": "Complete the pending `reauthenticate_by_code` flow using the code sent\nto the selected email address or phone number.\n",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/ConfirmLoginCode"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/AuthenticatedByCode"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict. The reauthentication by code flow is not pending.\n"
+          }
+        },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
+        "summary": "Confirm a reauthentication code",
+        "tags": [
+          "Authentication: Account"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/request": {
+      "post": {
+        "description": "Send a reauthentication code to one of the verified email addresses or\nthe verified phone number listed on the `reauthenticate_by_code` flow.\n",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/RequestReauthenticationCode"
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/StatusOK"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "An input error occurred."
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
+        "summary": "Request a reauthentication code",
+        "tags": [
+          "Authentication: Account"
+        ]
+      }
+    },
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/resend": {
+      "post": {
+        "description": "Send a new code for the pending `reauthenticate_by_code` flow.\nRequires `ACCOUNT_LOGIN_BY_CODE_SUPPORTS_RESEND` to be enabled.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/StatusOK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Authentication"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConflictResponse"
+                }
+              }
+            },
+            "description": "Conflict. The reauthentication by code flow is not pending or can\nno longer be resent.\n"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          }
+        },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
+        "summary": "Resend a reauthentication code",
         "tags": [
           "Authentication: Account"
         ]
@@ -4207,16 +4567,20 @@
     "/api/v1/auth/app/v1/auth/session": {
       "delete": {
         "description": "Logs out the user from the current session.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "401": {
             "$ref": "#/components/responses/Unauthenticated"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Logout",
         "tags": [
           "Authentication: Current Session"
@@ -4224,11 +4588,6 @@
       },
       "get": {
         "description": "Retrieve information about the authentication status for the current\nsession.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/Authenticated"
@@ -4240,6 +4599,15 @@
             "$ref": "#/components/responses/SessionGone"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get authentication status\n",
         "tags": [
           "Authentication: Current Session"
@@ -4248,11 +4616,6 @@
     },
     "/api/v1/auth/app/v1/auth/sessions": {
       "delete": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/EndSessions"
         },
@@ -4264,22 +4627,35 @@
             "$ref": "#/components/responses/Authentication"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "End one or more sessions",
         "tags": [
           "Sessions"
         ]
       },
       "get": {
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/Sessions"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "List sessions",
         "tags": [
           "Sessions"
@@ -4356,16 +4732,20 @@
     "/api/v1/auth/app/v1/auth/webauthn/authenticate": {
       "get": {
         "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend. The\nuser verification requirement is controlled by\n`MFA_WEBAUTHN_USER_VERIFICATION`.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get WebAuthn credential request options for 2FA",
         "tags": [
           "Authentication: WebAuthn: Login"
@@ -4373,11 +4753,6 @@
       },
       "post": {
         "description": "Perform Two-Factor Authentication using a WebAuthn credential.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/AuthenticateWebAuthn"
         },
@@ -4396,6 +4771,15 @@
             "description": "An input error occurred."
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Perform 2FA using WebAuthn",
         "tags": [
           "Authentication: WebAuthn: Login"
@@ -4405,16 +4789,20 @@
     "/api/v1/auth/app/v1/auth/webauthn/login": {
       "get": {
         "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend.\nPasskey login always requires user verification.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get WebAuthn credential request options for login",
         "tags": [
           "Authentication: WebAuthn: Login"
@@ -4422,11 +4810,6 @@
       },
       "post": {
         "description": "Login using a WebAuthn credential (Passkey). Both 200 and 401 can be\nexpected after a successful request.  The 401 can, for example, occur\nwhen the credential passed was valid, but the email attached to the\naccount still requires verification.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/LoginWebAuthn"
         },
@@ -4460,6 +4843,15 @@
             "description": "Not authenticated.\n"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Login using WebAuthn",
         "tags": [
           "Authentication: WebAuthn: Login"
@@ -4469,16 +4861,23 @@
     "/api/v1/auth/app/v1/auth/webauthn/reauthenticate": {
       "get": {
         "description": "Returns the WebAuthn credential request options, that can be\nprocessed using `parseRequestOptionsFromJSON()` on the frontend. The\nuser verification requirement is controlled by\n`MFA_WEBAUTHN_USER_VERIFICATION`.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/WebAuthnRequestOptionsResponse"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Get WebAuthn credential request options for reauthentication",
         "tags": [
           "Authentication: WebAuthn: Login"
@@ -4486,11 +4885,6 @@
       },
       "post": {
         "description": "Reauthenticate the user using a WebAuthn credential.\n",
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/SessionToken"
-          }
-        ],
         "requestBody": {
           "$ref": "#/components/requestBodies/ReauthenticateWebAuthn"
         },
@@ -4507,8 +4901,20 @@
               }
             },
             "description": "An input error occurred."
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         },
+        "security": [
+          {
+            "SessionToken": []
+          },
+          {
+            "JWT": []
+          },
+          {}
+        ],
         "summary": "Reauthenticate using WebAuthn",
         "tags": [
           "Authentication: WebAuthn: Login"

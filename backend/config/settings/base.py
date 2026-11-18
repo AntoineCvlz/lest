@@ -147,6 +147,10 @@ ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
 # Renvoi du code : 2 fois par parcours (au-delà, se reconnecter), 1 envoi par 10 s et par adresse.
 ACCOUNT_EMAIL_VERIFICATION_SUPPORTS_RESEND = True
 ACCOUNT_PASSWORD_RESET_BY_CODE_ENABLED = True
+# Confirmation d'une action sensible : mot de passe ou second facteur. allauth 65.22 ajoute par
+# défaut un code envoyé par e-mail, que l'interface ne propose pas : réglage écrit pour qu'il ne
+# change pas en silence (la garde de `mfa_views.py` exige de toute façon un second facteur).
+ACCOUNT_REAUTHENTICATION_METHODS = ("password", "mfa")
 ACCOUNT_PREVENT_ENUMERATION = True  # mêmes réponses qu'un compte existe ou non
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[Lest] "
 # Le titulaire est prévenu par e-mail des changements sensibles (mot de passe réinitialisé…).

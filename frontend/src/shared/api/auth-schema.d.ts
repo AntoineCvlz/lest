@@ -15,10 +15,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -51,10 +48,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -70,10 +64,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -111,10 +102,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -135,10 +123,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -166,10 +151,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -205,10 +187,7 @@ export interface paths {
                      */
                     passwordless?: components["parameters"]["PasswordLess"];
                 };
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -228,10 +207,7 @@ export interface paths {
         put: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -245,10 +221,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -263,10 +236,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -295,10 +265,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -317,10 +284,7 @@ export interface paths {
         put: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -360,10 +324,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -398,10 +359,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -429,10 +387,7 @@ export interface paths {
         patch: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -471,10 +426,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -505,10 +457,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -535,10 +484,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -598,10 +544,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -648,10 +591,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -667,6 +607,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
             };
         };
         delete?: never;
@@ -795,10 +736,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -849,10 +787,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1100,10 +1035,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1154,10 +1086,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1203,10 +1132,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1222,6 +1148,150 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm a reauthentication code
+         * @description Complete the pending `reauthenticate_by_code` flow using the code sent
+         *     to the selected email address or phone number.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["ConfirmLoginCode"];
+            responses: {
+                200: components["responses"]["AuthenticatedByCode"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Authentication"];
+                403: components["responses"]["Forbidden"];
+                /** @description Conflict. The reauthentication by code flow is not pending. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConflictResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a reauthentication code
+         * @description Send a reauthentication code to one of the verified email addresses or
+         *     the verified phone number listed on the `reauthenticate_by_code` flow.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["RequestReauthenticationCode"];
+            responses: {
+                200: components["responses"]["StatusOK"];
+                /** @description An input error occurred. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                401: components["responses"]["Authentication"];
+                403: components["responses"]["Forbidden"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/app/v1/auth/reauthenticate/code/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend a reauthentication code
+         * @description Send a new code for the pending `reauthenticate_by_code` flow.
+         *     Requires `ACCOUNT_LOGIN_BY_CODE_SUPPORTS_RESEND` to be enabled.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["StatusOK"];
+                401: components["responses"]["Authentication"];
+                403: components["responses"]["Forbidden"];
+                /**
+                 * @description Conflict. The reauthentication by code flow is not pending or can
+                 *     no longer be resent.
+                 */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ConflictResponse"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
             };
         };
         delete?: never;
@@ -1245,10 +1315,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1268,10 +1335,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1296,10 +1360,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1314,10 +1375,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1419,10 +1477,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1439,10 +1494,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1482,10 +1534,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1505,10 +1554,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1558,16 +1604,14 @@ export interface paths {
         get: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
                 200: components["responses"]["WebAuthnRequestOptionsResponse"];
+                403: components["responses"]["Forbidden"];
             };
         };
         put?: never;
@@ -1578,10 +1622,7 @@ export interface paths {
         post: {
             parameters: {
                 query?: never;
-                header?: {
-                    /** @description Session token. Only needed when `client` is equal to `app`. */
-                    "X-Session-Token"?: components["parameters"]["SessionToken"];
-                };
+                header?: never;
                 path?: never;
                 cookie?: never;
             };
@@ -1597,6 +1638,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                403: components["responses"]["Forbidden"];
             };
         };
         delete?: never;
@@ -1732,11 +1774,15 @@ export interface components {
             email: components["schemas"]["Email"];
             /** @enum {string} */
             method: "code";
+            /** @enum {boolean} */
+            reauthenticated?: true;
         } | {
             at: components["schemas"]["Timestamp"];
             /** @enum {string} */
             method: "code";
             phone: components["schemas"]["Phone"];
+            /** @enum {boolean} */
+            reauthenticated?: true;
         } | {
             at: components["schemas"]["Timestamp"];
             /** @enum {string} */
@@ -1911,10 +1957,12 @@ export interface components {
         };
         Flow: {
             /** @enum {string} */
-            id: "login" | "login_by_code" | "mfa_authenticate" | "mfa_reauthenticate" | "provider_redirect" | "provider_signup" | "provider_token" | "reauthenticate" | "signup" | "verify_email" | "verify_phone";
+            id: "login" | "login_by_code" | "mfa_authenticate" | "mfa_reauthenticate" | "provider_redirect" | "provider_signup" | "provider_token" | "reauthenticate" | "reauthenticate_by_code" | "signup" | "verify_email" | "verify_phone";
             /** @enum {boolean} */
             is_pending?: true;
             provider?: components["schemas"]["Provider"];
+            /** @description Verified destinations that can receive a reauthentication code. */
+            recipients?: components["schemas"]["ReauthenticationCodeRecipient"][];
             /** @description Matches `settings.MFA_SUPPORTED_TYPES`. */
             types?: components["schemas"]["AuthenticatorType"][];
         };
@@ -2092,6 +2140,11 @@ export interface components {
         Reauthenticate: {
             password: components["schemas"]["Password"];
         };
+        ReauthenticationCodeRecipient: {
+            email: components["schemas"]["Email"];
+        } | {
+            phone: components["schemas"]["Phone"];
+        };
         ReauthenticationRequired: {
             flows: components["schemas"]["Flow"][];
             /** @description A list of methods used to authenticate. */
@@ -2133,6 +2186,11 @@ export interface components {
             email: components["schemas"]["Email"];
         };
         RequestPassword: {
+            email: components["schemas"]["Email"];
+        };
+        RequestReauthenticationCode: {
+            phone: components["schemas"]["Phone"];
+        } | {
             email: components["schemas"]["Email"];
         };
         ResetPassword: {
@@ -2676,8 +2734,6 @@ export interface components {
         PasswordLess: boolean;
         /** @description The password reset key */
         PasswordResetKey: string;
-        /** @description Session token. Only needed when `client` is equal to `app`. */
-        SessionToken: string;
     };
     requestBodies: {
         AddWebAuthnAuthenticator: {
@@ -2844,6 +2900,12 @@ export interface components {
         RequestPassword: {
             content: {
                 "application/json": components["schemas"]["RequestPassword"];
+            };
+        };
+        /** @description Request a reauthentication code. */
+        RequestReauthenticationCode: {
+            content: {
+                "application/json": components["schemas"]["RequestReauthenticationCode"];
             };
         };
         ResetPassword: {
