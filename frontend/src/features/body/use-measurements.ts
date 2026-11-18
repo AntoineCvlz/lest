@@ -5,6 +5,7 @@ import {
   accountHeaders,
   assertStillQueued,
   isLastQueuedWrite,
+  refetchAfterQueue,
   queuedWrite,
 } from "@/features/offline/queue";
 import { fetchClient, type Schemas } from "@/shared/api/client";
@@ -87,7 +88,7 @@ export function registerMeasurementWrites(queryClient: QueryClient): void {
     },
     onSettled: () => {
       if (isLastQueuedWrite(queryClient)) {
-        void queryClient.invalidateQueries({ queryKey: MEASUREMENTS_KEY });
+        void refetchAfterQueue(queryClient, { queryKey: MEASUREMENTS_KEY });
       }
     },
   });

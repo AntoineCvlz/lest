@@ -5,6 +5,7 @@ import {
   accountHeaders,
   assertStillQueued,
   isLastQueuedWrite,
+  refetchAfterQueue,
   queuedWrite,
 } from "@/features/offline/queue";
 import { fetchClient, type Schemas } from "@/shared/api/client";
@@ -93,7 +94,7 @@ async function show(
 /** Relit les activités une fois la file vide : l'état du serveur fait foi. */
 function refreshActivities(queryClient: QueryClient): void {
   if (isLastQueuedWrite(queryClient)) {
-    void queryClient.invalidateQueries({ queryKey: ACTIVITIES_KEY });
+    void refetchAfterQueue(queryClient, { queryKey: ACTIVITIES_KEY });
   }
 }
 
