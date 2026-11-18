@@ -1,6 +1,6 @@
 # ADR 0017 — Modèle de séance complet : types d'exercice et de série, supersets, routines, activités fusionnées
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-18
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 
