@@ -12,6 +12,7 @@ import {
   accountHeaders,
   assertStillQueued,
   isLastQueuedWrite,
+  refetchAfterQueue,
   queuedWrite,
 } from "@/features/offline/queue";
 import { fetchClient, type Schemas } from "@/shared/api/client";
@@ -141,9 +142,9 @@ async function show(
 /** Relit le journal une fois la file vide : valeurs du serveur, refus retirés de l'affichage. */
 function refreshJournal(queryClient: QueryClient): void {
   if (!isLastQueuedWrite(queryClient)) return;
-  void queryClient.invalidateQueries({ queryKey: NUTRITION_KEY });
+  void refetchAfterQueue(queryClient, { queryKey: NUTRITION_KEY });
   // Relus même sans écran qui les montre : c'est la liste proposée hors ligne (ADR 0015).
-  void queryClient.refetchQueries({ queryKey: RECENT_KEY });
+  void refetchAfterQueue(queryClient, { queryKey: RECENT_KEY, refetchType: "all" });
 }
 
 /**
