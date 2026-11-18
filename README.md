@@ -6,7 +6,7 @@ Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé 
 > - comptes sécurisés : code e-mail, double authentification, passkeys, export et suppression RGPD ;
 > - **musculation** : catalogue de 701 exercices illustrés, saisie d'une série en un appui, minuteur de repos, records et programmes ;
 > - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés ;
-> - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil, liaison Basic-Fit optionnelle ;
+> - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil ;
 > - **mobile** : application installable, utilisable sans réseau (séance, repas, pesées, mensurations, activités), notification de fin de repos.
 >
 > Suite possible : application native réutilisant le client API typé, voir la [roadmap](CLAUDE.md#roadmap).
@@ -18,7 +18,6 @@ Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé 
 - **Nutrition** : journal des repas et de l'eau, aliments de la table Ciqual (Anses), produits Open Food Facts au scan du code-barres, aliments perso, objectifs caloriques et macros calculés et modifiables.
 - **Autres sports** : 13 sports (course, vélo, natation, sports collectifs, combat, escalade…), avec les mesures propres à chacun (dénivelé, longueurs, rounds…).
 - **Bilan** : à l'accueil, poids et rythme par rapport à l'objectif, activité des 8 dernières semaines, adhérence nutrition, volume par muscle ; chaque graphique a son résumé et son tableau.
-- **Basic-Fit** (optionnel, désactivé par défaut) : club principal, visites en club et poids des balances du club, rien d'autre ; une pesée saisie à la main n'est jamais remplacée.
 
 Les données appartiennent à l'utilisateur : export CSV/JSON et suppression complète du compte.
 
@@ -81,6 +80,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0013 — tableau de bord : lectures agrégées par les sélecteurs des domaines, en une route](docs/adr/0013-tableau-de-bord.md)
 - [ADR 0014 — Basic-Fit : les données du membre seulement, par un adaptateur isolé et désactivable](docs/adr/0014-integration-basic-fit.md)
 - [ADR 0015 — App installable et hors ligne, saisies en file d'attente](docs/adr/0015-pwa-et-hors-ligne.md)
+- [ADR 0016 — Retirer l'intégration Basic-Fit](docs/adr/0016-retrait-basic-fit.md)
 
 ## Qualité et sécurité
 

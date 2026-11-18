@@ -11,7 +11,7 @@ Tu es un·e Staff Engineer full-stack (Django / Next.js) et Product Designer sen
 **Lest** (nom de marque à valider : INPI/EUIPO classes 9 et 41, domaine, stores). Application web responsive, installable (PWA), pour suivre :
 
 - une **prise de masse** : poids de corps, mensurations, photos de progression, calories et macros ;
-- la **musculation en salle** (ex. Basic-Fit) : séances, exercices, séries, charges, reps, RPE, records ;
+- la **musculation en salle** : séances, exercices, séries, charges, reps, RPE, records ;
 - **tout autre sport** via un modèle d'activité générique (durée, distance, intensité, métriques libres).
 
 ### Principes produit
@@ -19,7 +19,7 @@ Tu es un·e Staff Engineer full-stack (Django / Next.js) et Product Designer sen
 1. Saisie d'une série en moins de 3 secondes, d'une main, entre deux séries.
 2. Fonctionne hors ligne en salle et synchronise ensuite.
 3. Les données appartiennent à l'utilisateur : export CSV/JSON, suppression de compte complète (RGPD).
-4. Basic-Fit connecté via le client non officiel `basicfit`, isolé derrière un adaptateur et désactivable. Import CSV (Strong, Hevy) possible plus tard.
+4. Aucune intégration tierce de salle : Basic-Fit a été retiré (ADR 0016, remplace l'ADR 0014). Import CSV (Strong, Hevy) possible plus tard.
 5. Données de santé sensibles : minimisation, chiffrement au repos des champs sensibles, aucun tracker tiers.
 
 ## Domaines métier (bounded contexts)
@@ -43,31 +43,9 @@ Une app Django par domaine, **aucun import croisé direct entre leurs modèles**
 - stockage en unités SI, conversion à l'affichage uniquement ;
 - toute requête est filtrée par propriétaire — aucune fuite inter-utilisateurs, **testé explicitement**.
 
-## Intégration Basic-Fit et données d'exercices
-
-Package `basicfit` (v1.0.0, juillet 2026, MIT, un seul mainteneur) : client async non officiel de l'API de l'app Basic-Fit. Pas de catalogue de machines.
-
-| `basicfit` fournit | Usage dans Lest (ADR 0014 : données du membre seulement) |
-| --- | --- |
-| Profil membre : abonnement, club principal | Nom du club principal seulement (rien d'autre du profil) ✅ |
-| Historique des visites (365 j max par requête) | Visites en club (date, club) ✅ ; visite sans séance → proposer de la compléter (à faire) |
-| Mesures des balances en club (poids, % gras, muscle, eau) | **Poids seulement**, dans `body` avec la source `basicfit` ; une saisie manuelle prime toujours ✅ |
-| Badges | Affichés dans le profil (à faire) |
-| Catalogue d'entraînements, recettes, recherche de clubs + image | **Écartés** : contenus Basic-Fit lus avec le jeton de leur application, sans licence |
-
-Non exposé : journal de progression des séances, affluence des clubs. Dépôt relu le 2026-11-04 (ADR 0014) ; PR upstream possible : erreur distincte pour une panne du serveur de jetons (aujourd'hui `BasicFitAuthError` pour toute réponse autre que 200).
+## Données d'exercices
 
 **Exercices** (ADR 0006, remplace wger) : offre gratuite de **RepDB** (701 exercices illustrés dans un style unique, positions départ et effort), importée par `import_exercises` depuis le dépôt GitHub officiel de RepDB. Licence maison : usage dans l'app avec la mention **« Exercise data by RepDB (repdb.co) »**, **rien du jeu de données dans notre dépôt public** (ni JSON, ni images, ni traduction des noms : tests sur des exercices fictifs), aucune IA générative sur les images. Noms en anglais ; catégories, muscles et équipements traduits par nos libellés. Machines guidées de salle ajoutées comme `Equipment` maison, annotables par club (« présent dans ma salle »). Secours : Everkinetic (CC-BY-SA).
-
-### Règles d'implémentation
-
-- App `integrations/basicfit/` : adaptateur `BasicFitGateway` (seul point de contact avec le package), DTO internes, mapping vers nos modèles. **Aucun autre module n'importe `basicfit`.**
-- Connexion OAuth2 PKCE du package. Login Basic-Fit protégé par anti-bot : l'utilisateur se connecte dans son navigateur puis colle l'URL de redirection ; l'écran l'explique clairement.
-- Refresh tokens rotatifs à chaque appel : le jeu tourné (`token_updated`) est recueilli puis écrit dès la fin de l'appel, chiffré (Fernet), **jamais loggé** (ADR 0014).
-- Synchro via tâche Celery : max 1×/heure/utilisateur, backoff exponentiel, déclenchable manuellement ; gérer `BasicFitAuthError` (demande de reconnexion) et `BasicFitAPIError`.
-- Tests avec réponses enregistrées (fixtures JSON), aucun appel réseau réel en CI.
-- Feature flag `BASICFIT_ENABLED` : l'app reste entièrement utilisable sans.
-- ADR obligatoire avec les risques : API non officielle (casse possible, CGU Basic-Fit), usage limité au compte personnel ; paquet sans provenance PyPI → version épinglée par hash, code relu avant chaque mise à jour.
 
 ## Stack et architecture
 
@@ -77,7 +55,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 
 - Python 3.13+, Django 5.x LTS si disponible, dépendances via `uv`.
 - API : **Django Ninja** (décidé, pas DRF). Schémas Pydantic, OpenAPI généré nativement par Ninja (pas de `drf-spectacular`), plugin mypy Pydantic activé.
-- PostgreSQL 17, Redis (cache + broker) ; tâches de fond **Celery + beat** : import d'aliments, recalcul des records, export, synchro Basic-Fit.
+- PostgreSQL 17, Redis (cache + broker) ; tâches de fond **Celery + beat** : import d'aliments, recalcul des records, export.
 - Auth (**ADR 0001**) : `django-allauth` *headless*, stratégie **JWT native** (RS256, access 5 min, refresh 14 j, rotation + invalidation de l'ancien, validation avec état), routers Ninja protégés par `JWTTokenAuth` d'allauth. **Pas de DRF** : simplejwt et dj-rest-auth en dépendent. Allauth fournit inscription, reset, limitation de débit, MFA TOTP et passkeys.
   - Navigateur = **BFF** : le proxy Next.js retire les jetons des réponses d'allauth et les garde en cookies `HttpOnly; Secure` émis par Next (`lest_at` SameSite=Lax, `lest_rt` SameSite=Strict, `Path=/api/`) ; il ajoute `Authorization: Bearer` vers Django ;
   - le proxy refresh sur 401 et rejoue la requête une seule fois (verrou contre les refresh concurrents), vérifie `Origin` sur les méthodes non sûres, pose l'IP du navigateur dans `X-Lest-Client-IP` (écrasée, jamais relayée depuis le client ; Django ignore `X-Forwarded-For`) ; CSRF double-submit sur refresh et logout ;
@@ -365,26 +343,17 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
   - une route `GET /api/v1/insights/dashboard/`, sans table : sélecteurs des domaines (`training.weekly_training` agrégé en SQL, `nutrition.daily_totals`, `list_weights`, `list_activities`) ; coût constant (testé par un budget de requêtes), `insights_read` 60/min ;
   - graphiques en SVG maison, sans dépendance (CLAUDE.md citait Visx ou Recharts) : une série, encre (pas de jaune sur fond clair : contraste < 3:1), résumé en légende et tableau ; tableaux `table-fixed` qui ne débordent jamais (pas de région défilable, donc pas de `tabIndex` refusé par jsx-a11y) ; variations lues en mots (« baisse de 0,4 kg », le signe moins pouvant être tu) ;
   - repères de rythme du poids génériques, présentés comme tels.
-- **Basic-Fit** (ADR 0014) :
-  - `apps/integrations/basicfit/` ; `BasicFitGateway`, seul à importer `basicfit` (test d'architecture) ; erreurs du paquet converties `from None`, jamais leur message (il cite la réponse de Basic-Fit) ;
-  - paquet épinglé par hash, **exclu de Dependabot**, un test fige les empreintes relues ; la roue installée a été comparée au code source relu ; `aiohttp` en dépendance directe ; mypy lit le source (`follow_untyped_imports`) ;
-  - connexion : PKCE, `state` et vérificateur chiffrés 10 min, usage unique ; **URL de redirection complète exigée** et analysée par nous (`parse_redirect` du paquet accepte un code seul et un `state` absent) ; l'écran avertit de ne jamais transmettre l'adresse ;
-  - synchronisation : au plus une **tentative** par heure (réussie ou non), une seule en file, verrou nominatif plus long que la limite dure ; jetons tournés écrits dès la fin de l'appel, avant les données, protégés par un numéro de génération ; effacés au **3e refus** consécutif seulement (le paquet confond refus et panne du serveur de jetons) ; `basicfit_connect` 10/h, `basicfit_sync` 3/h, `basicfit_read` 60/min ;
-  - données gardées : nom du club principal et visites (club chiffré), poids des balances (une pesée par jour local, la plus tardive) ; la composition corporelle et le reste du profil membre sont abandonnés dans la passerelle ;
-  - `BodyWeight.source` (`manual`, `basicfit`) : `import_scale_weight` remplit un jour vide, suit sa balance, ne remplace jamais une saisie manuelle (point de sauvegarde contre une saisie concurrente) ;
-  - `BASICFIT_ENABLED` (faux par défaut) transmis par `compose.yaml` ; à mettre à `true` dans `.env` pour l'essayer ; désactivé, la section du profil n'apparaît pas et les écritures répondent 404.
+- **Basic-Fit** (ADR 0014) : **retiré** le 2026-11-18 (ADR 0016) : app, paquet, jetons, visites et pesées des balances supprimés par `body/0005_remove_basicfit`.
 - **Front** :
   - quand un bouton disparaît (liaison, déliaison, nouvel essai, « Préparer »), le focus va au titre de la section ou au nouvel élément ; jamais au haut de la page ;
   - message d'état vidé puis rempli pour qu'un même texte soit réannoncé ; rien d'affiché tant qu'on ignore si une section existe (pas de titre éphémère) ;
-  - requêtes `["activities"]`, `["insights"]`, `["basicfit"]` dans `PRIVATE_QUERY_KEYS`.
+  - requêtes `["activities"]`, `["insights"]` dans `PRIVATE_QUERY_KEYS`.
 - **E2E** : sélecteurs exacts pour les onglets (« Séance » contre « Commencer une séance ») ; en CI, une seule IP : les rejeux d'un test raté créent des comptes et peuvent faire buter les inscriptions suivantes sur la limite d'allauth (20/min/IP) ; corriger la cause première avant de chercher plus loin.
 - **Seed** : `seed_activities` (course le dimanche, natation un mardi sur deux).
 - **Reporté** :
-  - badges Basic-Fit dans le profil ; visite sans séance → proposer de la compléter ;
   - application `gyms` (salles, équipements disponibles) : non commencée ;
   - focus masqué par la barre d'onglets fixe avec le texte agrandi à 200 % (WCAG 2.4.11) : `scroll-padding-bottom` suppose une barre d'une rangée ;
   - plafond de séances par jour : aucun, ce qui laisse `export_workouts` et l'export RGPD charger un volume illimité ;
-  - Basic-Fit : un processus tué pendant l'appel perd la rotation des jetons (reconnexion) ; une pesée de la balance supprimée revient si elle date de la semaine relue ; pas de révocation possible des jetons chez Basic-Fit.
 
 ## Décisions et constats de la Phase 5 (à respecter)
 
@@ -396,7 +365,7 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
   - chaque domaine : variables complètes fixées à la saisie (identifiants client, heure), affichage optimiste (`onMutate`), lectures qui réappliquent la file (`withPending*`), relecture du serveur une fois la file vide (`isLastQueuedWrite`) ; hooks qui renvoient `mutate` sans attendre la réponse, messages « … sur cet appareil, envoi au retour du réseau » selon `onlineManager.isOnline()` ;
   - `onlineManager.setOnline(navigator.onLine)` au lancement (TanStack suppose le réseau présent au démarrage) ;
   - séance démarrée hors ligne depuis un programme : identifiants des exercices recopiés calculés comme l'API (`copiedExerciseId`, SHA-256) ;
-  - non mis en file : photos, programmes, objectifs, profil, compte, sécurité, Basic-Fit (réseau exigé).
+  - non mis en file : photos, programmes, objectifs, profil, compte, sécurité (réseau exigé).
 - **Écrans** : courbes et historiques non gardés hors ligne, l'écran le dit (`fetchStatus === "paused"`) au lieu de « Chargement… » ; catalogue d'exercices hors ligne : recherche parmi les exercices déjà vus (`offline-catalog.ts`) ; déconnexion avec saisies en attente : confirmation (attendre ou abandonner).
 - **Notification de fin de repos** : locale (`registration.showNotification`), case à cocher pendant un repos (`RestNotificationToggle`, hors du bloc collé au bas de la saisie, qui masquerait la charge), permission demandée au clic seulement, préférence de l'appareil en `localStorage`, seulement app en arrière-plan, texte fixe sans donnée de santé ; clic → retour à l'app (`notificationclick` dans `sw.ts`).
 - **E2E hors ligne** : `context.setOffline` ; les requêtes passant par le service worker échappent à `setOffline`, donc attendre l'écriture dans IndexedDB avant de recharger (`expectStoredWrites`, `expectStoredQuery`, qui expliquent l'échec : verrou, clés, saisies copiées) ; serveurs simulés **avec état** dans les tests unitaires (la relecture après la file voit les écritures) ; inscriptions : la suite dépasse la limite d'allauth (20/min/IP) depuis l'IP unique de la CI, `signUp` attend la minute suivante si l'écran l'annonce.

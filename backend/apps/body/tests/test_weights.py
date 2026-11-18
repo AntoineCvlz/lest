@@ -160,8 +160,6 @@ def test_weighings_are_exported_in_clear_and_deleted_with_the_account() -> None:
     user = make_verified_user()
     weigh(user, 0, "80.5")
 
-    assert export_account(user)["body_weights"] == [
-        {"date": "2026-10-01", "weight_kg": 80.5, "source": "manual"}
-    ]
+    assert export_account(user)["body_weights"] == [{"date": "2026-10-01", "weight_kg": 80.5}]
     delete_account(user=user, password=TEST_PASSWORD)
     assert not BodyWeight.objects.exists()

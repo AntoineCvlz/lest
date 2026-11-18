@@ -77,9 +77,8 @@ def test_listing_returns_the_period_with_its_trend() -> None:
             "date": (today - timedelta(days=1)).isoformat(),
             "weight_kg": 80.0,
             "trend_kg": 80.0,
-            "source": "manual",
         },
-        {"date": today.isoformat(), "weight_kg": 81.0, "trend_kg": 80.5, "source": "manual"},
+        {"date": today.isoformat(), "weight_kg": 81.0, "trend_kg": 80.5},
     ]
 
 

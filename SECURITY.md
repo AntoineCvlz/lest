@@ -25,7 +25,7 @@ Une divulgation coordonnée est convenue avec la personne ayant signalé le prob
 ## Périmètre
 
 - Inclus : le code de ce dépôt (API Django, front-end Next.js, configuration Docker et CI).
-- Exclus : les services tiers (Basic-Fit, Open Food Facts, wger), les attaques par déni de service, l'ingénierie sociale.
+- Exclus : les services tiers (Open Food Facts, RepDB, Ciqual), les attaques par déni de service, l'ingénierie sociale.
 
 ## Versions supportées
 

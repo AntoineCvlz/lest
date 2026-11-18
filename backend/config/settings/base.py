@@ -40,7 +40,6 @@ INSTALLED_APPS = [
     "apps.nutrition",
     "apps.activities",
     "apps.insights",
-    "apps.integrations.basicfit",
 ]
 
 # Défini avant toute migration de données : changer de modèle User ensuite est très coûteux.
@@ -185,12 +184,6 @@ ACCOUNT_RATE_LIMITS = {
     "activities_write": "120/m/user",
     # Tableau de bord : lecture agrégée, la plus coûteuse des GET (ADR 0013).
     "insights_read": "60/m/user",
-    # Connexion Basic-Fit (lien, puis URL collée) : quelques essais par heure suffisent.
-    "basicfit_connect": "10/3600s/user",
-    # Synchronisation à la demande : en plus du plafond d'une tentative par heure.
-    "basicfit_sync": "3/3600s/user",
-    # Visites Basic-Fit (calendrier) : lectures simples.
-    "basicfit_read": "60/m/user",
 }
 # Pages du front citées dans les e-mails. Avec les codes, seul l'e-mail « ce compte existe
 # déjà » (envoyé à la place d'une erreur révélatrice) renvoie vers le front.
@@ -249,11 +242,6 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.nutrition.tasks.import_foods",
         "schedule": crontab(day_of_month=2, hour=3, minute=30),
     },
-    # Comptes Basic-Fit reliés (ADR 0014) : au plus une synchronisation par heure et par compte.
-    "basicfit-sync": {
-        "task": "apps.integrations.basicfit.tasks.sync_due_accounts",
-        "schedule": crontab(minute=17),
-    },
     # Catalogue d'exercices RepDB et ses images (ADR 0006), le 1er de chaque mois.
     "import-exercises": {
         "task": "apps.training.tasks.import_exercises",
@@ -271,9 +259,6 @@ CIQUAL_FILES = {"alim": 666252, "compo": 666249}
 OFF_BASE_URL = env("OFF_BASE_URL", default="https://world.openfoodfacts.org")
 OFF_CONTACT = env("OFF_CONTACT", default="github.com/AntoineCvlz/lest")
 
-# Intégration Basic-Fit (ADR 0014) : API non officielle, désactivée par défaut. Sans elle,
-# l'application reste entièrement utilisable.
-BASICFIT_ENABLED = env.bool("BASICFIT_ENABLED", default=False)
 # Distribution officielle du jeu de données RepDB (catalogue d'exercices, ADR 0006).
 REPDB_BASE_URL = env(
     "REPDB_BASE_URL",

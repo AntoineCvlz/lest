@@ -27,7 +27,6 @@ export default {
         "body",
         "gyms",
         "insights",
-        "basicfit",
       ],
     ],
   },

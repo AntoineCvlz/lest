@@ -12,7 +12,6 @@ const point = (date: string, weight: number, trend = weight) => ({
   date,
   weight_kg: weight,
   trend_kg: trend,
-  source: "manual" as const,
 });
 
 function queue(queryClient: QueryClient, mutationKey: readonly string[], variables: unknown) {

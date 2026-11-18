@@ -63,8 +63,6 @@ class WeightPointOut(Schema):
     weight_kg: float
     # Moyenne des pesées des 7 derniers jours, jour compris.
     trend_kg: float
-    # Saisie à la main, ou balance Basic-Fit (ADR 0014).
-    source: Literal["manual", "basicfit"]
 
 
 # Valeurs de `Site` (un test vérifie qu'elles restent alignées) : énumération dans l'OpenAPI.
@@ -123,7 +121,6 @@ def list_weights(request: HttpRequest, period: Query[Period]) -> list[WeightPoin
                 "date": p.date,
                 "weight_kg": float(p.weight_kg),
                 "trend_kg": float(p.trend_kg),
-                "source": p.source,
             }
         )
         for p in points

@@ -261,66 +261,6 @@
         "title": "AdherenceOut",
         "type": "object"
       },
-      "ConnectionOut": {
-        "properties": {
-          "connected_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Connected At"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          },
-          "home_club": {
-            "title": "Home Club",
-            "type": "string"
-          },
-          "last_error": {
-            "title": "Last Error",
-            "type": "string"
-          },
-          "last_sync_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Sync At"
-          },
-          "status": {
-            "enum": [
-              "disabled",
-              "none",
-              "connected",
-              "expired"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "enabled",
-          "status",
-          "connected_at",
-          "last_sync_at",
-          "last_error",
-          "home_club"
-        ],
-        "title": "ConnectionOut",
-        "type": "object"
-      },
       "CustomFoodIn": {
         "properties": {
           "brand": {
@@ -1130,19 +1070,6 @@
         "title": "LastSetsOut",
         "type": "object"
       },
-      "LoginOut": {
-        "properties": {
-          "authorize_url": {
-            "title": "Authorize Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "authorize_url"
-        ],
-        "title": "LoginOut",
-        "type": "object"
-      },
       "MacrosOut": {
         "properties": {
           "carbs_g": {
@@ -1927,21 +1854,6 @@
         "title": "RecordOut",
         "type": "object"
       },
-      "RedirectIn": {
-        "properties": {
-          "redirect_url": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Redirect Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "redirect_url"
-        ],
-        "title": "RedirectIn",
-        "type": "object"
-      },
       "SetIn": {
         "properties": {
           "is_warmup": {
@@ -2122,19 +2034,6 @@
           "metrics"
         ],
         "title": "SportOut",
-        "type": "object"
-      },
-      "SyncOut": {
-        "properties": {
-          "queued": {
-            "title": "Queued",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "queued"
-        ],
-        "title": "SyncOut",
         "type": "object"
       },
       "TargetsIn": {
@@ -2393,25 +2292,6 @@
         "title": "TotalsOut",
         "type": "object"
       },
-      "VisitOut": {
-        "properties": {
-          "club": {
-            "title": "Club",
-            "type": "string"
-          },
-          "date": {
-            "format": "date",
-            "title": "Date",
-            "type": "string"
-          }
-        },
-        "required": [
-          "date",
-          "club"
-        ],
-        "title": "VisitOut",
-        "type": "object"
-      },
       "WaterIn": {
         "properties": {
           "ml": {
@@ -2595,14 +2475,6 @@
             "title": "Date",
             "type": "string"
           },
-          "source": {
-            "enum": [
-              "manual",
-              "basicfit"
-            ],
-            "title": "Source",
-            "type": "string"
-          },
           "trend_kg": {
             "title": "Trend Kg",
             "type": "number"
@@ -2615,8 +2487,7 @@
         "required": [
           "date",
           "weight_kg",
-          "trend_kg",
-          "source"
+          "trend_kg"
         ],
         "title": "WeightPointOut",
         "type": "object"
@@ -3211,208 +3082,6 @@
         "summary": "Enregistrer ou remplacer une activité",
         "tags": [
           "activities"
-        ]
-      }
-    },
-    "/api/v1/basicfit/connection/": {
-      "delete": {
-        "operationId": "apps_integrations_basicfit_api_router_disconnect",
-        "parameters": [],
-        "responses": {
-          "204": {
-            "description": "No Content"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "Délier Basic-Fit",
-        "tags": [
-          "basicfit"
-        ]
-      },
-      "get": {
-        "operationId": "apps_integrations_basicfit_api_router_connection",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectionOut"
-                }
-              }
-            },
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "État de la liaison",
-        "tags": [
-          "basicfit"
-        ]
-      }
-    },
-    "/api/v1/basicfit/connection/complete/": {
-      "post": {
-        "operationId": "apps_integrations_basicfit_api_router_complete",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RedirectIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConnectionOut"
-                }
-              }
-            },
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "Terminer la connexion avec l'URL de redirection",
-        "tags": [
-          "basicfit"
-        ]
-      }
-    },
-    "/api/v1/basicfit/connection/start/": {
-      "post": {
-        "operationId": "apps_integrations_basicfit_api_router_start",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LoginOut"
-                }
-              }
-            },
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "Commencer la connexion",
-        "tags": [
-          "basicfit"
-        ]
-      }
-    },
-    "/api/v1/basicfit/sync/": {
-      "post": {
-        "operationId": "apps_integrations_basicfit_api_router_sync_now",
-        "parameters": [],
-        "responses": {
-          "202": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SyncOut"
-                }
-              }
-            },
-            "description": "Accepted"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "Synchroniser maintenant (au plus une fois par heure)",
-        "tags": [
-          "basicfit"
-        ]
-      }
-    },
-    "/api/v1/basicfit/visits/": {
-      "get": {
-        "operationId": "apps_integrations_basicfit_api_router_visits",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "start",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "date",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Start"
-            }
-          },
-          {
-            "in": "query",
-            "name": "end",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "format": "date",
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "End"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/VisitOut"
-                  },
-                  "title": "Response",
-                  "type": "array"
-                }
-              }
-            },
-            "description": "OK"
-          }
-        },
-        "security": [
-          {
-            "BearerJWTAuth": []
-          }
-        ],
-        "summary": "Visites d'une période",
-        "tags": [
-          "basicfit"
         ]
       }
     },

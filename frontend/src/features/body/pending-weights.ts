@@ -29,7 +29,6 @@ export function applySaveWeight(points: Point[], { day, kilograms }: SaveWeightV
   const shown: Point = {
     date: day,
     weight_kg: kilograms,
-    source: "manual",
     trend_kg: existing?.trend_kg ?? kilograms,
   };
   return [...points.filter((point) => point.date !== day), shown].sort((a, b) =>

@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 
 import { AuthPage } from "@/features/auth/auth-page";
-import { BasicFitSection } from "@/features/basicfit/basicfit-section";
 import { TextLink } from "@/features/auth/text-link";
 import { NutritionTargets } from "@/features/nutrition/nutrition-targets";
 import { ProfileEditor } from "@/features/profile/profile-editor";
@@ -13,7 +12,6 @@ export default function ProfilePage() {
     <AuthPage title="Profil" footer={<TextLink href="/">Revenir à l’accueil</TextLink>}>
       <ProfileEditor />
       <NutritionTargets />
-      <BasicFitSection />
     </AuthPage>
   );
 }
