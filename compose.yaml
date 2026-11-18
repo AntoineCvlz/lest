@@ -144,7 +144,7 @@ services:
           path: ./frontend/package.json
 
   mailpit:
-    image: axllent/mailpit:v1.33.0
+    image: axllent/mailpit:v1.33.1
     ports:
       - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
 
