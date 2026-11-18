@@ -49,7 +49,7 @@ x-backend: &backend
 
 services:
   db:
-    image: postgres:17.11-alpine
+    image: postgres:17.12-alpine
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?définir POSTGRES_USER dans .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env}
