@@ -11,9 +11,7 @@ export default function ActivitiesPage() {
       <TextLink href="/seance" className="self-start">
         Revenir à la séance
       </TextLink>
-      <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">
-        Autres sports
-      </h1>
+      <h1 className="text-[30px] leading-[1.05] font-extrabold type-title">Autres sports</h1>
       <ActivityJournal />
     </main>
   );

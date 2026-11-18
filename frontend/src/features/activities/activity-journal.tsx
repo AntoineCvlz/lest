@@ -315,7 +315,7 @@ export function ActivityJournal() {
             submit();
           }}
         >
-          <h2 id="activity-title" className="text-xl font-extrabold [font-stretch:112%]">
+          <h2 id="activity-title" className="text-xl font-extrabold type-value">
             {editing ? "Modifier l’activité" : "Noter une activité"}
           </h2>
           <SelectField
@@ -533,7 +533,7 @@ export function ActivityJournal() {
         aria-busy={activities.isPending}
         className="flex flex-col gap-4"
       >
-        <h2 id="history-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="history-title" className="text-xl font-extrabold type-value">
           {`${String(JOURNAL_DAYS)} derniers jours`}
         </h2>
         {activities.isPending && (

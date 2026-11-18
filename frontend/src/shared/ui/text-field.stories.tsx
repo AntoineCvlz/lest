@@ -15,11 +15,11 @@ type Story = StoryObj<typeof meta>;
 export const Vide: Story = {
   play: async ({ canvasElement }) => {
     const field = within(canvasElement).getByRole("textbox", { name: "Adresse e-mail" });
-    // Garde-fou : tokens réellement appliqués (fond acier, 56 px, Archivo).
+    // Garde-fou : tokens réellement appliqués (fond de carte, 56 px, Public Sans).
     const style = getComputedStyle(field);
-    await expect(style.backgroundColor).toBe("rgb(36, 48, 59)");
+    await expect(style.backgroundColor).toBe("rgb(35, 46, 58)");
     await expect(field.getBoundingClientRect().height).toBeGreaterThanOrEqual(56);
-    await expect(style.fontFamily).toMatch(/Archivo/);
+    await expect(style.fontFamily).toMatch(/Public Sans/);
     await userEvent.type(field, "membre@example.com");
     await expect(field).toHaveValue("membre@example.com");
   },

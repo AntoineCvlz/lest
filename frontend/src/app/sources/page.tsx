@@ -29,9 +29,7 @@ function External({
 export default function SourcesPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pt-8 pb-10 sm:pt-16">
-      <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">
-        Sources et licences
-      </h1>
+      <h1 className="text-[30px] leading-[1.05] font-extrabold type-title">Sources et licences</h1>
       <section aria-labelledby="exercices" className="flex flex-col gap-3">
         <h2 id="exercices" className="text-xl font-bold">
           Catalogue d’exercices

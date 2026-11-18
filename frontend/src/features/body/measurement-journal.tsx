@@ -210,7 +210,7 @@ export function MeasurementJournal() {
           send(changes);
         }}
       >
-        <h2 id="measure-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="measure-title" className="text-xl font-extrabold type-value">
           {day === today ? "Mensurations du jour" : `Mensurations du ${longDay(day)}`}
         </h2>
         <p className="text-ink-muted text-sm">
@@ -310,7 +310,7 @@ export function MeasurementJournal() {
         aria-busy={measurements.isFetching}
         className="flex flex-col gap-5"
       >
-        <h2 id="progress-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="progress-title" className="text-xl font-extrabold type-value">
           Évolution sur l’année
         </h2>
         {measurements.isPending && (

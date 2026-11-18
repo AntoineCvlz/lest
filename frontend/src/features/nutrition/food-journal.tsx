@@ -204,7 +204,7 @@ export function FoodJournal() {
         >
           ←
         </Button>
-        <h2 aria-live="polite" className="text-center text-xl font-extrabold [font-stretch:112%]">
+        <h2 aria-live="polite" className="text-center text-xl font-extrabold type-value">
           {day === today ? "Aujourd’hui" : longDay(day)}
         </h2>
         <Button
@@ -247,7 +247,7 @@ export function FoodJournal() {
             <dl className="grid grid-cols-3 gap-3 tabular-nums">
               <div className="col-span-3">
                 <dt className="sr-only">Énergie</dt>
-                <dd className="text-[40px] leading-none font-extrabold [font-stretch:112%]">
+                <dd className="text-[40px] leading-none font-extrabold type-value">
                   {kcal(data.totals.kcal)}
                 </dd>
                 {goals && (
@@ -305,7 +305,7 @@ export function FoodJournal() {
             return (
               <section key={meal} aria-labelledby={`meal-${meal}`} className="flex flex-col gap-3">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h2 id={`meal-${meal}`} className="text-xl font-extrabold [font-stretch:112%]">
+                  <h2 id={`meal-${meal}`} className="text-xl font-extrabold type-value">
                     {label}
                   </h2>
                   <span className="text-ink-muted tabular-nums">{kcal(subtotal)}</span>

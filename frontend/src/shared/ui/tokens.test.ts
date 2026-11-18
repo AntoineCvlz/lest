@@ -34,9 +34,9 @@ describe("tokens.css", () => {
     for (const name of themed) expect(dark.has(name)).toBe(true);
   });
 
-  it("garde le jaune comme fond dans les deux thèmes, jamais comme texte en clair", () => {
-    expect(dark.get("--lest-accent")).toBe("#f2c230");
-    expect(lightBySystem.has("--lest-accent")).toBe(false);
-    expect(lightBySystem.get("--lest-accent-ink")).not.toBe("#f2c230");
+  it("assombrit le cobalt en clair, pour le texte comme pour le fond", () => {
+    expect(dark.get("--lest-accent")).toBe("#5b9bff");
+    expect(lightBySystem.get("--lest-accent")).toBe("#1f5fc9");
+    expect(lightBySystem.get("--lest-accent-ink")).toBe("#1f5fc9");
   });
 });

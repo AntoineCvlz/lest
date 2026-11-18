@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Hors ligne" };
 export default function OfflinePage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-6 p-6">
-      <h1 className="text-3xl font-extrabold [font-stretch:125%]">Hors ligne</h1>
+      <h1 className="text-3xl font-extrabold type-title">Hors ligne</h1>
       <p>
         Cette page n’a pas encore été ouverte sur cet appareil. Elle s’affichera au retour du
         réseau.

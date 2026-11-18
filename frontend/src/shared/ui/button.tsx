@@ -24,7 +24,7 @@ const VARIANTS: Record<Variant, string> = {
 
 const SIZES: Record<Size, string> = {
   md: "min-h-11 px-4 text-base",
-  lg: "min-h-16 px-6 text-xl [font-stretch:112%]",
+  lg: "min-h-16 px-6 text-xl type-value",
 };
 
 /** Bouton « Fonte calibrée » : `type="button"` par défaut, jamais un submit involontaire. */

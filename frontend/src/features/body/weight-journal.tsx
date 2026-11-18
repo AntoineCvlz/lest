@@ -139,7 +139,7 @@ export function WeightJournal() {
           reset(`Pesée du ${longDay(day)} enregistrée${savedWhere()}.`);
         }}
       >
-        <h2 id="weigh-in-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="weigh-in-title" className="text-xl font-extrabold type-value">
           {day === today ? "Pesée du jour" : `Pesée du ${longDay(day)}`}
         </h2>
         <div className="grid grid-cols-2 gap-3">
@@ -244,7 +244,7 @@ export function WeightJournal() {
         aria-busy={weights.isFetching}
         className="flex flex-col gap-5"
       >
-        <h2 id="trend-title" className="text-xl font-extrabold [font-stretch:112%]">
+        <h2 id="trend-title" className="text-xl font-extrabold type-value">
           Tendance
         </h2>
         <ChoiceGroup
