@@ -29,13 +29,6 @@ class Site(models.TextChoices):
     CALF = "calf", "Mollet"
 
 
-class WeightSource(models.TextChoices):
-    """Origine d'une pesée : une saisie à la main prime toujours sur une balance de club."""
-
-    MANUAL = "manual", "Saisie"
-    BASICFIT = "basicfit", "Balance Basic-Fit"
-
-
 class BodyWeight(models.Model):
     """Une pesée par compte et par jour ; une nouvelle saisie du même jour la remplace."""
 
@@ -44,9 +37,6 @@ class BodyWeight(models.Model):
     )
     date = models.DateField()
     weight_kg = EncryptedDecimalField(decimal_places=2)
-    source = models.CharField(
-        max_length=10, choices=WeightSource.choices, default=WeightSource.MANUAL
-    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -54,10 +44,6 @@ class BodyWeight(models.Model):
         ordering = ("date",)
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(fields=("owner", "date"), name="body_weight_one_per_day"),
-            models.CheckConstraint(
-                condition=models.Q(source__in=WeightSource.values),
-                name="body_weight_source_valid",
-            ),
         ]
 
     def __str__(self) -> str:

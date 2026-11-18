@@ -39,92 +39,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/basicfit/connection/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** État de la liaison */
-        get: operations["apps_integrations_basicfit_api_router_connection"];
-        put?: never;
-        post?: never;
-        /** Délier Basic-Fit */
-        delete: operations["apps_integrations_basicfit_api_router_disconnect"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/basicfit/connection/complete/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Terminer la connexion avec l'URL de redirection */
-        post: operations["apps_integrations_basicfit_api_router_complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/basicfit/connection/start/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Commencer la connexion */
-        post: operations["apps_integrations_basicfit_api_router_start"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/basicfit/sync/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Synchroniser maintenant (au plus une fois par heure) */
-        post: operations["apps_integrations_basicfit_api_router_sync_now"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/basicfit/visits/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Visites d'une période */
-        get: operations["apps_integrations_basicfit_api_router_visits"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/body-measurements/": {
         parameters: {
             query?: never;
@@ -836,24 +750,6 @@ export interface components {
             /** Protein Days */
             protein_days: number;
         };
-        /** ConnectionOut */
-        ConnectionOut: {
-            /** Connected At */
-            connected_at: string | null;
-            /** Enabled */
-            enabled: boolean;
-            /** Home Club */
-            home_club: string;
-            /** Last Error */
-            last_error: string;
-            /** Last Sync At */
-            last_sync_at: string | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "disabled" | "none" | "connected" | "expired";
-        };
         /** CustomFoodIn */
         CustomFoodIn: {
             /**
@@ -1118,11 +1014,6 @@ export interface components {
         LastSetsOut: {
             /** Sets */
             sets: components["schemas"]["SetOut"][];
-        };
-        /** LoginOut */
-        LoginOut: {
-            /** Authorize Url */
-            authorize_url: string;
         };
         /** MacrosOut */
         MacrosOut: {
@@ -1464,11 +1355,6 @@ export interface components {
             /** Value Kg */
             value_kg: number;
         };
-        /** RedirectIn */
-        RedirectIn: {
-            /** Redirect Url */
-            redirect_url: string;
-        };
         /** SetIn */
         SetIn: {
             /**
@@ -1538,11 +1424,6 @@ export interface components {
             label: string;
             /** Metrics */
             metrics: components["schemas"]["MetricOut"][];
-        };
-        /** SyncOut */
-        SyncOut: {
-            /** Queued */
-            queued: boolean;
         };
         /** TargetsIn */
         TargetsIn: {
@@ -1617,16 +1498,6 @@ export interface components {
             /** Protein */
             protein: number;
         };
-        /** VisitOut */
-        VisitOut: {
-            /** Club */
-            club: string;
-            /**
-             * Date
-             * Format: date
-             */
-            date: string;
-        };
         /** WaterIn */
         WaterIn: {
             /** Ml */
@@ -1680,11 +1551,6 @@ export interface components {
              * Format: date
              */
             date: string;
-            /**
-             * Source
-             * @enum {string}
-             */
-            source: "manual" | "basicfit";
             /** Trend Kg */
             trend_kg: number;
             /** Weight Kg */
@@ -1937,131 +1803,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_connection: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectionOut"];
-                };
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_disconnect: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No Content */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_complete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RedirectIn"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConnectionOut"];
-                };
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_start: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LoginOut"];
-                };
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_sync_now: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Accepted */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SyncOut"];
-                };
-            };
-        };
-    };
-    apps_integrations_basicfit_api_router_visits: {
-        parameters: {
-            query?: {
-                start?: string | null;
-                end?: string | null;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VisitOut"][];
-                };
             };
         };
     };

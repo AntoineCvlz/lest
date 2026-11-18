@@ -1,7 +1,6 @@
 "use client";
 
 import { ACTIVITIES_KEY } from "@/features/activities/query-keys";
-import { BASICFIT_KEY } from "@/features/basicfit/query-keys";
 import { INSIGHTS_KEY } from "@/features/insights/query-keys";
 import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -34,7 +33,6 @@ const PRIVATE_QUERY_KEYS = [
   NUTRITION_KEY,
   ACTIVITIES_KEY,
   INSIGHTS_KEY,
-  BASICFIT_KEY,
 ];
 const LOGOUT_FAILED = "Déconnexion impossible pour le moment. Réessayez dans un instant.";
 export const OFFLINE_COPY =

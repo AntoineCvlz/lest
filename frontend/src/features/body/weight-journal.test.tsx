@@ -15,11 +15,8 @@ import { DATE_OUT_OF_RANGE, NO_WEIGHT, WeightJournal, WEIGHTS_UNAVAILABLE } from
 const TODAY = localDay();
 const YESTERDAY = shiftDay(TODAY, -1);
 
-const FIRST = { date: shiftDay(TODAY, -2), weight_kg: 80, trend_kg: 80, source: "manual" as const };
-const points = [
-  FIRST,
-  { date: YESTERDAY, weight_kg: 81.4, trend_kg: 80.7, source: "manual" as const },
-];
+const FIRST = { date: shiftDay(TODAY, -2), weight_kg: 80, trend_kg: 80 };
+const points = [FIRST, { date: YESTERDAY, weight_kg: 81.4, trend_kg: 80.7 }];
 
 function api({
   weights = points,

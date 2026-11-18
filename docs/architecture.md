@@ -11,13 +11,11 @@ flowchart LR
     lest["Lest<br/>suivi musculation, corps, nutrition, sports"]
     off[("Open Food Facts<br/>aliments, codes-barres")]
     repdb[("RepDB<br/>catalogue d'exercices illustré, attribution")]
-    bf[("API Basic-Fit<br/>non officielle, optionnelle")]
     mail[("Serveur SMTP<br/>e-mails de compte")]
 
     user -- "HTTPS (PWA)" --> lest
     lest -- "recherche, scan" --> off
     lest -- "import_exercises" --> repdb
-    lest -. "visites, pesées, clubs<br/>(BASICFIT_ENABLED)" .-> bf
     lest -- "vérification, reset" --> mail
 ```
 
@@ -30,7 +28,7 @@ flowchart TB
     subgraph lest["Lest"]
         web["web — Next.js 16 (App Router)<br/>SSR, CSP à nonce, proxy /api (BFF)"]
         api["api — Django 5.2 + Ninja<br/>/api/v1, allauth headless (JWT)"]
-        worker["worker — Celery<br/>imports, recalculs, synchro Basic-Fit"]
+        worker["worker — Celery<br/>imports, recalculs"]
         db[("db — PostgreSQL 17")]
         redis[("redis — Redis 7<br/>cache + broker")]
     end
