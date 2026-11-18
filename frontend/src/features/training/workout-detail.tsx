@@ -45,7 +45,7 @@ export function WorkoutDetail({ id }: { id: string }) {
       <div className="flex flex-col gap-2">
         <h1
           id="seance"
-          className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%] first-letter:uppercase"
+          className="text-[30px] leading-[1.05] font-extrabold type-title first-letter:uppercase"
         >
           {WORKOUT_DAY.format(new Date(detail.started_at))}
         </h1>

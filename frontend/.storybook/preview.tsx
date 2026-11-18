@@ -1,4 +1,5 @@
-import "@fontsource-variable/archivo/standard.css";
+import "@fontsource-variable/anybody/standard.css";
+import "@fontsource-variable/public-sans";
 import type { Preview } from "@storybook/nextjs-vite";
 import { useLayoutEffect } from "react";
 

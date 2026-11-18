@@ -30,7 +30,7 @@ export function PasskeyList({
 }: PasskeyListProps) {
   return (
     <div className="flex flex-col gap-4 pt-4">
-      <h3 className="text-lg font-bold [font-stretch:112%]">Passkeys</h3>
+      <h3 className="text-lg font-bold type-value">Passkeys</h3>
       {notice && (
         <p role="status" className="font-semibold">
           {notice}

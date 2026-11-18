@@ -273,7 +273,7 @@ export function NutritionTargets() {
       aria-labelledby="targets-title"
       className="border-line-subtle flex flex-col gap-4 border-t pt-8"
     >
-      <h2 id="targets-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <h2 id="targets-title" className="text-xl font-extrabold type-value">
         Objectifs nutritionnels
       </h2>
       <p className="text-ink-muted">

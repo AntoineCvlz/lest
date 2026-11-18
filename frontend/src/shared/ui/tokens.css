@@ -1,5 +1,5 @@
 /*
- * Tokens « Fonte calibrée » — source unique des valeurs du design system.
+ * Tokens « Magnésie » — source unique des valeurs du design system.
  * Intention et règles d'usage : docs/design-system.md.
  *
  * Thème sombre par défaut (salle peu éclairée). Thème clair : réglage du système, ou
@@ -11,16 +11,18 @@
   color-scheme: dark;
 
   /* Couleurs — thème sombre */
-  --lest-ground: #1b242d; /* ardoise */
-  --lest-surface: #24303b; /* acier */
-  --lest-surface-raised: #222d38;
-  --lest-ink: #e9eef2; /* givre, 13,4:1 */
-  --lest-ink-muted: #9aa8b5; /* zinc, 6,4:1 */
-  --lest-line: #66788a; /* contour des commandes, 3,4:1 */
-  --lest-line-subtle: #2e3b48; /* séparateurs décoratifs */
-  --lest-accent: #f2c230; /* jaune disque 15 kg, 9,4:1 */
-  --lest-on-accent: #1b242d;
-  --lest-accent-ink: #f2c230; /* accent utilisé comme texte ou trait */
+  --lest-ground: #1a222c; /* ardoise */
+  --lest-surface: #232e3a; /* carte d'exercice */
+  --lest-surface-raised: #2d3a48; /* ligne de série en cours */
+  --lest-done: #1f3350; /* série faite */
+  --lest-ink: #edf1f5; /* 14,1:1 */
+  --lest-ink-muted: #a7b3c0; /* 7,5:1 (5,4:1 sur surface-raised) */
+  --lest-line: #7a8da2; /* contour des commandes, 4,7:1 (3,4:1 sur surface-raised) */
+  --lest-line-subtle: #3a4a5b; /* séparateurs décoratifs */
+  --lest-accent: #5b9bff; /* cobalt, 5,8:1 */
+  --lest-on-accent: #0b1a2e; /* 6,3:1 sur l'accent */
+  --lest-accent-ink: #8db8ff; /* accent utilisé comme texte ou trait, 6,8:1 sur surface */
+  --lest-warmup: #f2c14e; /* repère de la série d'échauffement, toujours avec sa lettre « É » */
   --lest-danger: #ff8a7a;
   --lest-focus: var(--lest-accent);
 
@@ -55,15 +57,18 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --lest-ground: #eef1f4;
+    --lest-ground: #f3f5f8;
     --lest-surface: #ffffff;
-    --lest-surface-raised: #e2e7ec;
-    --lest-ink: #1b242d; /* 13,6:1 */
-    --lest-ink-muted: #4f5d6b; /* 5,9:1 */
-    --lest-line: #6b7c8c; /* 3,6:1 */
-    --lest-line-subtle: #d3dae1;
-    --lest-on-accent: #1b242d;
-    --lest-accent-ink: #7a5900; /* ocre : le jaune seul est illisible sur fond clair */
+    --lest-surface-raised: #e4e9ef;
+    --lest-done: #dce8fa;
+    --lest-ink: #16202b; /* 15,1:1 */
+    --lest-ink-muted: #4e5c6b; /* 6,3:1 */
+    --lest-line: #6c7e90; /* 3,8:1 */
+    --lest-line-subtle: #c9d2dc;
+    --lest-accent: #1f5fc9; /* 5,4:1 */
+    --lest-on-accent: #ffffff; /* 5,9:1 sur l'accent */
+    --lest-accent-ink: #1f5fc9;
+    --lest-warmup: #8a5a00;
     --lest-danger: #b3261e;
     --lest-focus: var(--lest-accent-ink);
     --lest-plate-25: #5b6b7b;
@@ -80,15 +85,18 @@
 /* Choix explicite du thème clair, quel que soit le réglage du système. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --lest-ground: #eef1f4;
+  --lest-ground: #f3f5f8;
   --lest-surface: #ffffff;
-  --lest-surface-raised: #e2e7ec;
-  --lest-ink: #1b242d;
-  --lest-ink-muted: #4f5d6b;
-  --lest-line: #6b7c8c;
-  --lest-line-subtle: #d3dae1;
-  --lest-on-accent: #1b242d;
-  --lest-accent-ink: #7a5900;
+  --lest-surface-raised: #e4e9ef;
+  --lest-done: #dce8fa;
+  --lest-ink: #16202b; /* 15,1:1 */
+  --lest-ink-muted: #4e5c6b; /* 6,3:1 */
+  --lest-line: #6c7e90; /* 3,8:1 */
+  --lest-line-subtle: #c9d2dc;
+  --lest-accent: #1f5fc9; /* 5,4:1 */
+  --lest-on-accent: #ffffff; /* 5,9:1 sur l'accent */
+  --lest-accent-ink: #1f5fc9;
+  --lest-warmup: #8a5a00;
   --lest-danger: #b3261e;
   --lest-focus: var(--lest-accent-ink);
   --lest-plate-25: #5b6b7b;

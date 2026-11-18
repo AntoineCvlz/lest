@@ -381,9 +381,7 @@ export function ProgramEditor({ id }: { id: string }) {
         />
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">
-            {program.name}
-          </h1>
+          <h1 className="text-[30px] leading-[1.05] font-extrabold type-title">{program.name}</h1>
           <Button
             variant="ghost"
             aria-label={`Renommer le programme ${program.name}`}

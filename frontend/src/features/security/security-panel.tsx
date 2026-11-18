@@ -347,13 +347,13 @@ export function SecurityPanel() {
       aria-labelledby="security-title"
       className="border-line-subtle flex flex-col gap-4 border-t pt-8"
     >
-      <h2 id="security-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <h2 id="security-title" className="text-xl font-extrabold type-value">
         Sécurité
       </h2>
 
       {step.kind === "idle" && (
         <>
-          <h3 className="text-lg font-bold [font-stretch:112%]">Application d’authentification</h3>
+          <h3 className="text-lg font-bold type-value">Application d’authentification</h3>
           <p role="status" className={totpEnabled ? "text-ink font-semibold" : "text-ink-muted"}>
             {authenticators.isPending
               ? "Vérification…"

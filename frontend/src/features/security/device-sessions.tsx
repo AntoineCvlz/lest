@@ -103,7 +103,7 @@ export function DeviceSessions() {
       aria-labelledby="devices-title"
       className="border-line-subtle flex flex-col gap-4 border-t pt-8"
     >
-      <h2 id="devices-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <h2 id="devices-title" className="text-xl font-extrabold type-value">
         Appareils connectés
       </h2>
       <p className="text-ink-muted">

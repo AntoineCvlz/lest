@@ -363,7 +363,7 @@ export function SetEntry({
           ref={headingRef}
           tabIndex={-1}
           lang={item.exercise_name_language}
-          className="min-w-0 text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]"
+          className="min-w-0 text-[30px] leading-[1.05] font-extrabold type-title"
         >
           {item.exercise_name}
         </h2>

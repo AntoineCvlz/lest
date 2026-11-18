@@ -23,7 +23,7 @@ export default async function HomePage() {
     return (
       <>
         <main className="mx-auto flex w-full max-w-2xl flex-col gap-8 px-5 pt-8 pb-10 sm:pt-16">
-          <h1 className="text-[30px] leading-[1.05] font-extrabold [font-stretch:125%]">Bilan</h1>
+          <h1 className="text-[30px] leading-[1.05] font-extrabold type-title">Bilan</h1>
           <Dashboard />
           <SessionPanel shortcuts={false} />
         </main>
@@ -34,7 +34,7 @@ export default async function HomePage() {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-5 py-10">
       <header className="flex flex-col gap-2">
-        <h1 className="text-[40px] leading-none font-extrabold [font-stretch:125%]">Lest</h1>
+        <h1 className="text-[40px] leading-none font-extrabold type-title">Lest</h1>
         <p className="text-ink-muted">
           Carnet d’entraînement : séances, autres sports, poids, repas et bilan de la semaine.
         </p>

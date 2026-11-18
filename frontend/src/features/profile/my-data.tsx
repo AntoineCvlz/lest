@@ -127,7 +127,7 @@ export function MyData() {
       aria-labelledby="my-data-title"
       className="border-line-subtle flex flex-col gap-4 border-t pt-8"
     >
-      <h2 id="my-data-title" className="text-xl font-extrabold [font-stretch:112%]">
+      <h2 id="my-data-title" className="text-xl font-extrabold type-value">
         Mes données
       </h2>
       <p className="text-ink-muted">

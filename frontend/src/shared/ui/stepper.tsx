@@ -72,9 +72,7 @@ export function Stepper({
           {decrementText}
         </button>
         <output aria-live="polite" className="text-center">
-          <span
-            className={`block leading-none font-extrabold [font-stretch:112%] ${VALUE_SIZES[size]}`}
-          >
+          <span className={`block leading-none font-extrabold type-value ${VALUE_SIZES[size]}`}>
             {formatNumber(value)}
           </span>
           {unit && <span className="text-ink-muted mt-1 block text-sm">{unit}</span>}

@@ -35,7 +35,7 @@ export function RestTimer({ timer }: { timer: Timer }) {
             <span
               role="timer"
               aria-labelledby={labelId}
-              className="text-[28px] leading-none font-extrabold [font-stretch:112%] [font-variant-numeric:tabular-nums]"
+              className="text-[28px] leading-none font-extrabold type-value [font-variant-numeric:tabular-nums]"
             >
               {clock(timer.remaining)}
             </span>
