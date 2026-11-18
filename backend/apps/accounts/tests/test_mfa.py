@@ -99,6 +99,31 @@ def test_enabling_totp_requires_a_recent_reauthentication(client: Client) -> Non
     assert not Authenticator.objects.filter(user=user).exists()
 
 
+def test_reauthentication_by_email_code_is_off(client: Client) -> None:
+    """allauth 65.22 l'active par défaut : réglage explicite, aucun code envoyé ni proposé."""
+    user = make_verified_user()
+    token = login(client, user.email)["access_token"]
+    mail.outbox.clear()
+
+    request = client.post(
+        f"{APP}/auth/reauthenticate/code/request",
+        {},
+        content_type="application/json",
+        headers=bearer(token),
+    )
+    # Action sensible sans confirmation récente : les parcours proposés.
+    secret = client.get(TOTP, headers=bearer(token)).json()["meta"]["secret"]
+    required = client.post(
+        TOTP, {"code": current_code(secret)}, content_type="application/json", headers=bearer(token)
+    )
+
+    assert request.status_code == 403
+    assert mail.outbox == []
+    flows = {flow["id"] for flow in required.json()["data"]["flows"]}
+    assert required.status_code == 401
+    assert "reauthenticate_by_code" not in flows
+
+
 def test_the_totp_secret_is_encrypted_at_rest(client: Client) -> None:
     user = make_verified_user()
 
