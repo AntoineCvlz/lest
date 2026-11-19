@@ -1,6 +1,6 @@
 # ADR 0016 — Retirer l'intégration Basic-Fit
 
-- **Statut** : proposé
+- **Statut** : accepté
 - **Date** : 2026-11-18
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 
