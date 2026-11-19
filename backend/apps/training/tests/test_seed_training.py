@@ -9,7 +9,15 @@ from django.core.management import CommandError, call_command
 
 from apps.accounts.tests.factories import make_verified_user
 from apps.training import demo
-from apps.training.models import PersonalRecord, Program, ProgramExercise, Set, SetType, Workout
+from apps.training.models import (
+    ExerciseKind,
+    PersonalRecord,
+    Program,
+    ProgramExercise,
+    Set,
+    SetType,
+    Workout,
+)
 from apps.training.tests.factories import make_exercise
 
 pytestmark = pytest.mark.django_db
@@ -90,6 +98,25 @@ def test_the_command_fills_the_demo_account_and_can_be_replayed() -> None:
     assert counts[0] > 0
     # Records détectés comme à la saisie, par les mêmes services.
     assert PersonalRecord.objects.filter(owner=user).exists()
+
+
+@pytest.mark.usefixtures("dev")
+def test_the_seed_only_sends_the_columns_of_each_exercise_kind() -> None:
+    # Catalogue frais : RepDB classe les tractions et les fentes au poids du corps (ADR 0017).
+    bodyweight = {"pull-up", "walking-lunge"}
+    for source_id in demo.SOURCE_IDS:
+        kind = ExerciseKind.REPS if source_id in bodyweight else ExerciseKind.WEIGHT_REPS
+        make_exercise(name=source_id, source_id=source_id, kind=kind)
+    make_verified_user(email="demo@example.com")
+
+    seed()
+
+    pull_ups = Set.objects.filter(workout_exercise__exercise__source_id="pull-up")
+    assert pull_ups.exists()
+    assert not pull_ups.filter(weight_kg__isnull=False).exists()
+    assert not Set.objects.filter(
+        workout_exercise__exercise__source_id="bench-press", weight_kg__isnull=True
+    ).exists()
 
 
 @pytest.mark.usefixtures("catalog", "dev")
