@@ -109,6 +109,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom-exercises/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mes exercices perso */
+        get: operations["apps_training_api_custom_exercises_list_custom_exercises"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-exercises/{exercise_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Créer ou modifier un exercice perso */
+        put: operations["apps_training_api_custom_exercises_write_custom_exercise"];
+        post?: never;
+        /** Supprimer un exercice perso inutilisé */
+        delete: operations["apps_training_api_custom_exercises_remove_custom_exercise"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/exercise-filters/": {
         parameters: {
             query?: never;
@@ -750,6 +785,37 @@ export interface components {
             /** Protein Days */
             protein_days: number;
         };
+        /** CustomExerciseIn */
+        CustomExerciseIn: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "abs" | "arms" | "back" | "calves" | "cardio" | "chest" | "legs" | "shoulders" | "full_body";
+            /** Equipment Ids */
+            equipment_ids?: number[];
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "weight_reps" | "reps" | "weighted_reps" | "assisted_reps" | "duration" | "distance_duration" | "weight_distance";
+            /** Muscle Ids */
+            muscle_ids?: number[];
+            /** Name */
+            name: string;
+            /** Secondary Muscle Ids */
+            secondary_muscle_ids?: number[];
+        };
+        /** CustomExercisesOut */
+        CustomExercisesOut: {
+            /** Items */
+            items: components["schemas"]["ExerciseDetailOut"][];
+        };
         /** CustomFoodIn */
         CustomFoodIn: {
             /**
@@ -863,6 +929,13 @@ export interface components {
             images: components["schemas"]["ImageOut"][];
             /** Is Active */
             is_active: boolean;
+            /** Is Custom */
+            is_custom: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "weight_reps" | "reps" | "weighted_reps" | "assisted_reps" | "duration" | "distance_duration" | "weight_distance";
             /** License */
             license: string;
             /** License Author */
@@ -903,6 +976,13 @@ export interface components {
              */
             id: string;
             image: components["schemas"]["ImageOut"] | null;
+            /** Is Custom */
+            is_custom: boolean;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "weight_reps" | "reps" | "weighted_reps" | "assisted_reps" | "duration" | "distance_duration" | "weight_distance";
             /** Muscles */
             muscles: components["schemas"]["NamedOut"][];
             /** Name */
@@ -1950,6 +2030,81 @@ export interface operations {
             header?: never;
             path: {
                 day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    apps_training_api_custom_exercises_list_custom_exercises: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomExercisesOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_custom_exercises_write_custom_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomExerciseIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseDetailOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExerciseDetailOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_custom_exercises_remove_custom_exercise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exercise_id: string;
             };
             cookie?: never;
         };

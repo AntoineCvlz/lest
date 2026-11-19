@@ -48,11 +48,12 @@ def search_exercises(
     cursor: str | None = None,
     limit: int,
 ) -> Page[Exercise]:
-    """Exercices actifs du catalogue (commun à tous les comptes), par ordre alphabétique.
+    """Exercices actifs du catalogue (commun à tous les comptes), par ordre alphabétique ; les
+    exercices perso n'y figurent pas (`list_custom_exercises`, ADR 0017).
 
     Un muscle filtre sur les muscles principaux et secondaires. Lève `InvalidCursorError`.
     """
-    exercises = Exercise.objects.filter(is_active=True)
+    exercises = Exercise.objects.filter(is_active=True, owner__isnull=True)
     for term in query.split()[:MAX_SEARCH_TERMS]:
         exercises = exercises.filter(name__unaccent__icontains=term)
     if category is not None:
@@ -71,21 +72,53 @@ def search_exercises(
     )
 
 
-def get_exercise(*, exercise_id: UUID) -> Exercise | None:
-    """Exercice du catalogue, même retiré de RepDB (il reste lisible depuis l'historique)."""
+def get_exercise(*, owner: User, exercise_id: UUID) -> Exercise | None:
+    """Exercice du catalogue, même retiré de RepDB (il reste lisible depuis l'historique), ou
+    exercice perso de `owner` ; celui d'un autre compte : `None`."""
     return (
         Exercise.objects.filter(pk=exercise_id)
+        .filter(Q(owner__isnull=True) | Q(owner=owner))
         .prefetch_related("muscles", "secondary_muscles", "equipment", "images")
         .first()
     )
 
 
+def list_custom_exercises(*, owner: User) -> list[Exercise]:
+    """Exercices perso de `owner`, archivés compris (300 au plus), par ordre alphabétique."""
+    return list(
+        Exercise.objects.filter(owner=owner).prefetch_related(
+            "muscles", "secondary_muscles", "equipment", "images"
+        )
+    )
+
+
+def export_custom_exercises(*, owner: User) -> list[dict[str, Any]]:
+    """Exercices perso de `owner`, pour l'export RGPD."""
+    return [
+        {
+            "id": str(exercise.pk),
+            "name": exercise.name,
+            "kind": exercise.kind,
+            "category": exercise.category,
+            "muscles": [muscle.name for muscle in exercise.muscles.all()],
+            "secondary_muscles": [muscle.name for muscle in exercise.secondary_muscles.all()],
+            "equipment": [item.name for item in exercise.equipment.all()],
+            "is_active": exercise.is_active,
+        }
+        for exercise in list_custom_exercises(owner=owner)
+    ]
+
+
 def exercise_filters() -> tuple[list[Muscle], list[Equipment]]:
     """Muscles et équipements utilisés par au moins un exercice actif (valeurs des filtres)."""
+    # Catalogue seulement : les filtres ne trahissent pas les exercices perso d'un compte.
     muscles = Muscle.objects.filter(
-        Q(primary_exercises__is_active=True) | Q(secondary_exercises__is_active=True)
+        Q(primary_exercises__is_active=True, primary_exercises__owner__isnull=True)
+        | Q(secondary_exercises__is_active=True, secondary_exercises__owner__isnull=True)
     ).distinct()
-    equipment = Equipment.objects.filter(exercises__is_active=True).distinct()
+    equipment = Equipment.objects.filter(
+        exercises__is_active=True, exercises__owner__isnull=True
+    ).distinct()
     return list(muscles), list(equipment)
 
 

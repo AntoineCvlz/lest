@@ -5,12 +5,18 @@ import type { Schemas } from "@/shared/api/client";
 import { isRecentSearch, KEPT_SEARCHES, searchSeen, seenExercises } from "./offline-catalog";
 import type { ExerciseSearch } from "./use-exercises";
 
-function exercise(id: string, name: string, overrides: Partial<Schemas["ExerciseOut"]> = {}) {
+function exercise(
+  id: string,
+  name: string,
+  overrides: Partial<Schemas["ExerciseOut"]> = {},
+): Schemas["ExerciseOut"] {
   return {
     id,
     name,
     name_language: "fr" as const,
     category: "chest" as const,
+    kind: "weight_reps" as const,
+    is_custom: false,
     muscles: [{ id: 4, name: "Pectoralis major" }],
     equipment: [{ id: 1, name: "Barre" }],
     image: null,

@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 from django.test import Client
 
-from apps.training.api.router import CategoryName
-from apps.training.models import Category, Equipment, Muscle, NameLanguage
+from apps.training.api.router import CategoryName, ExerciseKindName
+from apps.training.models import Category, Equipment, ExerciseKind, Muscle, NameLanguage
 from apps.training.tests.factories import make_exercise
 from apps.training.tests.test_workouts_api import API, Athlete
 
@@ -107,6 +107,8 @@ def test_the_exercise_sheet_carries_its_attribution(athlete: Athlete) -> None:
         "name": "Bench press",
         "name_language": "en",
         "category": "chest",
+        "kind": "weight_reps",
+        "is_custom": False,
         "muscles": [],
         "secondary_muscles": [],
         "equipment": [],
@@ -143,3 +145,7 @@ def test_filters_list_only_values_used_by_active_exercises(athlete: Athlete) -> 
 
 def test_the_openapi_category_enum_matches_the_model() -> None:
     assert list(get_args(CategoryName)) == list(Category.values)
+
+
+def test_the_openapi_kind_enum_matches_the_model() -> None:
+    assert list(get_args(ExerciseKindName)) == list(ExerciseKind.values)

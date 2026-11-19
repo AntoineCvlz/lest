@@ -22,6 +22,22 @@ class Category(models.TextChoices):
     FULL_BODY = "full_body", "Corps entier"
 
 
+class ExerciseKind(models.TextChoices):
+    """Ce que mesure une série de l'exercice (ADR 0017) : fixe une fois l'exercice utilisé."""
+
+    WEIGHT_REPS = "weight_reps", "Charge et répétitions"
+    REPS = "reps", "Répétitions"
+    WEIGHTED_REPS = "weighted_reps", "Lest et répétitions"
+    ASSISTED_REPS = "assisted_reps", "Assistance et répétitions"
+    DURATION = "duration", "Durée"
+    DISTANCE_DURATION = "distance_duration", "Distance et durée"
+    WEIGHT_DISTANCE = "weight_distance", "Charge et distance"
+
+
+# Exercices perso d'un compte (ADR 0017).
+MAX_CUSTOM_EXERCISES = 300
+
+
 class NameLanguage(models.TextChoices):
     """Langue du nom affiché : RepDB ne fournit pas de nom français (ADR 0006)."""
 
@@ -60,16 +76,25 @@ class Exercise(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     # Identifiant stable de RepDB (`bench-press`) : clé de l'import, rejouable sans doublon.
     source_id = models.CharField(max_length=100, unique=True, null=True, blank=True)
+    # Vide pour le catalogue ; le compte pour un exercice perso, visible de lui seul (ADR 0017).
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="custom_exercises",
+        null=True,
+        blank=True,
+    )
     name = models.CharField(max_length=200)
     name_language = models.CharField(max_length=2, choices=NameLanguage)
     category = models.CharField(max_length=20, choices=Category)
+    kind = models.CharField(max_length=20, choices=ExerciseKind, default=ExerciseKind.WEIGHT_REPS)
     muscles = models.ManyToManyField(Muscle, related_name="primary_exercises", blank=True)
     secondary_muscles = models.ManyToManyField(
         Muscle, related_name="secondary_exercises", blank=True
     )
     equipment = models.ManyToManyField(Equipment, related_name="exercises", blank=True)
-    # Attribution (licence RepDB, ADR 0006).
-    license = models.CharField(max_length=40)
+    # Attribution (licence RepDB, ADR 0006) ; vide pour un exercice perso.
+    license = models.CharField(max_length=40, blank=True)
     license_author = models.CharField(max_length=200, blank=True)
     # Retiré de RepDB : gardé pour l'historique des séances, masqué de la recherche.
     is_active = models.BooleanField(default=True)
@@ -89,6 +114,15 @@ class Exercise(models.Model):
             ),
             models.CheckConstraint(
                 condition=~models.Q(name=""), name="training_exercise_name_not_empty"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(kind__in=ExerciseKind.values),
+                name="training_exercise_kind_valid",
+            ),
+            # Un exercice perso ne vient d'aucun jeu de données.
+            models.CheckConstraint(
+                condition=models.Q(owner__isnull=True) | models.Q(source_id__isnull=True),
+                name="training_exercise_custom_has_no_source",
             ),
         ]
 
@@ -205,7 +239,8 @@ class ProgramExercise(models.Model):
 
     id = models.UUIDField(primary_key=True, editable=False)
     day = models.ForeignKey(ProgramDay, on_delete=models.CASCADE, related_name="exercises")
-    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    # RESTRICT : jamais supprimé tant qu'il sert, sauf avec le compte (exercice perso, cascade).
+    exercise = models.ForeignKey(Exercise, on_delete=models.RESTRICT, related_name="+")
     position = models.PositiveSmallIntegerField()
     target_sets = models.PositiveSmallIntegerField()
     target_reps = models.PositiveSmallIntegerField()
@@ -261,8 +296,8 @@ class WorkoutExercise(models.Model):
 
     id = models.UUIDField(primary_key=True, editable=False)
     workout = models.ForeignKey(Workout, on_delete=models.CASCADE, related_name="exercises")
-    # PROTECT : un exercice utilisé n'est jamais supprimé du catalogue (désactivé, ADR 0004).
-    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    # RESTRICT : jamais supprimé tant qu'il sert, sauf avec le compte (exercice perso, cascade).
+    exercise = models.ForeignKey(Exercise, on_delete=models.RESTRICT, related_name="+")
     position = models.PositiveSmallIntegerField()
     # Cible recopiée du programme au démarrage : modifier le programme ensuite ne réécrit pas
     # l'historique. Vide hors programme.
@@ -336,7 +371,8 @@ class PersonalRecord(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="personal_records"
     )
-    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name="+")
+    # RESTRICT : jamais supprimé tant qu'il sert, sauf avec le compte (exercice perso, cascade).
+    exercise = models.ForeignKey(Exercise, on_delete=models.RESTRICT, related_name="+")
     kind = models.CharField(max_length=8, choices=RecordKind)
     value_kg = models.DecimalField(max_digits=7, decimal_places=2)
     # Série qui l'a établi ; supprimée, les records de l'exercice sont recalculés.
