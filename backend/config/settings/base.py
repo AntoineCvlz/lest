@@ -38,7 +38,6 @@ INSTALLED_APPS = [
     "apps.training",
     "apps.body",
     "apps.nutrition",
-    "apps.activities",
     "apps.insights",
 ]
 
@@ -180,8 +179,6 @@ ACCOUNT_RATE_LIMITS = {
     # Aliments perso ; scans de code-barres (chacun peut coûter un appel à Open Food Facts).
     "nutrition_write": "120/m/user",
     "food_lookup": "30/m/user",
-    # Activités hors musculation (ADR 0012).
-    "activities_write": "120/m/user",
     # Tableau de bord : lecture agrégée, la plus coûteuse des GET (ADR 0013).
     "insights_read": "60/m/user",
 }

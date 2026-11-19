@@ -22,7 +22,6 @@ export default {
         // Domaines métier (CLAUDE.md)
         "accounts",
         "training",
-        "activities",
         "nutrition",
         "body",
         "gyms",

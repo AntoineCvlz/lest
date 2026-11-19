@@ -1,6 +1,6 @@
 # ADR 0012 — Activités : un catalogue de sports fixe, des métriques validées, des valeurs chiffrées
 
-- **Statut** : accepté
+- **Statut** : remplacé par ADR 0017 (activités recopiées en séances de cardio, app retirée le 2026-11-19)
 - **Date** : 2026-11-04
 - **Décideurs** : Antoine Cuvilliez (produit), Claude (proposition)
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-import { durationText } from "@/features/activities/activity-journal";
 import { TextLink } from "@/features/auth/text-link";
 import { bodyWeightText } from "@/features/body/weight-chart";
 import { useProfile } from "@/features/profile/use-profile";
@@ -34,6 +33,14 @@ const NONE = (
     <span className="sr-only">aucune</span>
   </>
 );
+/** Durée d'une semaine : « 45 min », « 2 h 05 ». */
+function durationText(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${String(minutes)}${NBSP}min`;
+  const rest = minutes % 60;
+  return `${String(Math.floor(minutes / 60))}${NBSP}h${NBSP}${String(rest).padStart(2, "0")}`;
+}
+
 const SECTION = "border-line-subtle flex flex-col gap-4 border-t pt-6";
 const TITLE = "text-xl font-extrabold type-value";
 

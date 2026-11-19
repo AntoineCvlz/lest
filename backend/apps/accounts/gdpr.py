@@ -20,7 +20,6 @@ EXPORTED_MODELS = {
     "nutrition.food",  # aliments perso seulement
     "nutrition.journalentry",
     "nutrition.waterintake",
-    "activities.activity",
     "nutrition.nutritiontarget",
 }
 

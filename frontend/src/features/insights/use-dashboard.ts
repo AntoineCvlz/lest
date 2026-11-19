@@ -23,5 +23,8 @@ export function useDashboard() {
       return data;
     },
     retry: false,
+    // Agrège les saisies de tous les domaines (pesée, séance, repas) : relu à chaque visite,
+    // l'ancienne version restant affichée pendant la relecture.
+    staleTime: 0,
   });
 }

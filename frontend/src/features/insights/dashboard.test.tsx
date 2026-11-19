@@ -1,4 +1,5 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -121,6 +122,36 @@ describe("textes du Bilan", () => {
 });
 
 describe("Dashboard", () => {
+  it("se relit à chaque visite, malgré le délai de fraîcheur de l'app", async () => {
+    let reads = 0;
+    api();
+    server.use(
+      http.get("*/api/v1/insights/dashboard/", () => {
+        reads += 1;
+        return HttpResponse.json(DATA);
+      }),
+    );
+    // Délai de fraîcheur de l'app (30 s) : le Bilan doit le contourner.
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+    });
+    const visit = () =>
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Dashboard />
+        </QueryClientProvider>,
+      );
+
+    const first = visit();
+    expect(await screen.findByRole("heading", { name: "Poids" })).toBeVisible();
+    first.unmount();
+    visit();
+
+    await waitFor(() => {
+      expect(reads).toBe(2);
+    });
+  });
+
   it("montre les quatre blocs, chacun avec son texte", async () => {
     api();
     renderWithQuery(<Dashboard />);

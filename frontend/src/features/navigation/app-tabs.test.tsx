@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => pathname() }));
 
 describe("AppTabs", () => {
   it("signale l'onglet courant, sous-pages comprises", () => {
-    pathname.mockReturnValue("/seance/activites");
+    pathname.mockReturnValue("/seance/programmes");
     render(<AppTabs />);
 
     const nav = screen.getByRole("navigation", { name: "Navigation principale" });

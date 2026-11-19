@@ -12,7 +12,7 @@ Tu es un·e Staff Engineer full-stack (Django / Next.js) et Product Designer sen
 
 - une **prise de masse** : poids de corps, mensurations, photos de progression, calories et macros ;
 - la **musculation en salle** : séances, exercices, séries, charges, reps, RPE, records ;
-- **tout autre sport** via un modèle d'activité générique (durée, distance, intensité, métriques libres).
+- **tout autre sport** via des exercices de durée et de distance dans la séance (course, vélo, natation… : exercices de cardio de Lest, ADR 0017).
 
 ### Principes produit
 
@@ -29,8 +29,7 @@ Une app Django par domaine, **aucun import croisé direct entre leurs modèles**
 | App | MVP | Entités |
 | --- | --- | --- |
 | `accounts` | Inscription, connexion, profil (taille, objectif, unités kg/lb), export et suppression RGPD | User, Profile, Goal |
-| `training` | Programmes, séance en cours + minuteur de repos, séries (poids, reps, RPE, échauffement), historique par exercice, records (1RM estimé Epley/Brzycki) | Exercise, Muscle, Equipment, Program, Workout, WorkoutExercise, Set, PersonalRecord |
-| `activities` | Autres sports : type, durée, distance, FC moyenne, ressenti, métriques libres (JSON validé par schéma) | SportType, Activity |
+| `training` | Routines, séance en cours + minuteur de repos, séries selon le type d'exercice (charge, reps, durée, distance ; RPE, type de série), exercices perso et de cardio, historique par exercice, records (1RM estimé Epley/Brzycki, durée, distance) | Exercise, Muscle, Equipment, Program, Workout, WorkoutExercise, Set, PersonalRecord |
 | `nutrition` | Journal des repas, aliments (Open Food Facts + perso), scan code-barres, objectifs kcal/macros (Mifflin-St Jeor + surplus), eau | Food, Meal, MealItem, NutritionTarget |
 | `body` | Poids quotidien (moyenne mobile 7 j), mensurations, photos privées | BodyMetric, Measurement, ProgressPhoto |
 | `gyms` | Salles, équipements disponibles pour filtrer les exercices | Gym (l'`Equipment` vit dans `training` avec le catalogue : `gyms` y accède par un service) |
@@ -97,7 +96,7 @@ Dernières versions stables au moment de l'init, épinglées (lockfiles). **Tout
 - `.env.example` complet et documenté ; `.env` ignoré par git.
 - Lanceur de tâches : **`justfile`** (choisi à la place du `Makefile` pour fonctionner nativement sous Windows). Python, `uv` et Node tournent dans les conteneurs ; sur l'hôte, seuls `uv` (pre-commit) et pnpm via `corepack` sont requis.
 - Cibles : `up`, `down`, `logs`, `sh-api`, `migrate`, `makemigrations`, `test`, `lint`, `fmt`, `typegen`, `reset-db`, `hooks` (installe pre-commit), `check` (pre-commit sur tout le dépôt). La synchro `develop.watch` est à sens unique : les recettes qui **écrivent** du code (`makemigrations`, `fmt`, `typegen`) passent par un conteneur jetable avec le dossier monté.
-- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records), 8 semaines de pesées et de mensurations (`seed_body`), table Ciqual si elle est vide (`import_foods`), 2 semaines de repas et les objectifs (`seed_nutrition`, sur des aliments perso), 8 semaines de course et de natation (`seed_activities`).
+- `seed` : utilisateur démo (`seed_demo`), catalogue RepDB complet avec images s'il est vide (`import_exercises`), 8 semaines de séances réalistes (`seed_training` : 15 exercices illustrés, progression et décharge, échauffements, records), 8 semaines de pesées et de mensurations (`seed_body`), table Ciqual si elle est vide (`import_foods`), 2 semaines de repas et les objectifs (`seed_nutrition`, sur des aliments perso), 8 semaines de course et de natation en séances de cardio (`seed_cardio`).
 - Option devcontainer (`.devcontainer/`) : reportée, `just` + Docker couvrent le besoin.
 - E2E en CI sur les **images de prod** (`compose.e2e.yaml`) ; Playwright tourne dans l'image officielle `mcr.microsoft.com/playwright` (épinglée par digest).
 
@@ -108,7 +107,7 @@ lest/
 ├── backend/
 │   ├── config/               # settings/{base,dev,test}.py, urls, asgi/wsgi, celery
 │   ├── apps/
-│   │   ├── accounts/ training/ activities/ nutrition/ body/ gyms/ insights/
+│   │   ├── accounts/ training/ nutrition/ body/ gyms/ insights/
 │   │   │   └── models.py selectors.py services.py api/ tests/ admin.py
 │   ├── common/               # mixins, permissions, pagination, exceptions
 │   ├── pyproject.toml uv.lock Dockerfile
@@ -334,22 +333,22 @@ Chaque phase se termine par une démo fonctionnelle sur `localhost`, CI verte et
 
 ## Décisions et constats de la Phase 4 (à respecter)
 
-- **Activités** (ADR 0012) :
+- **Activités** (ADR 0012) — *retirées le 2026-11-19 (ADR 0017) : recopiées en séances de cardio, app supprimée par `training/0007_remove_activities`, qui refuse de migrer si une activité n'a pas sa séance.* Pour mémoire :
   - catalogue de sports **fixe**, dans le code (`apps/activities/sports.py`), servi par `GET /api/v1/sports/` ; chaque sport dit s'il a une distance et ses métriques entières bornées ; le formulaire du front est construit depuis ce catalogue ;
   - `Activity` : UUID du client (ADR 0003), date et sport en clair, durée, distance, FC, ressenti et métriques chiffrés ; métriques en `StrictInt` (ni `true`, ni « 12 ») ; 20 par jour, plafond vérifié aussi quand une activité change de jour ;
-  - `Period` partagée dans `common/period.py` (corps, activités, visites).
+  - `Period` partagée dans `common/period.py` (corps, séances).
 - **Bilan** (ADR 0013) :
   - accueil `/` : avec l'indice de session, Bilan + onglets + section Compte (déconnexion et purge du cache privé restent là) ; sans, page publique ; onglets Bilan, Séance, Repas, Corps, Profil (le catalogue d'exercices passe par Séance et le Bilan, onglet Séance courant sur `/exercices`) ;
-  - une route `GET /api/v1/insights/dashboard/`, sans table : sélecteurs des domaines (`training.weekly_training` agrégé en SQL, `nutrition.daily_totals`, `list_weights`, `list_activities`) ; coût constant (testé par un budget de requêtes), `insights_read` 60/min ;
+  - une route `GET /api/v1/insights/dashboard/`, sans table : sélecteurs des domaines (`training.weekly_training` agrégé en SQL, `nutrition.daily_totals`, `list_weights` ; les semaines comptent séances, durée et distance depuis ADR 0017) ; coût constant (testé par un budget de requêtes), `insights_read` 60/min ;
   - graphiques en SVG maison, sans dépendance (CLAUDE.md citait Visx ou Recharts) : une série, encre (pas de jaune sur fond clair : contraste < 3:1), résumé en légende et tableau ; tableaux `table-fixed` qui ne débordent jamais (pas de région défilable, donc pas de `tabIndex` refusé par jsx-a11y) ; variations lues en mots (« baisse de 0,4 kg », le signe moins pouvant être tu) ;
   - repères de rythme du poids génériques, présentés comme tels.
 - **Basic-Fit** (ADR 0014) : **retiré** le 2026-11-18 (ADR 0016) : app, paquet, jetons, visites et pesées des balances supprimés par `body/0005_remove_basicfit`.
 - **Front** :
   - quand un bouton disparaît (liaison, déliaison, nouvel essai, « Préparer »), le focus va au titre de la section ou au nouvel élément ; jamais au haut de la page ;
   - message d'état vidé puis rempli pour qu'un même texte soit réannoncé ; rien d'affiché tant qu'on ignore si une section existe (pas de titre éphémère) ;
-  - requêtes `["activities"]`, `["insights"]` dans `PRIVATE_QUERY_KEYS`.
+  - requête `["insights"]` dans `PRIVATE_QUERY_KEYS`.
 - **E2E** : sélecteurs exacts pour les onglets (« Séance » contre « Commencer une séance ») ; en CI, une seule IP : les rejeux d'un test raté créent des comptes et peuvent faire buter les inscriptions suivantes sur la limite d'allauth (20/min/IP) ; corriger la cause première avant de chercher plus loin.
-- **Seed** : `seed_activities` (course le dimanche, natation un mardi sur deux).
+- **Seed** : `seed_cardio` depuis ADR 0017 (course le dimanche, natation un mardi sur deux, en séances).
 - **Reporté** :
   - application `gyms` (salles, équipements disponibles) : non commencée ;
   - focus masqué par la barre d'onglets fixe avec le texte agrandi à 200 % (WCAG 2.4.11) : `scroll-padding-bottom` suppose une barre d'une rangée ;

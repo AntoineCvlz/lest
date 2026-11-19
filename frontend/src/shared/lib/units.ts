@@ -69,7 +69,7 @@ export function lengthToMetres(value: number, system: UnitSystem): number {
 
 const METRES_PER_MILE = 1609.344;
 
-/** Unité des distances d'activité : kilomètres (métrique) ou miles (impérial). */
+/** Unité des distances de cardio : kilomètres (métrique) ou miles (impérial). */
 export const DISTANCE_UNITS = {
   metric: { symbol: "km", name: "kilomètres", max: 1000 },
   imperial: { symbol: "mi", name: "miles", max: 621 },
