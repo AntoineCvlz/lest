@@ -169,4 +169,4 @@ def test_the_seed_creates_the_demo_program_with_its_targets() -> None:
     assert program.name == demo.PROGRAM_NAME
     assert [day.name for day in program.days.all()] == list(demo.DAY_NAMES)
     bench = ProgramExercise.objects.get(day__program=program, exercise__source_id="bench-press")
-    assert (bench.target_sets, bench.target_reps) == (4, 8)
+    assert [(one.set_type, one.reps) for one in bench.sets.all()] == [("normal", 8)] * 4

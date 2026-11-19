@@ -478,6 +478,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/program-sets/{set_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ajouter ou remplacer une série prévue */
+        put: operations["apps_training_api_programs_write_program_set"];
+        post?: never;
+        /** Retirer une série prévue */
+        delete: operations["apps_training_api_programs_remove_program_set"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/programs/": {
         parameters: {
             query?: never;
@@ -687,6 +705,23 @@ export interface paths {
         post?: never;
         /** Supprimer une séance */
         delete: operations["apps_training_api_router_remove_workout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/workouts/{workout_id}/update-routine/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mettre à jour la routine suivie avec cette séance */
+        post: operations["apps_training_api_programs_update_routine"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1226,6 +1261,22 @@ export interface components {
              */
             pose: "front" | "side" | "back";
         };
+        /** PlannedSetOut */
+        PlannedSetOut: {
+            /** Distance M */
+            distance_m: number | null;
+            /** Duration S */
+            duration_s: number | null;
+            /** Reps */
+            reps: number | null;
+            /**
+             * Set Type
+             * @enum {string}
+             */
+            set_type: "warmup" | "normal" | "drop" | "failure";
+            /** Weight Kg */
+            weight_kg: number | null;
+        };
         /** ProfileIn */
         ProfileIn: {
             /** Default Rest Seconds */
@@ -1364,14 +1415,27 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Note */
+            note: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds: number | null;
+            /** Sets */
+            sets: components["schemas"]["ProgramSetOut"][];
+            /** Superset */
+            superset: number | null;
             /** Target Reps */
-            target_reps: number;
+            target_reps: number | null;
             /** Target Sets */
-            target_sets: number;
+            target_sets: number | null;
         };
-        /** ProgramExerciseIn */
+        /**
+         * ProgramExerciseIn
+         * @description Exercice de routine. Repos, superset, note : absent, gardé ; `null`, effacé (comme les
+         *     exercices de séance). `target_sets` et `target_reps` ensemble : raccourci de l'écran
+         *     actuel, qui réécrit les séries prévues (transition, ADR 0017).
+         */
         ProgramExerciseIn: {
             /**
              * Day Id
@@ -1383,12 +1447,18 @@ export interface components {
              * Format: uuid
              */
             exercise_id: string;
+            /** Note */
+            note?: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds?: number | null;
+            /** Superset */
+            superset?: number | null;
             /** Target Reps */
-            target_reps: number;
+            target_reps?: number | null;
             /** Target Sets */
-            target_sets: number;
+            target_sets?: number | null;
         };
         /** ProgramExerciseOut */
         ProgramExerciseOut: {
@@ -1407,12 +1477,20 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Note */
+            note: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds: number | null;
+            /** Sets */
+            sets: components["schemas"]["ProgramSetOut"][];
+            /** Superset */
+            superset: number | null;
             /** Target Reps */
-            target_reps: number;
+            target_reps: number | null;
             /** Target Sets */
-            target_sets: number;
+            target_sets: number | null;
         };
         /** ProgramIn */
         ProgramIn: {
@@ -1428,6 +1506,61 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /**
+         * ProgramSetIn
+         * @description Série prévue : colonnes du type de l'exercice seulement, toutes facultatives.
+         */
+        ProgramSetIn: {
+            /** Distance M */
+            distance_m?: number | string | null;
+            /** Duration S */
+            duration_s?: number | null;
+            /** Position */
+            position: number;
+            /**
+             * Program Exercise Id
+             * Format: uuid4
+             */
+            program_exercise_id: string;
+            /** Reps */
+            reps?: number | null;
+            /**
+             * Set Type
+             * @default normal
+             * @enum {string}
+             */
+            set_type: "warmup" | "normal" | "drop" | "failure";
+            /** Weight Kg */
+            weight_kg?: number | string | null;
+        };
+        /** ProgramSetOut */
+        ProgramSetOut: {
+            /** Distance M */
+            distance_m: number | null;
+            /** Duration S */
+            duration_s: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Position */
+            position: number;
+            /**
+             * Program Exercise Id
+             * Format: uuid
+             */
+            program_exercise_id: string;
+            /** Reps */
+            reps: number | null;
+            /**
+             * Set Type
+             * @enum {string}
+             */
+            set_type: "warmup" | "normal" | "drop" | "failure";
+            /** Weight Kg */
+            weight_kg: number | null;
         };
         /** RecordOut */
         RecordOut: {
@@ -1718,6 +1851,8 @@ export interface components {
             id: string;
             /** Note */
             note: string | null;
+            /** Planned Sets */
+            planned_sets: components["schemas"]["PlannedSetOut"][];
             /** Position */
             position: number;
             /** Rest Seconds */
@@ -2845,6 +2980,61 @@ export interface operations {
             };
         };
     };
+    apps_training_api_programs_write_program_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgramSetIn"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramSetOut"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramSetOut"];
+                };
+            };
+        };
+    };
+    apps_training_api_programs_remove_program_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                set_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     apps_training_api_programs_list_programs: {
         parameters: {
             query?: never;
@@ -3322,6 +3512,28 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    apps_training_api_programs_update_routine: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workout_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgramDetailOut"];
+                };
             };
         };
     };

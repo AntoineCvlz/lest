@@ -277,6 +277,14 @@ class ExerciseRecordsOut(Schema):
     history: list[RecordOut]
 
 
+class PlannedSetOut(Schema):
+    set_type: SetTypeName
+    weight_kg: float | None
+    reps: int | None
+    duration_s: int | None
+    distance_m: float | None
+
+
 class WorkoutExerciseOut(Schema):
     id: UUID
     workout_id: UUID
@@ -298,6 +306,8 @@ class WorkoutExerciseDetailOut(WorkoutExerciseOut):
     # Cible recopiée du programme (séries x répétitions), `None` hors programme.
     target_sets: int | None
     target_reps: int | None
+    # Séries prévues de la routine, recopiées au démarrage (vide hors routine).
+    planned_sets: list[PlannedSetOut]
     sets: list[SetOut]
 
 
@@ -554,6 +564,7 @@ def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut
                 exercise_image=_main_image(item.exercise),
                 target_sets=item.target_sets,
                 target_reps=item.target_reps,
+                planned_sets=[PlannedSetOut.model_validate(row) for row in item.planned_sets],
                 sets=[_set_out(one) for one in item.sets.all()],
             )
             for item in workout.exercises.all()

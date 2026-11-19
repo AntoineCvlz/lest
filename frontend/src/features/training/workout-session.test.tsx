@@ -58,6 +58,10 @@ const pushDay = {
       position: 0,
       target_sets: 3,
       target_reps: 8,
+      rest_seconds: null,
+      superset: null,
+      note: null,
+      sets: [],
     },
   ],
 };

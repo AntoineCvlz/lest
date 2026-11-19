@@ -58,8 +58,7 @@ class Command(BaseCommand):
                     day_id=day.id,
                     exercise_id=catalog[target.source_id],
                     position=target.position,
-                    target_sets=target.target_sets,
-                    target_reps=target.target_reps,
+                    targets=(target.target_sets, target.target_reps),
                 )
 
         workouts = demo.plan(today=timezone.localdate())

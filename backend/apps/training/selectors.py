@@ -277,7 +277,7 @@ def _programs(owner: User) -> QuerySet[Program]:
                 Prefetch(
                     "exercises",
                     queryset=ProgramExercise.objects.select_related("exercise").prefetch_related(
-                        "exercise__images"
+                        "exercise__images", "sets"
                     ),
                 )
             ),
@@ -306,8 +306,19 @@ def export_programs(*, owner: User) -> list[dict[str, Any]]:
                     "exercises": [
                         {
                             "exercise": planned.exercise.name,
-                            "target_sets": planned.target_sets,
-                            "target_reps": planned.target_reps,
+                            "rest_seconds": planned.rest_seconds,
+                            "superset": planned.superset,
+                            "note": planned.note,
+                            "sets": [
+                                {
+                                    "set_type": one.set_type,
+                                    "weight_kg": _number(one.weight_kg),
+                                    "reps": one.reps,
+                                    "duration_s": one.duration_s,
+                                    "distance_m": _number(one.distance_m),
+                                }
+                                for one in planned.sets.all()
+                            ],
                         }
                         for planned in day.exercises.all()
                     ],

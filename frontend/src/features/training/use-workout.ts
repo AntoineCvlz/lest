@@ -249,12 +249,22 @@ export function useStartWorkout() {
           exercise_category: planned.exercise_category,
           exercise_kind: planned.exercise_kind,
           exercise_image: planned.exercise_image,
-          rest_seconds: null,
-          superset: null,
-          note: null,
+          // Recopiés comme le fait l'API à la création de la séance (ADR 0017).
+          rest_seconds: planned.rest_seconds,
+          superset: planned.superset,
+          note: planned.note,
           position: planned.position,
           target_sets: planned.target_sets,
           target_reps: planned.target_reps,
+          planned_sets: planned.sets.map(
+            ({ set_type, weight_kg, reps, duration_s, distance_m }) => ({
+              set_type,
+              weight_kg,
+              reps,
+              duration_s,
+              distance_m,
+            }),
+          ),
           sets: [],
         })),
       );
@@ -284,6 +294,7 @@ export function useAddExercise(workout: WorkoutDetail | undefined) {
         rest_seconds: null,
         superset: null,
         note: null,
+        planned_sets: [],
         position,
         target_sets: null,
         target_reps: null,

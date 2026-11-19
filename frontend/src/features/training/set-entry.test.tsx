@@ -51,6 +51,7 @@ function item(sets: Schemas["SetOut"][] = []): Schemas["WorkoutExerciseDetailOut
     rest_seconds: null,
     superset: null,
     note: null,
+    planned_sets: [],
     target_sets: null as number | null,
     target_reps: null as number | null,
     sets,
