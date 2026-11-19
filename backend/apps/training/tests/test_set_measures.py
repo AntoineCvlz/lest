@@ -86,6 +86,21 @@ def test_a_missing_or_extra_column_is_refused_without_its_value(alice: Athlete) 
     ]
 
 
+def test_a_run_may_leave_its_distance_empty(alice: Athlete) -> None:
+    # Tapis sans distance notée (activités recopiées, ADR 0017) : la durée reste exigée.
+    _, item_id = start(alice, exercise_of(ExerciseKind.DISTANCE_DURATION))
+
+    saved = put(alice, item_id, duration_s=1500)
+
+    assert saved.status_code == 201, saved.content
+    assert sorted((r["kind"], r["value"]) for r in saved.json()["records"]) == [
+        ("duration", 1500.0)
+    ]
+    assert put(alice, item_id, distance_m="5000").json()["errors"] == [
+        {"loc": ["duration_s"], "type": "required"}
+    ]
+
+
 @pytest.mark.parametrize(
     "measures",
     [{"duration_s": 86_401}, {"duration_s": -1}, {"distance_m": "1000000.1"}, {"duration_s": "60"}],

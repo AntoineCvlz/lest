@@ -791,24 +791,6 @@ export interface components {
              */
             sport: "running" | "cycling" | "swimming" | "walking" | "hiking" | "rowing" | "cardio" | "team_sport" | "racket" | "combat" | "climbing" | "yoga" | "other";
         };
-        /** ActivityWeekOut */
-        ActivityWeekOut: {
-            /** Activities */
-            activities: number;
-            /** Activity Duration S */
-            activity_duration_s: number;
-            /** Distance M */
-            distance_m: number;
-            /**
-             * Week
-             * Format: date
-             */
-            week: string;
-            /** Workout Duration S */
-            workout_duration_s: number;
-            /** Workouts */
-            workouts: number;
-        };
         /** AdherenceOut */
         AdherenceOut: {
             /** Days */
@@ -877,7 +859,7 @@ export interface components {
             muscles: components["schemas"]["MuscleWeekOut"][];
             nutrition: components["schemas"]["NutritionInsightOut"];
             /** Weeks */
-            weeks: components["schemas"]["ActivityWeekOut"][];
+            weeks: components["schemas"]["TrainingWeekOut"][];
             weight: components["schemas"]["WeightInsightOut"];
         };
         /** DayOut */
@@ -1734,6 +1716,23 @@ export interface components {
             kcal: number;
             /** Protein */
             protein: number;
+        };
+        /**
+         * TrainingWeekOut
+         * @description Séances terminées de la semaine, musculation et cardio ensemble (ADR 0017).
+         */
+        TrainingWeekOut: {
+            /** Distance M */
+            distance_m: number;
+            /** Duration S */
+            duration_s: number;
+            /**
+             * Week
+             * Format: date
+             */
+            week: string;
+            /** Workouts */
+            workouts: number;
         };
         /** WaterIn */
         WaterIn: {

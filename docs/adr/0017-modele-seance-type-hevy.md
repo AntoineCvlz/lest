@@ -136,14 +136,22 @@ Toujours reconstruits sous le verrou du compte, séries de travail seulement.
 
 1. Un exercice de cardio **de Lest** (sans propriétaire, `source_id` préfixé `lest:`, nom
    français, type `distance_duration` ou `duration`) par sport du catalogue de l'ADR 0012.
-2. Migration de données : chaque activité devient une séance terminée (début = date à midi,
+2. Recopie : chaque activité devient une séance terminée (début = date à midi,
    heure locale ; fin = début + durée), un exercice, une série `normal` ; fréquence cardiaque
    et ressenti vers la séance ; les métriques propres au sport (dénivelé, longueurs, rounds)
    vers la note de l'exercice, en clair dans le texte chiffré (« Dénivelé : 320 m »).
    Identifiants dérivés de celui de l'activité (SHA-256, format v4) : rejouable sans doublon.
-3. Le Bilan (ADR 0013) lit les séances au lieu des activités.
+   *Précisé à l'implémentation (PR 5)* : la recopie passe par les services de `training`
+   (records reconstruits, verrou du compte), ce qu'une migration ne peut pas faire avec ses
+   modèles historiques. Elle a donc lieu à chaque écriture d'une activité (suppression
+   comprise) tant que l'app existe, et la commande `copy_activities` rattrape les activités
+   plus anciennes (`--check` : échoue s'il en reste une sans séance). La distance d'une série
+   `distance_duration` devient facultative : 22 des 35 activités de la base de dev n'en ont
+   pas (tapis, séance sans montre).
+3. Le Bilan (ADR 0013) lit les séances au lieu des activités : par semaine, nombre de séances,
+   durée et distance des séries de travail.
 4. L'app `activities`, ses routes et sa table sont supprimées dans une PR **suivante**, une
-   fois la copie vérifiée sur la base de dev (nombre d'activités = nombre de séances recopiées).
+   fois la copie vérifiée sur la base de dev (`copy_activities --check`).
 
 ## Écart à CLAUDE.md
 

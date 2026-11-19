@@ -16,13 +16,7 @@ import {
 } from "./dashboard";
 import type { DashboardData } from "./use-dashboard";
 
-const EMPTY_WEEK = {
-  workouts: 0,
-  workout_duration_s: 0,
-  activities: 0,
-  activity_duration_s: 0,
-  distance_m: 0,
-};
+const EMPTY_WEEK = { workouts: 0, duration_s: 0, distance_m: 0 };
 const MONDAYS = [
   "2026-09-14",
   "2026-09-21",
@@ -47,10 +41,9 @@ const DATA: DashboardData = {
     ...MONDAYS.map((week) => ({ week, ...EMPTY_WEEK })),
     {
       week: "2026-11-02",
-      workouts: 2,
-      workout_duration_s: 7200,
-      activities: 1,
-      activity_duration_s: 1800,
+      // Deux séances de musculation et une course recopiée (ADR 0017).
+      workouts: 3,
+      duration_s: 9000,
       distance_m: 5000,
     },
   ],
@@ -100,10 +93,10 @@ describe("textes du Bilan", () => {
   });
 
   it("résume la semaine et l'adhérence", () => {
-    expect(weekSummary(DATA.weeks.at(-1))).toBe(
-      "Cette semaine : 2 séances de musculation (2 h 00) et 1 activité d’autres sports (30 min).",
+    expect(weekSummary(DATA.weeks.at(-1), "metric")).toBe(
+      "Cette semaine : 3 séances, 2 h 30, 5 km.",
     );
-    expect(weekSummary(DATA.weeks[0])).toBe("Rien de noté cette semaine pour l’instant.");
+    expect(weekSummary(DATA.weeks[0], "metric")).toBe("Rien de noté cette semaine pour l’instant.");
     expect(adherenceText({ days: 7, logged_days: 5, kcal_days: 3, protein_days: 4 })).toBe(
       "5 jours notés sur 7 : énergie dans l’objectif 3 jours, protéines 4 jours.",
     );
@@ -116,7 +109,7 @@ describe("textes du Bilan", () => {
     expect(periodSummary(DATA.weeks)).toBe(
       "2 h 30 sur 8 semaines ; semaine la plus active : 2 nov. (2 h 30).",
     );
-    expect(periodSummary(DATA.weeks.slice(0, 7))).toBe("Aucune activité notée sur 8 semaines.");
+    expect(periodSummary(DATA.weeks.slice(0, 7))).toBe("Aucune séance notée sur 8 semaines.");
   });
 
   it("classe les muscles par séries sur 8 semaines", () => {
@@ -139,8 +132,7 @@ describe("Dashboard", () => {
       name: "Détail par semaine, la plus récente d’abord",
     });
     const latest = within(weeks).getAllByRole("row")[1];
-    expect(latest).toHaveTextContent(/2 séances,\s2\sh\s00/);
-    expect(latest).toHaveTextContent(/1 activité,\s30\smin/);
+    expect(latest).toHaveTextContent(/3 séances,\s2\sh\s30/);
     expect(latest).toHaveTextContent(/5\skm/);
     expect(screen.getByText(/^20\sjours notés sur 28/)).toBeVisible();
     const muscles = screen.getByRole("table", { name: /^Séries de travail par muscle/ });
@@ -189,7 +181,8 @@ describe("Dashboard", () => {
     renderWithQuery(<Dashboard />);
 
     expect(await screen.findByText(/^174,6\slb$/)).toBeVisible();
-    expect(screen.getByText(/3,11\smi/)).toBeVisible();
+    // Résumé de la semaine et ligne du tableau.
+    expect(screen.getAllByText(/3,11\smi/)).toHaveLength(2);
   });
 
   it("rend le focus au contenu après un nouvel essai réussi", async () => {

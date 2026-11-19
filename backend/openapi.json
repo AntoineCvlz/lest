@@ -194,45 +194,6 @@
         "title": "ActivityOut",
         "type": "object"
       },
-      "ActivityWeekOut": {
-        "properties": {
-          "activities": {
-            "title": "Activities",
-            "type": "integer"
-          },
-          "activity_duration_s": {
-            "title": "Activity Duration S",
-            "type": "integer"
-          },
-          "distance_m": {
-            "title": "Distance M",
-            "type": "number"
-          },
-          "week": {
-            "format": "date",
-            "title": "Week",
-            "type": "string"
-          },
-          "workout_duration_s": {
-            "title": "Workout Duration S",
-            "type": "integer"
-          },
-          "workouts": {
-            "title": "Workouts",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "week",
-          "workouts",
-          "workout_duration_s",
-          "activities",
-          "activity_duration_s",
-          "distance_m"
-        ],
-        "title": "ActivityWeekOut",
-        "type": "object"
-      },
       "AdherenceOut": {
         "properties": {
           "days": {
@@ -467,7 +428,7 @@
           },
           "weeks": {
             "items": {
-              "$ref": "#/components/schemas/ActivityWeekOut"
+              "$ref": "#/components/schemas/TrainingWeekOut"
             },
             "title": "Weeks",
             "type": "array"
@@ -2954,6 +2915,36 @@
           "fat"
         ],
         "title": "TotalsOut",
+        "type": "object"
+      },
+      "TrainingWeekOut": {
+        "description": "Séances terminées de la semaine, musculation et cardio ensemble (ADR 0017).",
+        "properties": {
+          "distance_m": {
+            "title": "Distance M",
+            "type": "number"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "week": {
+            "format": "date",
+            "title": "Week",
+            "type": "string"
+          },
+          "workouts": {
+            "title": "Workouts",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "week",
+          "workouts",
+          "duration_s",
+          "distance_m"
+        ],
+        "title": "TrainingWeekOut",
         "type": "object"
       },
       "WaterIn": {
