@@ -261,6 +261,99 @@
         "title": "AdherenceOut",
         "type": "object"
       },
+      "CustomExerciseIn": {
+        "properties": {
+          "category": {
+            "enum": [
+              "abs",
+              "arms",
+              "back",
+              "calves",
+              "cardio",
+              "chest",
+              "legs",
+              "shoulders",
+              "full_body"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "equipment_ids": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "title": "Equipment Ids",
+            "type": "array"
+          },
+          "is_active": {
+            "default": true,
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "weight_reps",
+              "reps",
+              "weighted_reps",
+              "assisted_reps",
+              "duration",
+              "distance_duration",
+              "weight_distance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "muscle_ids": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "title": "Muscle Ids",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "secondary_muscle_ids": {
+            "items": {
+              "minimum": 1,
+              "type": "integer"
+            },
+            "maxItems": 10,
+            "title": "Secondary Muscle Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "kind",
+          "category"
+        ],
+        "title": "CustomExerciseIn",
+        "type": "object"
+      },
+      "CustomExercisesOut": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseDetailOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CustomExercisesOut",
+        "type": "object"
+      },
       "CustomFoodIn": {
         "properties": {
           "brand": {
@@ -584,6 +677,23 @@
             "title": "Is Active",
             "type": "boolean"
           },
+          "is_custom": {
+            "title": "Is Custom",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "weight_reps",
+              "reps",
+              "weighted_reps",
+              "assisted_reps",
+              "duration",
+              "distance_duration",
+              "weight_distance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "license": {
             "title": "License",
             "type": "string"
@@ -624,6 +734,8 @@
           "name",
           "name_language",
           "category",
+          "kind",
+          "is_custom",
           "muscles",
           "equipment",
           "image",
@@ -718,6 +830,23 @@
               }
             ]
           },
+          "is_custom": {
+            "title": "Is Custom",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "weight_reps",
+              "reps",
+              "weighted_reps",
+              "assisted_reps",
+              "duration",
+              "distance_duration",
+              "weight_distance"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
           "muscles": {
             "items": {
               "$ref": "#/components/schemas/NamedOut"
@@ -743,6 +872,8 @@
           "name",
           "name_language",
           "category",
+          "kind",
+          "is_custom",
           "muscles",
           "equipment",
           "image"
@@ -3424,6 +3555,120 @@
         "summary": "Enregistrer ou remplacer la pesée d'un jour",
         "tags": [
           "body"
+        ]
+      }
+    },
+    "/api/v1/custom-exercises/": {
+      "get": {
+        "operationId": "apps_training_api_custom_exercises_list_custom_exercises",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomExercisesOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Mes exercices perso",
+        "tags": [
+          "training"
+        ]
+      }
+    },
+    "/api/v1/custom-exercises/{exercise_id}/": {
+      "delete": {
+        "operationId": "apps_training_api_custom_exercises_remove_custom_exercise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Supprimer un exercice perso inutilisé",
+        "tags": [
+          "training"
+        ]
+      },
+      "put": {
+        "operationId": "apps_training_api_custom_exercises_write_custom_exercise",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "exercise_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Exercise Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomExerciseIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseDetailOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Créer ou modifier un exercice perso",
+        "tags": [
+          "training"
         ]
       }
     },

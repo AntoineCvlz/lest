@@ -25,10 +25,17 @@ from django.test import Client
 from PIL import Image
 
 from apps.training import images, repdb, services
-from apps.training.models import Category, Equipment, Exercise, ExerciseImage, Muscle
+from apps.training.models import (
+    Category,
+    Equipment,
+    Exercise,
+    ExerciseImage,
+    ExerciseKind,
+    Muscle,
+)
 from apps.training.services import EmptyCatalogError, import_exercises, import_images
 from apps.training.tasks import import_exercises as import_task
-from apps.training.tests.test_workouts_api import API, STARTED, Athlete
+from apps.training.tests.test_workouts_api import API, STARTED, Athlete, start
 
 pytestmark = pytest.mark.django_db
 
@@ -122,6 +129,32 @@ def test_the_catalog_is_mapped_to_our_categories_and_poses() -> None:
     assert [image.pose for image in parsed[0].images] == ["start", "peak"]
     assert [image.pose for image in parsed[2].images] == ["main"]
     assert parsed[0].equipment_codes == ("barbell",)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "kind"),
+    [
+        ({}, ExerciseKind.WEIGHT_REPS),
+        ({"equipment": None}, ExerciseKind.REPS),
+        ({"equipment": "pull_up_bar"}, ExerciseKind.REPS),
+        ({"equipment": "assisted_pullup_machine"}, ExerciseKind.ASSISTED_REPS),
+        ({"category": "stretching", "equipment": None}, ExerciseKind.DURATION),
+        ({"name_en": "Side Plank", "equipment": None}, ExerciseKind.DURATION),
+        ({"name_en": "Dead Hang", "equipment": "pull_up_bar"}, ExerciseKind.DURATION),
+        ({"name_en": "Hanging Leg Raise", "equipment": "pull_up_bar"}, ExerciseKind.REPS),
+        ({"category": "cardio", "equipment": "treadmill"}, ExerciseKind.DISTANCE_DURATION),
+        ({"category": "cardio", "equipment": "rower"}, ExerciseKind.DISTANCE_DURATION),
+        ({"category": "cardio", "equipment": "jump_rope"}, ExerciseKind.DURATION),
+        ({"category": "cardio", "equipment": None}, ExerciseKind.DURATION),
+        ({"equipment": "sled"}, ExerciseKind.WEIGHT_DISTANCE),
+        ({"name_en": "Farmer Carry", "equipment": "dumbbell"}, ExerciseKind.WEIGHT_DISTANCE),
+        ({"name_en": "Walking Lunge", "equipment": "dumbbell"}, ExerciseKind.WEIGHT_REPS),
+    ],
+)
+def test_the_exercise_kind_is_inferred(overrides: dict[str, Any], kind: ExerciseKind) -> None:
+    [parsed] = catalog(entry(**overrides))
+
+    assert parsed.kind == kind
 
 
 @pytest.mark.parametrize(
@@ -250,6 +283,21 @@ def test_oversized_images_are_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # --- Import du catalogue ----------------------------------------------------------------------
+
+
+def test_the_import_updates_the_kind_of_unused_exercises_only() -> None:
+    alice = Athlete()
+    import_exercises(exercises=catalog(entry("press"), entry("dip")))
+    press = Exercise.objects.get(source_id="press")
+    start(alice, press)
+
+    import_exercises(
+        exercises=catalog(entry("press", equipment=None), entry("dip", equipment="dip_station"))
+    )
+
+    # Utilisé : ses séries sont en charge et répétitions, son type ne bouge plus.
+    assert Exercise.objects.get(source_id="press").kind == ExerciseKind.WEIGHT_REPS
+    assert Exercise.objects.get(source_id="dip").kind == ExerciseKind.REPS
 
 
 def test_the_catalog_is_imported_with_our_french_vocabulary() -> None:

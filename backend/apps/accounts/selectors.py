@@ -14,7 +14,12 @@ from apps.nutrition.selectors import (
     export_targets,
     export_water,
 )
-from apps.training.selectors import export_programs, export_records, export_workouts
+from apps.training.selectors import (
+    export_custom_exercises,
+    export_programs,
+    export_records,
+    export_workouts,
+)
 
 from .models import OneRepMaxFormula, Profile, User
 
@@ -86,6 +91,8 @@ def export_account(user: User) -> dict[str, Any]:
         "workouts": export_workouts(owner=user),
         "personal_records": export_records(owner=user),
         "programs": export_programs(owner=user),
+        # Exercices perso (ADR 0017).
+        "custom_exercises": export_custom_exercises(owner=user),
         # Pesées et mensurations (domaine `body`), déchiffrées pour l'export.
         "body_weights": export_weights(owner=user),
         "body_measurements": export_measurements(owner=user),

@@ -16,7 +16,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from pydantic import BaseModel, ValidationError
 
-from .models import Category
+from .models import Category, ExerciseKind
 
 TIMEOUT_SECONDS = 30
 # `exercises.json` pèse ~3 Mo (701 exercices, 3 langues) : au-delà de 20 Mo, réponse anormale.
@@ -117,6 +117,38 @@ EQUIPMENT = {
     "trap_bar": "Trap bar",
     "treadmill": "Tapis de course",
 }
+# Type d'exercice (ADR 0017), déduit de la catégorie, de l'équipement et du nom RepDB.
+# Machines de cardio qui mesurent une distance ; autre cardio : une durée.
+DISTANCE_MACHINES = frozenset(
+    {
+        "air_bike",
+        "bicycle",
+        "elliptical",
+        "rower",
+        "ski_erg",
+        "stationary_bike",
+        "treadmill",
+    }
+)
+# Agrès sans charge à saisir : la série se compte en répétitions.
+BODYWEIGHT_TOOLS = frozenset(
+    {
+        "ab_wheel",
+        "bosu_ball",
+        "dip_station",
+        "loop_band",
+        "plyo_box",
+        "pull_up_bar",
+        "resistance_band",
+        "rings",
+        "stability_ball",
+        "suspension_trainer",
+    }
+)
+# Mots du nom anglais (en minuscules) d'un maintien et d'un transport de charge.
+HOLD_WORDS = ("plank", " hold", "wall sit", "dead hang", "l-sit")
+CARRY_WORDS = ("carry", "farmer")
+
 Pose = Literal["start", "peak", "main"]
 POSES: tuple[Pose, ...] = ("start", "peak", "main")
 
@@ -141,6 +173,7 @@ class RepdbExercise:
     secondary_muscle_codes: tuple[str, ...]
     equipment_codes: tuple[str, ...]
     images: tuple[RepdbImage, ...]
+    kind: ExerciseKind = ExerciseKind.WEIGHT_REPS
 
 
 class _Images(BaseModel):
@@ -166,6 +199,24 @@ def _category(item: _Exercise) -> Category | None:
     if item.category == "cardio":
         return Category.CARDIO
     return BODY_PARTS.get(item.body_part)
+
+
+def exercise_kind(*, category: str, equipment: str | None, name: str) -> ExerciseKind:
+    """Type d'un exercice RepDB (ADR 0017) ; « charge et répétitions » faute de mieux."""
+    lowered = f" {name.lower()}"
+    if category == "stretching" or any(word in lowered for word in HOLD_WORDS):
+        return ExerciseKind.DURATION
+    if category == "cardio":
+        if equipment in DISTANCE_MACHINES:
+            return ExerciseKind.DISTANCE_DURATION
+        return ExerciseKind.DURATION
+    if equipment == "assisted_pullup_machine":
+        return ExerciseKind.ASSISTED_REPS
+    if equipment == "sled" or any(word in lowered for word in CARRY_WORDS):
+        return ExerciseKind.WEIGHT_DISTANCE
+    if equipment is None or equipment in BODYWEIGHT_TOOLS:
+        return ExerciseKind.REPS
+    return ExerciseKind.WEIGHT_REPS
 
 
 def _image_path(path: str) -> bool:
@@ -194,6 +245,7 @@ def parse_catalog(payload: object) -> list[RepdbExercise]:
                 muscle_codes=tuple(item.primary_muscles),
                 secondary_muscle_codes=tuple(item.secondary_muscles),
                 equipment_codes=(item.equipment,) if item.equipment else (),
+                kind=exercise_kind(category=item.category, equipment=item.equipment, name=name),
                 images=tuple(
                     RepdbImage(pose=pose, path=item.images.flat[pose])
                     for pose in POSES

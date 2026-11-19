@@ -21,9 +21,12 @@ from apps.accounts.services import lock_account
 from . import repdb
 from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
 from .models import (
+    MAX_CUSTOM_EXERCISES,
+    Category,
     Equipment,
     Exercise,
     ExerciseImage,
+    ExerciseKind,
     Muscle,
     NameLanguage,
     PersonalRecord,
@@ -99,6 +102,13 @@ def _reference_data(
     return muscles, equipment
 
 
+def _used_exercise_ids() -> set[UUID]:
+    """Exercices présents dans une séance ou une séance type, tous comptes confondus."""
+    in_workouts = WorkoutExercise.objects.values_list("exercise_id", flat=True)
+    in_programs = ProgramExercise.objects.values_list("exercise_id", flat=True)
+    return set(in_workouts.distinct()) | set(in_programs.distinct())
+
+
 def import_exercises(*, exercises: Sequence[repdb.RepdbExercise]) -> ImportReport:
     """
     Met le catalogue à jour depuis RepDB (ADR 0006), en une transaction.
@@ -112,6 +122,8 @@ def import_exercises(*, exercises: Sequence[repdb.RepdbExercise]) -> ImportRepor
     created = updated = 0
     with transaction.atomic():
         muscles, equipment = _reference_data(exercises)
+        # Le type d'un exercice déjà utilisé ne change plus : ses séries en dépendent (ADR 0017).
+        used = _used_exercise_ids()
         for item in exercises:
             exercise, was_created = Exercise.objects.update_or_create(
                 source_id=item.id,
@@ -123,7 +135,19 @@ def import_exercises(*, exercises: Sequence[repdb.RepdbExercise]) -> ImportRepor
                     "license_author": repdb.AUTHOR,
                     "is_active": True,
                 },
+                create_defaults={
+                    "name": item.name,
+                    "name_language": NameLanguage.ENGLISH,
+                    "category": item.category,
+                    "kind": item.kind,
+                    "license": repdb.LICENSE,
+                    "license_author": repdb.AUTHOR,
+                    "is_active": True,
+                },
             )
+            if not was_created and exercise.pk not in used and exercise.kind != item.kind:
+                exercise.kind = item.kind
+                exercise.save(update_fields=["kind", "updated_at"])
             exercise.muscles.set([muscles[code] for code in item.muscle_codes])
             exercise.secondary_muscles.set([muscles[code] for code in item.secondary_muscle_codes])
             exercise.equipment.set([equipment[code] for code in item.equipment_codes])
@@ -208,6 +232,106 @@ def _put[M: models.Model](
     raise AssertionError  # pragma: no cover — la boucle revient ou lève
 
 
+def _visible_exercise(owner: User, exercise_id: UUID) -> Exercise | None:
+    """Exercice du catalogue, ou exercice perso de `owner` : celui d'un autre compte n'existe
+    pas pour lui (ADR 0017)."""
+    return (
+        Exercise.objects.filter(pk=exercise_id)
+        .filter(models.Q(owner__isnull=True) | models.Q(owner=owner))
+        .first()
+    )
+
+
+# --- Exercices perso (ADR 0017) : `PUT` idempotent sur un UUID du client ----------------------
+
+
+class ExerciseInUseError(Exception):
+    """Exercice perso présent dans une séance ou une séance type : à archiver, pas à supprimer."""
+
+
+@dataclass(frozen=True)
+class CustomExerciseValues:
+    name: str
+    kind: ExerciseKind
+    category: Category
+    muscle_ids: tuple[int, ...] = ()
+    secondary_muscle_ids: tuple[int, ...] = ()
+    equipment_ids: tuple[int, ...] = ()
+    is_active: bool = True
+
+
+def _rows[M: models.Model](model: type[M], ids: tuple[int, ...], field: str) -> list[M]:
+    rows = list(model._default_manager.filter(pk__in=ids))
+    if len(rows) != len(set(ids)):
+        raise _unknown(field)
+    return rows
+
+
+def put_custom_exercise(
+    *, owner: User, exercise_id: UUID, values: CustomExerciseValues
+) -> tuple[Exercise, bool]:
+    """Crée ou remplace un exercice perso de `owner`. Un identifiant du catalogue ou d'un autre
+    compte lève `NotFoundError`. Le type ne change plus une fois l'exercice utilisé (422
+    `locked`). Au plus `MAX_CUSTOM_EXERCISES` par compte (422 `too_many`)."""
+    with transaction.atomic():
+        lock_account(owner)
+        muscles = _rows(Muscle, values.muscle_ids, "muscle_ids")
+        secondary = _rows(Muscle, values.secondary_muscle_ids, "secondary_muscle_ids")
+        equipment = _rows(Equipment, values.equipment_ids, "equipment_ids")
+
+        def parents() -> dict[str, Any]:
+            existing = Exercise.objects.filter(pk=exercise_id, owner=owner).first()
+            if existing is None:
+                if Exercise.objects.filter(owner=owner).count() >= MAX_CUSTOM_EXERCISES:
+                    raise _too_many("exercise_id")
+            elif existing.kind != values.kind and existing.pk in _used_exercise_ids_of(owner):
+                raise ValidationError(
+                    {"kind": ValidationError("Type fixé par l'historique.", code="locked")}
+                )
+            return {"owner": owner}
+
+        exercise, created = _put(
+            Exercise,
+            pk=exercise_id,
+            owned=models.Q(owner=owner),
+            values={
+                "name": values.name,
+                "name_language": NameLanguage.FRENCH,
+                "kind": values.kind,
+                "category": values.category,
+                "license": "",
+                "license_author": "",
+                "is_active": values.is_active,
+            },
+            parents=parents,
+        )
+        exercise.muscles.set(muscles)
+        exercise.secondary_muscles.set(secondary)
+        exercise.equipment.set(equipment)
+    return exercise, created
+
+
+def _used_exercise_ids_of(owner: User) -> set[UUID]:
+    in_workouts = WorkoutExercise.objects.filter(workout__owner=owner)
+    in_programs = ProgramExercise.objects.filter(day__program__owner=owner)
+    return set(in_workouts.values_list("exercise_id", flat=True)) | set(
+        in_programs.values_list("exercise_id", flat=True)
+    )
+
+
+def delete_custom_exercise(*, owner: User, exercise_id: UUID) -> None:
+    """Supprime un exercice perso de `owner` (idempotent ; sans effet sur le catalogue ou sur
+    l'exercice d'un autre compte). Lève `ExerciseInUseError` s'il sert encore."""
+    with transaction.atomic():
+        lock_account(owner)
+        exercise = Exercise.objects.filter(pk=exercise_id, owner=owner).first()
+        if exercise is None:
+            return
+        if exercise.pk in _used_exercise_ids_of(owner):
+            raise ExerciseInUseError
+        exercise.delete()
+
+
 def copied_exercise_id(workout_id: UUID, program_exercise_id: UUID) -> UUID:
     """Identifiant de l'exercice de séance recopié d'un exercice de programme : stable (même
     séance, même exercice de programme) et au format v4, le seul que l'API accepte en retour
@@ -282,7 +406,7 @@ def put_workout_exercise(
         others = workout.exercises.exclude(pk=workout_exercise_id).count()
         if others >= MAX_EXERCISES_PER_WORKOUT:
             raise _too_many("workout_id")
-        exercise = Exercise.objects.filter(pk=exercise_id).first()
+        exercise = _visible_exercise(owner, exercise_id)
         if exercise is None:
             raise _unknown("exercise_id")
         return {"workout": workout, "exercise": exercise}
@@ -439,7 +563,7 @@ def put_program_exercise(
             raise _unknown("day_id")
         if day.exercises.exclude(pk=program_exercise_id).count() >= MAX_EXERCISES_PER_DAY:
             raise _too_many("day_id")
-        exercise = Exercise.objects.filter(pk=exercise_id).first()
+        exercise = _visible_exercise(owner, exercise_id)
         if exercise is None:
             raise _unknown("exercise_id")
         return {"day": day, "exercise": exercise}

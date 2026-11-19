@@ -94,6 +94,16 @@ class SetIn(Schema):
 CategoryName = Literal[
     "abs", "arms", "back", "calves", "cardio", "chest", "legs", "shoulders", "full_body"
 ]
+# Valeurs de `ExerciseKind` (ADR 0017 ; un test vérifie qu'elles restent alignées).
+ExerciseKindName = Literal[
+    "weight_reps",
+    "reps",
+    "weighted_reps",
+    "assisted_reps",
+    "duration",
+    "distance_duration",
+    "weight_distance",
+]
 MAX_QUERY_LENGTH = 100
 
 
@@ -124,6 +134,10 @@ class ExerciseOut(Schema):
     # « en » : RepDB ne fournit pas de nom français, le nom anglais est affiché (ADR 0006).
     name_language: Literal["fr", "en"]
     category: CategoryName
+    # Ce que mesure une série : les colonnes à saisir (ADR 0017).
+    kind: ExerciseKindName
+    # Exercice perso du compte (jamais celui d'un autre), ou exercice du catalogue.
+    is_custom: bool
     muscles: list[NamedOut]
     equipment: list[NamedOut]
     # Image principale (ADR 0005) ; `None` : l'interface affiche le pictogramme de la catégorie.
@@ -251,6 +265,8 @@ def _exercise_out(exercise: Exercise) -> ExerciseOut:
         name=exercise.name,
         name_language=exercise.name_language,  # type: ignore[arg-type]  # contrainte en base
         category=exercise.category,  # type: ignore[arg-type]  # contrainte en base
+        kind=exercise.kind,  # type: ignore[arg-type]  # contrainte en base
+        is_custom=exercise.owner_id is not None,
         muscles=_named(exercise.muscles.all()),
         equipment=_named(exercise.equipment.all()),
         image=_main_image(exercise),
@@ -337,7 +353,7 @@ def list_exercises(request: HttpRequest, filters: Query[ExerciseQuery]) -> Exerc
 
 @router.get("/exercises/{exercise_id}/", response=ExerciseDetailOut, summary="Fiche d'exercice")
 def read_exercise(request: HttpRequest, exercise_id: UUID) -> ExerciseDetailOut:
-    exercise = selectors.get_exercise(exercise_id=exercise_id)
+    exercise = selectors.get_exercise(owner=request_user(request), exercise_id=exercise_id)
     if exercise is None:
         raise Http404
     return ExerciseDetailOut(

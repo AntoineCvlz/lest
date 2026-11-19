@@ -13,6 +13,7 @@ EXPORTED_MODELS = {
     "training.workout",  # avec ses exercices de séance et ses séries
     "training.personalrecord",
     "training.program",  # avec ses séances types et leurs exercices
+    "training.exercise",  # exercices perso seulement (ADR 0017)
     "body.bodyweight",
     "body.bodymeasurement",
     "body.progressphoto",
