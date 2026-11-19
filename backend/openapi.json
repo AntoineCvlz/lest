@@ -1544,6 +1544,73 @@
         "title": "PhotoQuery",
         "type": "object"
       },
+      "PlannedSetOut": {
+        "properties": {
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "reps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
+          },
+          "set_type": {
+            "enum": [
+              "warmup",
+              "normal",
+              "drop",
+              "failure"
+            ],
+            "title": "Set Type",
+            "type": "string"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "required": [
+          "set_type",
+          "weight_kg",
+          "reps",
+          "duration_s",
+          "distance_m"
+        ],
+        "title": "PlannedSetOut",
+        "type": "object"
+      },
       "ProfileIn": {
         "properties": {
           "default_rest_seconds": {
@@ -1844,17 +1911,71 @@
             "title": "Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
           },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/ProgramSetOut"
+            },
+            "title": "Sets",
+            "type": "array"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
+          },
           "target_reps": {
-            "title": "Target Reps",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Reps"
           },
           "target_sets": {
-            "title": "Target Sets",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Sets"
           }
         },
         "required": [
@@ -1862,6 +1983,10 @@
           "day_id",
           "exercise_id",
           "position",
+          "rest_seconds",
+          "superset",
+          "note",
+          "sets",
           "target_sets",
           "target_reps",
           "exercise_name",
@@ -1874,6 +1999,7 @@
         "type": "object"
       },
       "ProgramExerciseIn": {
+        "description": "Exercice de routine. Repos, superset, note : absent, gardé ; `null`, effacé (comme les\nexercices de séance). `target_sets` et `target_reps` ensemble : raccourci de l'écran\nactuel, qui réécrit les séries prévues (transition, ADR 0017).",
         "properties": {
           "day_id": {
             "format": "uuid4",
@@ -1885,31 +2011,81 @@
             "title": "Exercise Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "maximum": 1000,
             "minimum": 0,
             "title": "Position",
             "type": "integer"
           },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600,
+                "minimum": 15,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
+          },
           "target_reps": {
-            "maximum": 100,
-            "minimum": 1,
-            "title": "Target Reps",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 100,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Reps"
           },
           "target_sets": {
-            "maximum": 20,
-            "minimum": 1,
-            "title": "Target Sets",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 20,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Sets"
           }
         },
         "required": [
           "day_id",
           "exercise_id",
-          "position",
-          "target_sets",
-          "target_reps"
+          "position"
         ],
         "title": "ProgramExerciseIn",
         "type": "object"
@@ -1931,17 +2107,71 @@
             "title": "Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
           },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/ProgramSetOut"
+            },
+            "title": "Sets",
+            "type": "array"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
+          },
           "target_reps": {
-            "title": "Target Reps",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Reps"
           },
           "target_sets": {
-            "title": "Target Sets",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Sets"
           }
         },
         "required": [
@@ -1949,6 +2179,10 @@
           "day_id",
           "exercise_id",
           "position",
+          "rest_seconds",
+          "superset",
+          "note",
+          "sets",
           "target_sets",
           "target_reps"
         ],
@@ -1987,6 +2221,181 @@
           "name"
         ],
         "title": "ProgramOut",
+        "type": "object"
+      },
+      "ProgramSetIn": {
+        "description": "Série prévue : colonnes du type de l'exercice seulement, toutes facultatives.",
+        "properties": {
+          "distance_m": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "maximum": 86400,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "position": {
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "Position",
+            "type": "integer"
+          },
+          "program_exercise_id": {
+            "format": "uuid4",
+            "title": "Program Exercise Id",
+            "type": "string"
+          },
+          "reps": {
+            "anyOf": [
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
+          },
+          "set_type": {
+            "default": "normal",
+            "enum": [
+              "warmup",
+              "normal",
+              "drop",
+              "failure"
+            ],
+            "title": "Set Type",
+            "type": "string"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "maximum": 1000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "required": [
+          "program_exercise_id",
+          "position"
+        ],
+        "title": "ProgramSetIn",
+        "type": "object"
+      },
+      "ProgramSetOut": {
+        "properties": {
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "program_exercise_id": {
+            "format": "uuid",
+            "title": "Program Exercise Id",
+            "type": "string"
+          },
+          "reps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
+          },
+          "set_type": {
+            "enum": [
+              "warmup",
+              "normal",
+              "drop",
+              "failure"
+            ],
+            "title": "Set Type",
+            "type": "string"
+          },
+          "weight_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
+          }
+        },
+        "required": [
+          "id",
+          "program_exercise_id",
+          "position",
+          "set_type",
+          "weight_kg",
+          "reps",
+          "duration_s",
+          "distance_m"
+        ],
+        "title": "ProgramSetOut",
         "type": "object"
       },
       "RecordOut": {
@@ -2916,6 +3325,13 @@
             ],
             "title": "Note"
           },
+          "planned_sets": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedSetOut"
+            },
+            "title": "Planned Sets",
+            "type": "array"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
@@ -2992,6 +3408,7 @@
           "exercise_image",
           "target_sets",
           "target_reps",
+          "planned_sets",
           "sets"
         ],
         "title": "WorkoutExerciseDetailOut",
@@ -5173,6 +5590,93 @@
         ]
       }
     },
+    "/api/v1/program-sets/{set_id}/": {
+      "delete": {
+        "operationId": "apps_training_api_programs_remove_program_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Retirer une série prévue",
+        "tags": [
+          "programs"
+        ]
+      },
+      "put": {
+        "operationId": "apps_training_api_programs_write_program_set",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramSetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramSetOut"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramSetOut"
+                }
+              }
+            },
+            "description": "Created"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Ajouter ou remplacer une série prévue",
+        "tags": [
+          "programs"
+        ]
+      }
+    },
     "/api/v1/programs/": {
       "get": {
         "operationId": "apps_training_api_programs_list_programs",
@@ -6043,6 +6547,44 @@
         "summary": "Créer ou remplacer une séance",
         "tags": [
           "training"
+        ]
+      }
+    },
+    "/api/v1/workouts/{workout_id}/update-routine/": {
+      "post": {
+        "operationId": "apps_training_api_programs_update_routine",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workout_id",
+            "required": true,
+            "schema": {
+              "format": "uuid4",
+              "title": "Workout Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramDetailOut"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerJWTAuth": []
+          }
+        ],
+        "summary": "Mettre à jour la routine suivie avec cette séance",
+        "tags": [
+          "programs"
         ]
       }
     }

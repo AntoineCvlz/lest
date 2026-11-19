@@ -247,32 +247,92 @@ class ProgramDay(models.Model):
         return f"Séance type {self.pk}"
 
 
+class SetType(models.TextChoices):
+    """Rôle d'une série (ADR 0017) ; l'échauffement ne compte ni au volume ni aux records."""
+
+    WARMUP = "warmup", "Échauffement"
+    NORMAL = "normal", "Normale"
+    DROP = "drop", "Dégressive"
+    FAILURE = "failure", "À l'échec"
+
+
 class ProgramExercise(models.Model):
-    """Exercice d'une séance type et sa cible (séries x répétitions)."""
+    """Exercice d'une séance type (routine, ADR 0017) : ses séries prévues, son repos, son
+    superset et sa note."""
 
     id = models.UUIDField(primary_key=True, editable=False)
     day = models.ForeignKey(ProgramDay, on_delete=models.CASCADE, related_name="exercises")
     # RESTRICT : jamais supprimé tant qu'il sert, sauf avec le compte (exercice perso, cascade).
     exercise = models.ForeignKey(Exercise, on_delete=models.RESTRICT, related_name="+")
     position = models.PositiveSmallIntegerField()
-    target_sets = models.PositiveSmallIntegerField()
-    target_reps = models.PositiveSmallIntegerField()
+    rest_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    superset = models.PositiveSmallIntegerField(null=True, blank=True)
+    note = EncryptedTextField(null=True, blank=True)
 
     class Meta:
         ordering = ("position", "id")
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.CheckConstraint(
-                condition=models.Q(target_sets__gte=1, target_sets__lte=MAX_TARGET_SETS),
-                name="training_programexercise_target_sets_range",
+                condition=models.Q(rest_seconds__isnull=True)
+                | models.Q(rest_seconds__gte=MIN_REST_SECONDS, rest_seconds__lte=MAX_REST_SECONDS),
+                name="training_programexercise_rest_range",
             ),
             models.CheckConstraint(
-                condition=models.Q(target_reps__gte=1, target_reps__lte=MAX_TARGET_REPS),
-                name="training_programexercise_target_reps_range",
+                condition=models.Q(superset__isnull=True)
+                | models.Q(superset__gte=1, superset__lte=MAX_SUPERSET),
+                name="training_programexercise_superset_range",
             ),
         ]
 
     def __str__(self) -> str:
         return f"Exercice de programme {self.pk}"
+
+
+class ProgramSet(models.Model):
+    """Série prévue d'un exercice de routine (ADR 0017) : les colonnes du type de l'exercice,
+    toutes facultatives (une charge à trouver, des répétitions visées…)."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    program_exercise = models.ForeignKey(
+        ProgramExercise, on_delete=models.CASCADE, related_name="sets"
+    )
+    position = models.PositiveSmallIntegerField()
+    set_type = models.CharField(max_length=8, choices=SetType, default=SetType.NORMAL)
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    reps = models.PositiveSmallIntegerField(null=True, blank=True)
+    duration_s = models.PositiveIntegerField(null=True, blank=True)
+    distance_m = models.DecimalField(max_digits=8, decimal_places=1, null=True, blank=True)
+
+    class Meta:
+        ordering = ("position", "id")
+        constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(set_type__in=SetType.values),
+                name="training_programset_type_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(weight_kg__isnull=True)
+                | models.Q(weight_kg__gte=0, weight_kg__lte=MAX_WEIGHT_KG),
+                name="training_programset_weight_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(reps__isnull=True) | models.Q(reps__lte=MAX_REPS),
+                name="training_programset_reps_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(duration_s__isnull=True)
+                | models.Q(duration_s__lte=MAX_DURATION_S),
+                name="training_programset_duration_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(distance_m__isnull=True)
+                | models.Q(distance_m__gte=0, distance_m__lte=MAX_DISTANCE_M),
+                name="training_programset_distance_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Série prévue {self.pk}"
 
 
 class Workout(models.Model):
@@ -322,6 +382,10 @@ class WorkoutExercise(models.Model):
     # l'historique. Vide hors programme.
     target_sets = models.PositiveSmallIntegerField(null=True, blank=True)
     target_reps = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Séries prévues de la routine, recopiées au démarrage (ADR 0017) : l'écran les propose,
+    # elles deviennent des séries une fois faites. Liste de dictionnaires (`set_type`,
+    # `weight_kg`, `reps`, `duration_s`, `distance_m`), figée comme les cibles.
+    planned_sets = models.JSONField(default=list, blank=True)
     # Repos après chaque série ; vide : réglage du profil (ADR 0017).
     rest_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
     # Exercices consécutifs de même numéro : un superset (enchaînés sans repos entre eux).
@@ -352,15 +416,6 @@ class WorkoutExercise(models.Model):
 
     def __str__(self) -> str:
         return f"Exercice de séance {self.pk}"
-
-
-class SetType(models.TextChoices):
-    """Rôle d'une série (ADR 0017) ; l'échauffement ne compte ni au volume ni aux records."""
-
-    WARMUP = "warmup", "Échauffement"
-    NORMAL = "normal", "Normale"
-    DROP = "drop", "Dégressive"
-    FAILURE = "failure", "À l'échec"
 
 
 class Set(models.Model):

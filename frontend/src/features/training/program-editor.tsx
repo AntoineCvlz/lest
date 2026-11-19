@@ -92,8 +92,9 @@ function NameForm({
 function TargetEditor({ planned, onDone }: { planned: Planned; onDone: () => void }) {
   const save = useSavePlannedExercise();
   const remove = useDeletePlannedExercise();
-  const [sets, setSets] = useState(planned.target_sets);
-  const [reps, setReps] = useState(planned.target_reps);
+  // Routine sans répétitions prévues (ADR 0017) : la cible repart de 3 × 10.
+  const [sets, setSets] = useState(planned.target_sets ?? DEFAULT_TARGET.sets);
+  const [reps, setReps] = useState(planned.target_reps ?? DEFAULT_TARGET.reps);
 
   return (
     <div className="flex flex-col gap-4 py-3">

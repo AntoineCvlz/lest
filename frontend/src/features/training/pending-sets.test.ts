@@ -48,6 +48,7 @@ function workout(sets: Schemas["SetOut"][], id = WORKOUT): Schemas["WorkoutDetai
         rest_seconds: null,
         superset: null,
         note: null,
+        planned_sets: [],
         target_sets: null,
         target_reps: null,
         sets,

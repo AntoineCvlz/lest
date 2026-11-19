@@ -317,7 +317,22 @@ def test_programs_are_in_the_data_export(alice: Athlete, bench: Exercise) -> Non
                 {
                     "name": "Poussée",
                     "exercises": [
-                        {"exercise": "Développé couché", "target_sets": 3, "target_reps": 10}
+                        {
+                            "exercise": "Développé couché",
+                            "rest_seconds": None,
+                            "superset": None,
+                            "note": None,
+                            "sets": [
+                                {
+                                    "set_type": "normal",
+                                    "weight_kg": None,
+                                    "reps": 10,
+                                    "duration_s": None,
+                                    "distance_m": None,
+                                }
+                            ]
+                            * 3,
+                        }
                     ],
                 }
             ],

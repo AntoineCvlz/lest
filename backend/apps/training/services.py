@@ -34,6 +34,7 @@ from .models import (
     Program,
     ProgramDay,
     ProgramExercise,
+    ProgramSet,
     RecordKind,
     Set,
     SetType,
@@ -342,6 +343,37 @@ def copied_exercise_id(workout_id: UUID, program_exercise_id: UUID) -> UUID:
     return UUID(bytes=digest[:16], version=4)
 
 
+def _planned_row(one: ProgramSet) -> dict[str, Any]:
+    """Série prévue telle que recopiée dans la séance (JSON : décimaux en texte)."""
+    return {
+        "set_type": one.set_type,
+        "weight_kg": None if one.weight_kg is None else str(one.weight_kg),
+        "reps": one.reps,
+        "duration_s": one.duration_s,
+        "distance_m": None if one.distance_m is None else str(one.distance_m),
+    }
+
+
+def _copied(workout: Workout, planned: ProgramExercise) -> WorkoutExercise:
+    """Exercice de séance recopié de la routine : séries prévues, repos, superset, note, et la
+    cible « séries x répétitions » qu'en tire l'écran actuel."""
+    sets = list(planned.sets.all())
+    working = [one for one in sets if one.set_type in WORKING_TYPES]
+    reps = next((one.reps for one in working if one.reps is not None), None)
+    return WorkoutExercise(
+        id=copied_exercise_id(workout.pk, planned.pk),
+        workout=workout,
+        exercise_id=planned.exercise_id,
+        position=planned.position,
+        planned_sets=[_planned_row(one) for one in sets],
+        target_sets=len(working) if working and reps is not None else None,
+        target_reps=reps if working else None,
+        rest_seconds=planned.rest_seconds,
+        superset=planned.superset,
+        note=planned.note,
+    )
+
+
 def put_workout(
     *,
     owner: User,
@@ -396,15 +428,10 @@ def put_workout(
                 workout.name = ProgramDay.objects.get(pk=workout.program_day_id).name
                 workout.save(update_fields=["name", "updated_at"])
             WorkoutExercise.objects.bulk_create(
-                WorkoutExercise(
-                    id=copied_exercise_id(workout.pk, planned.pk),
-                    workout=workout,
-                    exercise_id=planned.exercise_id,
-                    position=planned.position,
-                    target_sets=planned.target_sets,
-                    target_reps=planned.target_reps,
-                )
-                for planned in ProgramExercise.objects.filter(day_id=workout.program_day_id)
+                _copied(workout, planned)
+                for planned in ProgramExercise.objects.filter(
+                    day_id=workout.program_day_id
+                ).prefetch_related("sets")
             )
     return workout, created
 
@@ -553,12 +580,13 @@ def delete_set(*, owner: User, set_id: UUID) -> None:
         _recompute(owner, touched)
 
 
-# --- Programmes : séances types et cibles ---------------------------------------------------
+# --- Programmes (dossiers) et séances types (routines, ADR 0017) -----------------------------
 
 # Plafonds (422 au-delà) : un programme reste un carnet, pas un entrepôt.
 MAX_PROGRAMS = 30
-MAX_DAYS_PER_PROGRAM = 7
+MAX_DAYS_PER_PROGRAM = 50
 MAX_EXERCISES_PER_DAY = 20
+MAX_PLANNED_SETS = 20
 
 
 def put_program(*, owner: User, program_id: UUID, name: str) -> tuple[Program, bool]:
@@ -602,6 +630,28 @@ def put_program_day(
     )
 
 
+def planned_set_id(program_exercise_id: UUID, position: int) -> UUID:
+    """Identifiant d'une série prévue créée par le serveur (cible « N x R », mise à jour depuis
+    une séance) : stable pour une même place, au format v4 (ADR 0003)."""
+    digest = hashlib.sha256(program_exercise_id.bytes + position.to_bytes(2, "big")).digest()
+    return UUID(bytes=digest[:16], version=4)
+
+
+def _replace_planned_sets(planned: ProgramExercise, rows: list[dict[str, Any]]) -> None:
+    """Remplace les séries prévues de `planned` par `rows` (colonnes d'une série), aux places
+    0..n-1, sous des identifiants stables : rejouer donne les mêmes lignes."""
+    planned.sets.all().delete()
+    ProgramSet.objects.bulk_create(
+        ProgramSet(
+            id=planned_set_id(planned.pk, position),
+            program_exercise=planned,
+            position=position,
+            **row,
+        )
+        for position, row in enumerate(rows[:MAX_PLANNED_SETS])
+    )
+
+
 def put_program_exercise(
     *,
     owner: User,
@@ -609,10 +659,15 @@ def put_program_exercise(
     day_id: UUID,
     exercise_id: UUID,
     position: int,
-    target_sets: int,
-    target_reps: int,
+    details: dict[str, Any] | None = None,
+    targets: tuple[int, int] | None = None,
 ) -> tuple[ProgramExercise, bool]:
-    """Crée ou remplace un exercice d'une séance type de `owner`, avec sa cible."""
+    """Crée ou remplace un exercice d'une séance type de `owner`.
+
+    `details` : repos, superset, note, écrits seulement s'ils sont fournis. `targets` (séries,
+    répétitions) : raccourci de l'écran actuel des programmes, qui réécrit les séries prévues
+    en N séries « normales » de R répétitions, en gardant leurs charges par place (transition,
+    ADR 0017 : retiré avec la refonte de l'écran)."""
 
     def parents() -> dict[str, Any]:
         day = ProgramDay.objects.select_for_update().filter(pk=day_id, program__owner=owner).first()
@@ -625,13 +680,149 @@ def put_program_exercise(
             raise _unknown("exercise_id")
         return {"day": day, "exercise": exercise}
 
+    with transaction.atomic():
+        planned, created = _put(
+            ProgramExercise,
+            pk=program_exercise_id,
+            owned=models.Q(day__program__owner=owner),
+            values={"position": position, **(details or {})},
+            parents=parents,
+        )
+        if targets is not None:
+            count, reps = targets
+            loads = {one.position: one.weight_kg for one in planned.sets.all()}
+            reps_column = "reps" in COLUMNS[planned.exercise.kind]
+            _replace_planned_sets(
+                planned,
+                [
+                    {
+                        "set_type": SetType.NORMAL,
+                        "weight_kg": loads.get(index),
+                        "reps": reps if reps_column else None,
+                    }
+                    for index in range(count)
+                ],
+            )
+    return planned, created
+
+
+@dataclass(frozen=True)
+class PlannedSetValues:
+    """Série prévue : colonnes du type de l'exercice seulement, toutes facultatives."""
+
+    position: int
+    set_type: SetType = SetType.NORMAL
+    weight_kg: Decimal | None = None
+    reps: int | None = None
+    duration_s: int | None = None
+    distance_m: Decimal | None = None
+
+
+def put_program_set(
+    *, owner: User, set_id: UUID, program_exercise_id: UUID, values: PlannedSetValues
+) -> tuple[ProgramSet, bool]:
+    """Crée ou remplace une série prévue d'un exercice de routine de `owner`. Une colonne hors
+    du type de l'exercice est refusée (422 `not_allowed`) ; au plus `MAX_PLANNED_SETS`."""
+
+    def parents() -> dict[str, Any]:
+        planned = (
+            ProgramExercise.objects.select_for_update()
+            .select_related("exercise")
+            .filter(pk=program_exercise_id, day__program__owner=owner)
+            .first()
+        )
+        if planned is None:
+            raise _unknown("program_exercise_id")
+        if planned.sets.exclude(pk=set_id).count() >= MAX_PLANNED_SETS:
+            raise _too_many("program_exercise_id")
+        allowed = COLUMNS[planned.exercise.kind]
+        refused = {
+            column: ValidationError("Valeur hors du type.", code="not_allowed")
+            for column in MEASURES
+            if column not in allowed and getattr(values, column) is not None
+        }
+        if refused:
+            raise ValidationError(refused)
+        return {"program_exercise": planned}
+
     return _put(
-        ProgramExercise,
-        pk=program_exercise_id,
-        owned=models.Q(day__program__owner=owner),
-        values={"position": position, "target_sets": target_sets, "target_reps": target_reps},
+        ProgramSet,
+        pk=set_id,
+        owned=models.Q(program_exercise__day__program__owner=owner),
+        values={
+            "position": values.position,
+            "set_type": values.set_type,
+            "weight_kg": values.weight_kg,
+            "reps": values.reps,
+            "duration_s": values.duration_s,
+            "distance_m": values.distance_m,
+        },
         parents=parents,
     )
+
+
+def delete_program_set(*, owner: User, set_id: UUID) -> None:
+    """Supprime une série prévue de `owner`. Idempotent."""
+    ProgramSet.objects.filter(pk=set_id, program_exercise__day__program__owner=owner).delete()
+
+
+class NoRoutineError(Exception):
+    """Séance faite hors routine, ou dont la routine a été supprimée depuis."""
+
+
+def update_routine_from_workout(*, owner: User, workout_id: UUID) -> ProgramDay:
+    """« Mettre à jour la routine » (ADR 0017) : les séries prévues de la séance type suivie
+    deviennent les séries faites, exercice par exercice ; les exercices ajoutés pendant la
+    séance s'ajoutent à la routine. Aucun exercice n'en est retiré. Rejouable : mêmes lignes,
+    mêmes identifiants. Lève `NotFoundError` (séance inconnue ou d'un autre compte) ou
+    `NoRoutineError`."""
+    with transaction.atomic():
+        workout = Workout.objects.filter(pk=workout_id, owner=owner).first()
+        if workout is None:
+            raise NotFoundError
+        if workout.program_day_id is None:
+            raise NoRoutineError
+        day = (
+            ProgramDay.objects.select_for_update()
+            .filter(pk=workout.program_day_id, program__owner=owner)
+            .first()
+        )
+        if day is None:
+            raise NoRoutineError
+        routine = {
+            copied_exercise_id(workout.pk, planned.pk): planned
+            for planned in day.exercises.select_related("exercise")
+        }
+        next_position = max((planned.position for planned in routine.values()), default=-1) + 1
+        for item in workout.exercises.prefetch_related("sets").order_by("position", "created_at"):
+            added_id = copied_exercise_id(day.pk, item.pk)
+            # Recopié de la routine, ou ajouté par une mise à jour précédente (rejeu).
+            planned = routine.get(item.pk) or day.exercises.filter(pk=added_id).first()
+            if planned is None:
+                if day.exercises.count() >= MAX_EXERCISES_PER_DAY:
+                    continue
+                planned = ProgramExercise.objects.create(
+                    id=added_id,
+                    day=day,
+                    exercise_id=item.exercise_id,
+                    position=next_position,
+                    rest_seconds=item.rest_seconds,
+                    superset=item.superset,
+                )
+                next_position += 1
+            rows = [
+                {
+                    "set_type": one.set_type,
+                    "weight_kg": one.weight_kg,
+                    "reps": one.reps,
+                    "duration_s": one.duration_s,
+                    "distance_m": one.distance_m,
+                }
+                for one in item.sets.all()
+            ]
+            if rows:
+                _replace_planned_sets(planned, rows)
+    return day
 
 
 def delete_program(*, owner: User, program_id: UUID) -> None:

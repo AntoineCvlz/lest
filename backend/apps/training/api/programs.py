@@ -2,6 +2,7 @@
 sur un UUID du client, `DELETE` idempotent ; un identifiant d'un autre compte répond 404, un
 parent inconnu 422."""
 
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID
 
@@ -16,22 +17,36 @@ from apps.training.api.router import (
     ClientId,
     ExerciseKindName,
     ImageOut,
+    Note,
+    SetTypeName,
     _conflict,
     _main_image,
     _status,
     _writer,
 )
 from apps.training.models import (
+    MAX_DISTANCE_M,
+    MAX_DURATION_S,
+    MAX_REPS,
+    MAX_REST_SECONDS,
+    MAX_SUPERSET,
     MAX_TARGET_REPS,
     MAX_TARGET_SETS,
+    MAX_WEIGHT_KG,
+    MIN_REST_SECONDS,
     Program,
     ProgramDay,
     ProgramExercise,
+    ProgramSet,
+    SetType,
 )
 from common.auth import request_user
+from common.problems import ProblemError
 from common.text import printable
 
 router = Router(tags=["programs"])
+
+NO_ROUTINE_TYPE = "urn:lest:problem:no-routine"
 
 
 # Nom saisi par l'utilisateur : espaces de bord retirés, puis 1 à 80 caractères imprimables.
@@ -53,11 +68,59 @@ class ProgramDayIn(Schema):
 
 
 class ProgramExerciseIn(Schema):
+    """Exercice de routine. Repos, superset, note : absent, gardé ; `null`, effacé (comme les
+    exercices de séance). `target_sets` et `target_reps` ensemble : raccourci de l'écran
+    actuel, qui réécrit les séries prévues (transition, ADR 0017)."""
+
     day_id: ClientId
     exercise_id: UUID
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
-    target_sets: int = Field(strict=True, ge=1, le=MAX_TARGET_SETS)
-    target_reps: int = Field(strict=True, ge=1, le=MAX_TARGET_REPS)
+    rest_seconds: int | None = Field(
+        default=None, strict=True, ge=MIN_REST_SECONDS, le=MAX_REST_SECONDS
+    )
+    superset: int | None = Field(default=None, strict=True, ge=1, le=MAX_SUPERSET)
+    note: Note | None = None
+    target_sets: int | None = Field(default=None, strict=True, ge=1, le=MAX_TARGET_SETS)
+    target_reps: int | None = Field(default=None, strict=True, ge=1, le=MAX_TARGET_REPS)
+
+    def details(self) -> dict[str, object]:
+        fields = ("rest_seconds", "superset", "note")
+        values = {field: getattr(self, field) for field in fields if field in self.model_fields_set}
+        if "note" in values:
+            values["note"] = values["note"] or None
+        return values
+
+    def targets(self) -> tuple[int, int] | None:
+        if self.target_sets is None or self.target_reps is None:
+            return None
+        return self.target_sets, self.target_reps
+
+
+class ProgramSetIn(Schema):
+    """Série prévue : colonnes du type de l'exercice seulement, toutes facultatives."""
+
+    program_exercise_id: ClientId
+    position: int = Field(strict=True, ge=0, le=MAX_POSITION)
+    set_type: SetTypeName = "normal"
+    weight_kg: Decimal | None = Field(
+        default=None, ge=0, le=MAX_WEIGHT_KG, max_digits=6, decimal_places=2
+    )
+    reps: int | None = Field(default=None, strict=True, ge=0, le=MAX_REPS)
+    duration_s: int | None = Field(default=None, strict=True, ge=0, le=MAX_DURATION_S)
+    distance_m: Decimal | None = Field(
+        default=None, ge=0, le=MAX_DISTANCE_M, max_digits=8, decimal_places=1
+    )
+
+
+class ProgramSetOut(Schema):
+    id: UUID
+    program_exercise_id: UUID
+    position: int
+    set_type: SetTypeName
+    weight_kg: float | None
+    reps: int | None
+    duration_s: int | None
+    distance_m: float | None
 
 
 class ProgramExerciseOut(Schema):
@@ -65,8 +128,14 @@ class ProgramExerciseOut(Schema):
     day_id: UUID
     exercise_id: UUID
     position: int
-    target_sets: int
-    target_reps: int
+    rest_seconds: int | None
+    superset: int | None
+    note: str | None
+    sets: list[ProgramSetOut]
+    # Tirés des séries prévues pour l'écran actuel (séries de travail, répétitions de la
+    # première) ; `None` sans série prévue avec des répétitions.
+    target_sets: int | None
+    target_reps: int | None
 
 
 class ProgramExerciseDetailOut(ProgramExerciseOut):
@@ -128,14 +197,34 @@ def _day_out(day: ProgramDay) -> ProgramDayOut:
     return ProgramDayOut(id=day.pk, program_id=day.program_id, name=day.name, position=day.position)
 
 
+def _set_out(one: ProgramSet) -> ProgramSetOut:
+    return ProgramSetOut(
+        id=one.pk,
+        program_exercise_id=one.program_exercise_id,
+        position=one.position,
+        set_type=one.set_type,  # type: ignore[arg-type]  # contrainte en base
+        weight_kg=None if one.weight_kg is None else float(one.weight_kg),
+        reps=one.reps,
+        duration_s=one.duration_s,
+        distance_m=None if one.distance_m is None else float(one.distance_m),
+    )
+
+
 def _exercise_out(planned: ProgramExercise) -> ProgramExerciseOut:
+    sets = sorted(planned.sets.all(), key=lambda one: (one.position, str(one.pk)))
+    working = [one for one in sets if one.set_type != SetType.WARMUP]
+    reps = next((one.reps for one in working if one.reps is not None), None)
     return ProgramExerciseOut(
         id=planned.pk,
         day_id=planned.day_id,
         exercise_id=planned.exercise_id,
         position=planned.position,
-        target_sets=planned.target_sets,
-        target_reps=planned.target_reps,
+        rest_seconds=planned.rest_seconds,
+        superset=planned.superset,
+        note=planned.note,
+        sets=[_set_out(one) for one in sets],
+        target_sets=len(working) if reps is not None else None,
+        target_reps=reps,
     )
 
 
@@ -221,8 +310,8 @@ def write_program_exercise(
             day_id=payload.day_id,
             exercise_id=payload.exercise_id,
             position=payload.position,
-            target_sets=payload.target_sets,
-            target_reps=payload.target_reps,
+            details=payload.details(),
+            targets=payload.targets(),
         )
     except services.NotFoundError as error:
         raise Http404 from error
@@ -241,3 +330,59 @@ def remove_program_exercise(request: HttpRequest, program_exercise_id: ClientId)
         owner=_writer(request), program_exercise_id=program_exercise_id
     )
     return Status(204, None)
+
+
+@router.put(
+    "/program-sets/{set_id}/",
+    response={200: ProgramSetOut, 201: ProgramSetOut},
+    summary="Ajouter ou remplacer une série prévue",
+)
+def write_program_set(
+    request: HttpRequest, set_id: ClientId, payload: ProgramSetIn
+) -> Status[ProgramSetOut]:
+    try:
+        one, created = services.put_program_set(
+            owner=_writer(request),
+            set_id=set_id,
+            program_exercise_id=payload.program_exercise_id,
+            values=services.PlannedSetValues(
+                position=payload.position,
+                set_type=SetType(payload.set_type),
+                weight_kg=payload.weight_kg,
+                reps=payload.reps,
+                duration_s=payload.duration_s,
+                distance_m=payload.distance_m,
+            ),
+        )
+    except services.NotFoundError as error:
+        raise Http404 from error
+    except services.WriteConflictError as error:
+        raise _conflict() from error
+    return _status(created, _set_out(one))
+
+
+@router.delete("/program-sets/{set_id}/", response={204: None}, summary="Retirer une série prévue")
+def remove_program_set(request: HttpRequest, set_id: ClientId) -> Status[None]:
+    services.delete_program_set(owner=_writer(request), set_id=set_id)
+    return Status(204, None)
+
+
+@router.post(
+    "/workouts/{workout_id}/update-routine/",
+    response=ProgramDetailOut,
+    summary="Mettre à jour la routine suivie avec cette séance",
+)
+def update_routine(request: HttpRequest, workout_id: ClientId) -> ProgramDetailOut:
+    owner = _writer(request)
+    try:
+        day = services.update_routine_from_workout(owner=owner, workout_id=workout_id)
+    except services.NotFoundError as error:
+        raise Http404 from error
+    except services.NoRoutineError as error:
+        raise ProblemError(
+            409, "Séance faite hors routine, ou routine supprimée.", type_=NO_ROUTINE_TYPE
+        ) from error
+    program = selectors.get_program(owner=owner, program_id=day.program_id)
+    if program is None:  # supprimé entre-temps
+        raise Http404
+    return _program_detail(program)
