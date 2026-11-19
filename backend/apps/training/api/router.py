@@ -16,15 +16,24 @@ from django.core.files.storage import default_storage
 from django.http import FileResponse, Http404, HttpRequest
 from django.utils import timezone
 from ninja import Field, Query, Router, Schema, Status
-from pydantic import UUID4, AfterValidator, AwareDatetime
+from pydantic import UUID4, AfterValidator, AwareDatetime, StringConstraints
 
 from apps.accounts.models import User
 from apps.training import selectors, services
 from apps.training.models import (
     MAX_DISTANCE_M,
     MAX_DURATION_S,
+    MAX_FEELING,
+    MAX_HEART_RATE,
+    MAX_NOTE_LENGTH,
     MAX_REPS,
+    MAX_REST_SECONDS,
+    MAX_SUPERSET,
     MAX_WEIGHT_KG,
+    MAX_WORKOUT_NAME,
+    MIN_FEELING,
+    MIN_HEART_RATE,
+    MIN_REST_SECONDS,
     Category,
     Equipment,
     Exercise,
@@ -39,7 +48,7 @@ from apps.training.models import (
 from common.auth import request_user
 from common.pagination import DEFAULT_LIMIT, MAX_LIMIT, InvalidCursorError
 from common.problems import ProblemError
-from common.text import printable
+from common.text import note_text, printable
 
 router = Router(tags=["training"])
 
@@ -68,17 +77,71 @@ ClientId = UUID4
 Moment = Annotated[AwareDatetime, AfterValidator(_plausible)]
 
 
+Note = Annotated[str, StringConstraints(max_length=MAX_NOTE_LENGTH), AfterValidator(note_text)]
+
+
 class WorkoutIn(Schema):
+    """Séance. Nom, note, fréquence cardiaque et ressenti (ADR 0017) : un champ absent garde sa
+    valeur, `null` l'efface (la file hors ligne renvoie la séance sans eux)."""
+
     started_at: Moment
     ended_at: Moment | None = None
     # Séance type suivie : ses exercices et cibles sont recopiés à la création seulement.
     program_day_id: ClientId | None = None
+    name: (
+        Annotated[
+            str,
+            StringConstraints(strip_whitespace=True, max_length=MAX_WORKOUT_NAME),
+            AfterValidator(printable),
+        ]
+        | None
+    ) = None
+    note: Note | None = None
+    avg_heart_rate: int | None = Field(
+        default=None, strict=True, ge=MIN_HEART_RATE, le=MAX_HEART_RATE
+    )
+    feeling: int | None = Field(default=None, strict=True, ge=MIN_FEELING, le=MAX_FEELING)
+
+    def details(self) -> dict[str, object]:
+        fields = ("name", "note", "avg_heart_rate", "feeling")
+        return {
+            field: _blank_to_none(field, getattr(self, field))
+            for field in fields
+            if field in self.model_fields_set
+        }
 
 
 class WorkoutExerciseIn(Schema):
+    """Exercice de séance. Repos, superset et note (ADR 0017) : absent, gardé ; `null`, effacé."""
+
     workout_id: ClientId
     exercise_id: UUID
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
+    rest_seconds: int | None = Field(
+        default=None, strict=True, ge=MIN_REST_SECONDS, le=MAX_REST_SECONDS
+    )
+    superset: int | None = Field(default=None, strict=True, ge=1, le=MAX_SUPERSET)
+    note: Note | None = None
+
+    def details(self) -> dict[str, object]:
+        fields = ("rest_seconds", "superset", "note")
+        return {
+            field: _blank_to_none(field, getattr(self, field))
+            for field in fields
+            if field in self.model_fields_set
+        }
+
+
+def _blank_to_none(field: str, value: object) -> object:
+    """Une note vide s'efface, un nom `null` devient vide ; les entiers, chiffrés, passent en
+    `Decimal`."""
+    if field == "note":
+        return value or None
+    if field == "name":
+        return value or ""
+    if field in {"avg_heart_rate", "feeling"} and value is not None:
+        return Decimal(value)  # type: ignore[arg-type]  # entier validé par le schéma
+    return value
 
 
 # Valeurs de `SetType` (ADR 0017 ; un test vérifie qu'elles restent alignées).
@@ -219,12 +282,18 @@ class WorkoutExerciseOut(Schema):
     workout_id: UUID
     exercise_id: UUID
     position: int
+    # Vide : repos du profil.
+    rest_seconds: int | None
+    superset: int | None
+    note: str | None
 
 
 class WorkoutExerciseDetailOut(WorkoutExerciseOut):
     exercise_name: str
     exercise_name_language: str
     exercise_category: CategoryName
+    # Colonnes à saisir pour ses séries (ADR 0017).
+    exercise_kind: ExerciseKindName
     exercise_image: ImageOut | None
     # Cible recopiée du programme (séries x répétitions), `None` hors programme.
     target_sets: int | None
@@ -237,6 +306,10 @@ class WorkoutOut(Schema):
     started_at: datetime
     ended_at: datetime | None
     program_day_id: UUID | None
+    name: str
+    note: str | None
+    avg_heart_rate: int | None
+    feeling: int | None
 
 
 class WorkoutQuery(Schema):
@@ -325,8 +398,18 @@ def _record_out(record: PersonalRecord) -> RecordOut:
 
 def _workout_exercise_out(item: WorkoutExercise) -> WorkoutExerciseOut:
     return WorkoutExerciseOut(
-        id=item.pk, workout_id=item.workout_id, exercise_id=item.exercise_id, position=item.position
+        id=item.pk,
+        workout_id=item.workout_id,
+        exercise_id=item.exercise_id,
+        position=item.position,
+        rest_seconds=item.rest_seconds,
+        superset=item.superset,
+        note=item.note,
     )
+
+
+def _integer(value: Decimal | None) -> int | None:
+    return int(value) if value is not None else None
 
 
 def _workout_out(workout: Workout) -> WorkoutOut:
@@ -335,6 +418,10 @@ def _workout_out(workout: Workout) -> WorkoutOut:
         started_at=workout.started_at,
         ended_at=workout.ended_at,
         program_day_id=workout.program_day_id,
+        name=workout.name,
+        note=workout.note,
+        avg_heart_rate=_integer(workout.avg_heart_rate),
+        feeling=_integer(workout.feeling),
     )
 
 
@@ -438,10 +525,7 @@ def list_workouts(request: HttpRequest, filters: Query[WorkoutQuery]) -> Workout
     return WorkoutPageOut(
         items=[
             WorkoutSummaryOut(
-                id=summary.workout.pk,
-                started_at=summary.workout.started_at,
-                ended_at=summary.workout.ended_at,
-                program_day_id=summary.workout.program_day_id,
+                **_workout_out(summary.workout).model_dump(),
                 exercise_count=summary.exercise_count,
                 working_set_count=summary.working_set_count,
                 volume_kg=float(summary.volume_kg),
@@ -458,20 +542,15 @@ def read_workout(request: HttpRequest, workout_id: ClientId) -> WorkoutDetailOut
     if workout is None:
         raise Http404
     return WorkoutDetailOut(
-        id=workout.pk,
-        started_at=workout.started_at,
-        ended_at=workout.ended_at,
-        program_day_id=workout.program_day_id,
+        **_workout_out(workout).model_dump(),
         volume_kg=float(selectors.workout_volume_kg(workout)),
         exercises=[
             WorkoutExerciseDetailOut(
-                id=item.pk,
-                workout_id=item.workout_id,
-                exercise_id=item.exercise_id,
-                position=item.position,
+                **_workout_exercise_out(item).model_dump(),
                 exercise_name=item.exercise.name,
                 exercise_name_language=item.exercise.name_language,
                 exercise_category=item.exercise.category,  # type: ignore[arg-type]  # contrainte en base
+                exercise_kind=item.exercise.kind,  # type: ignore[arg-type]  # contrainte en base
                 exercise_image=_main_image(item.exercise),
                 target_sets=item.target_sets,
                 target_reps=item.target_reps,
@@ -497,6 +576,7 @@ def write_workout(
             started_at=payload.started_at,
             ended_at=payload.ended_at,
             program_day_id=payload.program_day_id,
+            details=payload.details(),
         )
     except services.NotFoundError as error:
         raise Http404 from error
@@ -526,6 +606,7 @@ def write_workout_exercise(
             workout_id=payload.workout_id,
             exercise_id=payload.exercise_id,
             position=payload.position,
+            details=payload.details(),
         )
     except services.NotFoundError as error:
         raise Http404 from error

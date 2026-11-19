@@ -9,6 +9,8 @@ from uuid import uuid4
 from django.conf import settings
 from django.db import models
 
+from common.fields import EncryptedDecimalField, EncryptedTextField
+
 
 class Category(models.TextChoices):
     ABS = "abs", "Abdominaux"
@@ -183,6 +185,14 @@ class ExerciseImage(models.Model):
 
 MAX_WEIGHT_KG = 1000
 MAX_REPS = 1000
+# Détails d'une séance et de ses exercices (ADR 0017).
+MAX_WORKOUT_NAME = 80
+MAX_NOTE_LENGTH = 1000
+MIN_REST_SECONDS, MAX_REST_SECONDS = 15, 600
+MAX_SUPERSET = 50
+MIN_HEART_RATE, MAX_HEART_RATE = 30, 230
+MIN_FEELING, MAX_FEELING = 1, 5
+
 # Série de durée ou de distance (ADR 0017) : 24 h, 1 000 km.
 MAX_DURATION_S = 24 * 60 * 60
 MAX_DISTANCE_M = 1_000_000
@@ -276,6 +286,12 @@ class Workout(models.Model):
     )
     started_at = models.DateTimeField()
     ended_at = models.DateTimeField(null=True, blank=True)
+    # Nom affiché (celui de la séance type, ou choisi) ; vide : « Séance » à l'écran.
+    name = models.CharField(max_length=MAX_WORKOUT_NAME, blank=True, default="")
+    # Texte libre et ressenti : données de santé possibles, chiffrées (ADR 0007, 0017).
+    note = EncryptedTextField(null=True, blank=True)
+    avg_heart_rate = EncryptedDecimalField(decimal_places=0, null=True, blank=True)
+    feeling = EncryptedDecimalField(decimal_places=0, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -306,12 +322,27 @@ class WorkoutExercise(models.Model):
     # l'historique. Vide hors programme.
     target_sets = models.PositiveSmallIntegerField(null=True, blank=True)
     target_reps = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Repos après chaque série ; vide : réglage du profil (ADR 0017).
+    rest_seconds = models.PositiveSmallIntegerField(null=True, blank=True)
+    # Exercices consécutifs de même numéro : un superset (enchaînés sans repos entre eux).
+    superset = models.PositiveSmallIntegerField(null=True, blank=True)
+    note = EncryptedTextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ("position", "created_at")
         constraints: ClassVar[list[models.BaseConstraint]] = [
+            models.CheckConstraint(
+                condition=models.Q(rest_seconds__isnull=True)
+                | models.Q(rest_seconds__gte=MIN_REST_SECONDS, rest_seconds__lte=MAX_REST_SECONDS),
+                name="training_workoutexercise_rest_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(superset__isnull=True)
+                | models.Q(superset__gte=1, superset__lte=MAX_SUPERSET),
+                name="training_workoutexercise_superset_range",
+            ),
             models.CheckConstraint(
                 condition=models.Q(target_sets__isnull=True, target_reps__isnull=True)
                 | models.Q(target_sets__isnull=False, target_reps__isnull=False),

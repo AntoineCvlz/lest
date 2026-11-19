@@ -29,6 +29,10 @@ function workout(sets: Schemas["SetOut"][], id = WORKOUT): Schemas["WorkoutDetai
     started_at: "2026-11-09T17:30:00Z",
     ended_at: null,
     program_day_id: null,
+    name: "",
+    note: null,
+    avg_heart_rate: null,
+    feeling: null,
     volume_kg: 0,
     exercises: [
       {
@@ -39,7 +43,11 @@ function workout(sets: Schemas["SetOut"][], id = WORKOUT): Schemas["WorkoutDetai
         exercise_name: "Bench Press",
         exercise_name_language: "en",
         exercise_category: "chest",
+        exercise_kind: "weight_reps",
         exercise_image: null,
+        rest_seconds: null,
+        superset: null,
+        note: null,
         target_sets: null,
         target_reps: null,
         sets,

@@ -14,6 +14,7 @@ from apps.training.api.router import (
     MAX_POSITION,
     CategoryName,
     ClientId,
+    ExerciseKindName,
     ImageOut,
     _conflict,
     _main_image,
@@ -72,6 +73,7 @@ class ProgramExerciseDetailOut(ProgramExerciseOut):
     exercise_name: str
     exercise_name_language: str
     exercise_category: CategoryName
+    exercise_kind: ExerciseKindName
     exercise_image: ImageOut | None
 
 
@@ -111,6 +113,7 @@ def _program_detail(program: Program) -> ProgramDetailOut:
                         exercise_name=planned.exercise.name,
                         exercise_name_language=planned.exercise.name_language,
                         exercise_category=planned.exercise.category,  # type: ignore[arg-type]  # contrainte en base
+                        exercise_kind=planned.exercise.kind,  # type: ignore[arg-type]  # contrainte en base
                         exercise_image=_main_image(planned.exercise),
                     )
                     for planned in day.exercises.all()

@@ -1546,6 +1546,19 @@
       },
       "ProfileIn": {
         "properties": {
+          "default_rest_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600,
+                "minimum": 15,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Rest Seconds"
+          },
           "goal": {
             "enum": [
               "gain",
@@ -1595,6 +1608,10 @@
       },
       "ProfileOut": {
         "properties": {
+          "default_rest_seconds": {
+            "title": "Default Rest Seconds",
+            "type": "integer"
+          },
           "goal": {
             "enum": [
               "gain",
@@ -1635,6 +1652,7 @@
           "goal",
           "unit_system",
           "one_rm_formula",
+          "default_rest_seconds",
           "onboarded_at"
         ],
         "title": "ProfileOut",
@@ -1800,6 +1818,19 @@
               }
             ]
           },
+          "exercise_kind": {
+            "enum": [
+              "weight_reps",
+              "reps",
+              "weighted_reps",
+              "assisted_reps",
+              "duration",
+              "distance_duration",
+              "weight_distance"
+            ],
+            "title": "Exercise Kind",
+            "type": "string"
+          },
           "exercise_name": {
             "title": "Exercise Name",
             "type": "string"
@@ -1836,6 +1867,7 @@
           "exercise_name",
           "exercise_name_language",
           "exercise_category",
+          "exercise_kind",
           "exercise_image"
         ],
         "title": "ProgramExerciseDetailOut",
@@ -2717,6 +2749,17 @@
       },
       "WorkoutDetailOut": {
         "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -2736,10 +2779,36 @@
             "title": "Exercises",
             "type": "array"
           },
+          "feeling": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "program_day_id": {
             "anyOf": [
@@ -2768,6 +2837,10 @@
           "started_at",
           "ended_at",
           "program_day_id",
+          "name",
+          "note",
+          "avg_heart_rate",
+          "feeling",
           "volume_kg",
           "exercises"
         ],
@@ -2806,6 +2879,19 @@
               }
             ]
           },
+          "exercise_kind": {
+            "enum": [
+              "weight_reps",
+              "reps",
+              "weighted_reps",
+              "assisted_reps",
+              "duration",
+              "distance_duration",
+              "weight_distance"
+            ],
+            "title": "Exercise Kind",
+            "type": "string"
+          },
           "exercise_name": {
             "title": "Exercise Name",
             "type": "string"
@@ -2819,9 +2905,31 @@
             "title": "Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
+          },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
           },
           "sets": {
             "items": {
@@ -2829,6 +2937,17 @@
             },
             "title": "Sets",
             "type": "array"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
           },
           "target_reps": {
             "anyOf": [
@@ -2863,9 +2982,13 @@
           "workout_id",
           "exercise_id",
           "position",
+          "rest_seconds",
+          "superset",
+          "note",
           "exercise_name",
           "exercise_name_language",
           "exercise_category",
+          "exercise_kind",
           "exercise_image",
           "target_sets",
           "target_reps",
@@ -2875,17 +2998,56 @@
         "type": "object"
       },
       "WorkoutExerciseIn": {
+        "description": "Exercice de séance. Repos, superset et note (ADR 0017) : absent, gardé ; `null`, effacé.",
         "properties": {
           "exercise_id": {
             "format": "uuid",
             "title": "Exercise Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "maximum": 1000,
             "minimum": 0,
             "title": "Position",
             "type": "integer"
+          },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "maximum": 600,
+                "minimum": 15,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "maximum": 50,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
           },
           "workout_id": {
             "format": "uuid4",
@@ -2913,9 +3075,42 @@
             "title": "Id",
             "type": "string"
           },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
           "position": {
             "title": "Position",
             "type": "integer"
+          },
+          "rest_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rest Seconds"
+          },
+          "superset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superset"
           },
           "workout_id": {
             "format": "uuid",
@@ -2927,13 +3122,30 @@
           "id",
           "workout_id",
           "exercise_id",
-          "position"
+          "position",
+          "rest_seconds",
+          "superset",
+          "note"
         ],
         "title": "WorkoutExerciseOut",
         "type": "object"
       },
       "WorkoutIn": {
+        "description": "Séance. Nom, note, fréquence cardiaque et ressenti (ADR 0017) : un champ absent garde sa\nvaleur, `null` l'efface (la file hors ligne renvoie la séance sans eux).",
         "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "maximum": 230,
+                "minimum": 30,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -2945,6 +3157,43 @@
               }
             ],
             "title": "Ended At"
+          },
+          "feeling": {
+            "anyOf": [
+              {
+                "maximum": 5,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "program_day_id": {
             "anyOf": [
@@ -2972,6 +3221,17 @@
       },
       "WorkoutOut": {
         "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -2984,10 +3244,36 @@
             ],
             "title": "Ended At"
           },
+          "feeling": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "program_day_id": {
             "anyOf": [
@@ -3011,7 +3297,11 @@
           "id",
           "started_at",
           "ended_at",
-          "program_day_id"
+          "program_day_id",
+          "name",
+          "note",
+          "avg_heart_rate",
+          "feeling"
         ],
         "title": "WorkoutOut",
         "type": "object"
@@ -3081,6 +3371,17 @@
       },
       "WorkoutSummaryOut": {
         "properties": {
+          "avg_heart_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Heart Rate"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -3097,10 +3398,36 @@
             "title": "Exercise Count",
             "type": "integer"
           },
+          "feeling": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feeling"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           },
           "program_day_id": {
             "anyOf": [
@@ -3133,6 +3460,10 @@
           "started_at",
           "ended_at",
           "program_day_id",
+          "name",
+          "note",
+          "avg_heart_rate",
+          "feeling",
           "exercise_count",
           "working_set_count",
           "volume_kg"

@@ -112,6 +112,8 @@ class Profile(models.Model):
         choices=OneRepMaxFormula.choices,
         default=OneRepMaxFormula.EPLEY,
     )
+    # Repos entre deux séries, par défaut, quand l'exercice n'en fixe pas (ADR 0017).
+    default_rest_seconds = models.PositiveSmallIntegerField("repos par défaut (s)", default=120)
     onboarded_at = models.DateTimeField("fin de l'onboarding", default=timezone.now)
     updated_at = models.DateTimeField("mise à jour", auto_now=True)
 
@@ -133,6 +135,10 @@ class Profile(models.Model):
             models.CheckConstraint(
                 condition=models.Q(one_rm_formula__in=OneRepMaxFormula.values),
                 name="accounts_profile_one_rm_formula_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(default_rest_seconds__gte=15, default_rest_seconds__lte=600),
+                name="accounts_profile_rest_range",
             ),
         ]
 

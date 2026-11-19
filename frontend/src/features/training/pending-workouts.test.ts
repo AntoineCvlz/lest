@@ -15,7 +15,16 @@ import {
 const A = "11111111-1111-4111-8111-111111111111";
 const B = "22222222-2222-4222-8222-222222222222";
 
-const started = { id: A, started_at: "2026-11-09T17:00:00Z", ended_at: null, program_day_id: null };
+const started = {
+  id: A,
+  started_at: "2026-11-09T17:00:00Z",
+  ended_at: null,
+  program_day_id: null,
+  name: "",
+  note: null,
+  avg_heart_rate: null,
+  feeling: null,
+};
 
 function offlineClient(): QueryClient {
   const queryClient = new QueryClient();

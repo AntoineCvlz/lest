@@ -46,14 +46,16 @@ def save_profile(
     goal: str,
     unit_system: str,
     one_rm_formula: str | None = None,
+    default_rest_seconds: int | None = None,
 ) -> Profile:
     """
     Crée le profil de `user` (fin de l'onboarding) ou le met à jour.
 
     La taille est stockée en mètres, arrondie au centimètre. `one_rm_formula` absente : formule
-    actuelle gardée (Epley à la création). Un changement de formule émet
-    `events.one_rm_formula_changed` (records recalculés par `training`), dans la même
-    transaction. Lève `ValidationError` pour une valeur hors des bornes, sans rien enregistrer.
+    actuelle gardée (Epley à la création) ; de même pour `default_rest_seconds` (120 s). Un
+    changement de formule émet `events.one_rm_formula_changed` (records recalculés par
+    `training`), dans la même transaction. Lève `ValidationError` pour une valeur hors des
+    bornes, sans rien enregistrer.
     """
     with transaction.atomic():
         # Même ordre de verrous que les écritures de séries (compte, puis profil) : pas
@@ -67,6 +69,8 @@ def save_profile(
             "unit_system": unit_system,
             "one_rm_formula": one_rm_formula or previous_formula,
         }
+        if default_rest_seconds is not None:
+            values["default_rest_seconds"] = default_rest_seconds
         # Valeurs validées sans l'unicité, puis écriture atomique : deux premiers envois
         # simultanés (double tap, rejeu hors ligne) donnent un seul profil, sans erreur.
         Profile(user=user, **values).full_clean(validate_unique=False)

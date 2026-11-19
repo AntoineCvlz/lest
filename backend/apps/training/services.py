@@ -349,6 +349,7 @@ def put_workout(
     started_at: datetime,
     ended_at: datetime | None,
     program_day_id: UUID | None = None,
+    details: dict[str, Any] | None = None,
 ) -> tuple[Workout, bool]:
     """Crée ou remplace une séance de `owner`. Renvoie la séance et `True` si elle est créée.
 
@@ -358,6 +359,10 @@ def put_workout(
     ignoré : une séance type supprimée depuis n'empêche pas de terminer la séance. À la
     création, une séance type inconnue ou d'un autre compte est refusée (422, sans dire
     laquelle des deux).
+
+    `details` : nom, note, fréquence cardiaque, ressenti (ADR 0017), écrits seulement s'ils
+    sont fournis. La file hors ligne renvoie la séance sans eux au démarrage et à la fin :
+    elle ne doit pas effacer une note saisie entre-temps.
     """
 
     def parents() -> dict[str, Any]:
@@ -377,10 +382,19 @@ def put_workout(
             Workout,
             pk=workout_id,
             owned=models.Q(owner=owner),
-            values={"owner": owner, "started_at": started_at, "ended_at": ended_at},
+            values={
+                "owner": owner,
+                "started_at": started_at,
+                "ended_at": ended_at,
+                **(details or {}),
+            },
             parents=parents,
         )
         if created and workout.program_day_id is not None:
+            if "name" not in (details or {}):
+                # Nom de la séance type suivie, gardé même si elle est renommée ou supprimée.
+                workout.name = ProgramDay.objects.get(pk=workout.program_day_id).name
+                workout.save(update_fields=["name", "updated_at"])
             WorkoutExercise.objects.bulk_create(
                 WorkoutExercise(
                     id=copied_exercise_id(workout.pk, planned.pk),
@@ -396,10 +410,17 @@ def put_workout(
 
 
 def put_workout_exercise(
-    *, owner: User, workout_exercise_id: UUID, workout_id: UUID, exercise_id: UUID, position: int
+    *,
+    owner: User,
+    workout_exercise_id: UUID,
+    workout_id: UUID,
+    exercise_id: UUID,
+    position: int,
+    details: dict[str, Any] | None = None,
 ) -> tuple[WorkoutExercise, bool]:
     """Crée ou remplace un exercice d'une séance de `owner`. Un exercice désactivé du
-    catalogue reste accepté : une saisie hors ligne peut le rejouer après sa désactivation."""
+    catalogue reste accepté : une saisie hors ligne peut le rejouer après sa désactivation.
+    `details` : repos, superset, note (ADR 0017), écrits seulement s'ils sont fournis."""
 
     def parents() -> dict[str, Any]:
         workout = Workout.objects.select_for_update().filter(pk=workout_id, owner=owner).first()
@@ -428,7 +449,7 @@ def put_workout_exercise(
             WorkoutExercise,
             pk=workout_exercise_id,
             owned=models.Q(workout__owner=owner),
-            values={"position": position},
+            values={"position": position, **(details or {})},
             parents=parents,
         )
         # Exercice changé : ses séries comptent désormais pour l'autre exercice.
