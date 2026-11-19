@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 // Ni trace ni capture : elles enregistreraient le mot de passe saisi (artefacts CI publics).
 test.use({ trace: "off", screenshot: "off" });
 
-test("le Bilan accueille le compte, puis reflète une pesée et une activité", async ({
+test("le Bilan accueille le compte, puis reflète une pesée et une séance de cardio", async ({
   page,
   makeAxeBuilder,
   cspViolations,
@@ -21,15 +21,26 @@ test("le Bilan accueille le compte, puis reflète une pesée et une activité", 
   await page.getByRole("button", { name: "Enregistrer la pesée" }).click();
   await expect(page.getByText(/^Pesée du .* enregistrée\.$/)).toBeVisible();
 
-  await page.goto("/seance/activites");
-  await page.getByRole("textbox", { name: "Durée (min)" }).fill("45");
-  await page.getByRole("button", { name: "Enregistrer l’activité" }).click();
-  await expect(page.getByText(/^Activité enregistrée : /)).toBeVisible();
+  // Une course notée dans la séance (exercice de cardio de Lest, ADR 0017).
+  await page.getByRole("link", { name: "Séance", exact: true }).click();
+  await page.getByRole("button", { name: "Démarrer une séance" }).click();
+  await page.getByRole("button", { name: "Ajouter un exercice" }).click();
+  await page.getByRole("searchbox", { name: "Rechercher un exercice" }).fill("course");
+  await page
+    .getByRole("button", { name: /^Course à pied/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: "+1 minute" }).click();
+  await page.getByRole("button", { name: "Valider la série" }).click();
+  await expect(page.getByRole("list", { name: "Séries de la séance" })).toContainText("31:00");
+  await page.getByRole("button", { name: "Retour à la séance" }).click();
+  await page.getByRole("button", { name: "Terminer la séance" }).click();
+  await page.getByRole("button", { name: "Terminer", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Démarrer une séance" })).toBeVisible();
 
   await page.getByRole("link", { name: "Bilan" }).click();
   await expect(page.getByText(/^80\skg$/)).toBeVisible();
-  // L'activité est recopiée en séance (ADR 0017).
-  await expect(page.getByText(/^Cette semaine : 1 séance, 45\smin\.$/)).toBeVisible();
+  await expect(page.getByText(/^Cette semaine : 1 séance, \d+\smin\.$/)).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   // Le compte reste sur l'accueil : la déconnexion efface le Bilan.

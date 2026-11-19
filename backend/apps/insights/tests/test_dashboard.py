@@ -14,7 +14,6 @@ from apps.accounts.models import Goal, UnitSystem, User
 from apps.accounts.services import save_profile
 from apps.accounts.tests.auth import bearer, login
 from apps.accounts.tests.factories import make_verified_user
-from apps.activities import services as activities
 from apps.body import services as body
 from apps.insights import selectors
 from apps.nutrition import services as nutrition
@@ -124,26 +123,34 @@ def test_no_weigh_in_means_no_weight_figures() -> None:
     assert weight.pace_range == (Decimal("0.1"), Decimal("0.5"))
 
 
+def run(user: User, day: date) -> None:
+    """Course de 30 min et 5 km à midi, heure locale (séance de cardio, ADR 0017)."""
+    training.put_cardio_workout(
+        owner=user,
+        workout_id=uuid4(),
+        values=training.CardioValues(
+            sport="running",
+            started_at=datetime.combine(day, time(12), tzinfo=timezone.get_current_timezone()),
+            duration_s=1800,
+            distance_m=Decimal(5000),
+        ),
+    )
+
+
 # --- Semaines et volume ----------------------------------------------------------------------
 
 
-def test_eight_weeks_of_workouts_with_the_copied_activities(bench: Any) -> None:
+def test_eight_weeks_of_workouts_strength_and_cardio(bench: Any) -> None:
     user = athlete()
     workout(user, MONDAY, [("60", 10, False)], bench)
     workout(user, MONDAY - timedelta(days=7), [("60", 10, False)], bench)
-    activities.put_activity(
-        owner=user,
-        activity_id=uuid4(),
-        values=activities.ActivityValues(
-            day=TODAY, sport="running", duration_s=1800, distance_m=Decimal(5000)
-        ),
-    )
+    run(user, TODAY)
 
     weeks = selectors.dashboard(owner=user, today=TODAY).weeks
 
     assert [w.week for w in weeks][-1] == MONDAY
     assert len(weeks) == selectors.WEEKS
-    # L'activité est une séance (recopie, ADR 0017) : 1 h de musculation et 30 min de course.
+    # Musculation et cardio ensemble (ADR 0017) : 1 h de musculation et 30 min de course.
     assert (weeks[-1].workouts, weeks[-1].duration_s) == (2, 3600 + 1800)
     assert weeks[-1].distance_m == Decimal(5000)
     assert weeks[-2].workouts == 1
@@ -219,17 +226,11 @@ def test_without_targets_the_block_says_so() -> None:
 
 
 def give_a_full_account(user: User, exercise: Any) -> None:
-    """Pesée, séance, activité, objectifs et repas d'hier : de quoi remplir chaque bloc."""
+    """Pesée, musculation, course, objectifs et repas d'hier : de quoi remplir chaque bloc."""
     today = timezone.localdate()
     weigh(user, today, "80")
     workout(user, today, [("60", 10, False)], exercise)
-    activities.put_activity(
-        owner=user,
-        activity_id=uuid4(),
-        values=activities.ActivityValues(
-            day=today, sport="running", duration_s=1800, distance_m=Decimal(5000)
-        ),
-    )
+    run(user, today)
     nutrition.put_targets(owner=user, values=TARGETS)
     food = Food.objects.create(
         source=FoodSource.CIQUAL,

@@ -151,7 +151,10 @@ Toujours reconstruits sous le verrou du compte, séries de travail seulement.
 3. Le Bilan (ADR 0013) lit les séances au lieu des activités : par semaine, nombre de séances,
    durée et distance des séries de travail.
 4. L'app `activities`, ses routes et sa table sont supprimées dans une PR **suivante**, une
-   fois la copie vérifiée sur la base de dev (`copy_activities --check`).
+   fois la copie vérifiée sur la base de dev (`copy_activities --check`). *Fait (PR 6) :*
+   `training/0007_remove_activities` refait la vérification et échoue sans rien supprimer s'il
+   manque une séance ; le seed passe à `seed_cardio`. La saisie des séries suit désormais le
+   type de l'exercice (PR intercalée), sans quoi plus rien ne permettait de noter une course.
 
 ## Écart à CLAUDE.md
 

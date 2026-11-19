@@ -239,9 +239,6 @@ function ProgramStarts({ onStart }: { onStart: (day: Schemas["ProgramDayDetailOu
       <TextLink href="/seance/programmes" className="self-start">
         Mes programmes
       </TextLink>
-      <TextLink href="/seance/activites" className="self-start">
-        Autres sports : course, vélo, natation…
-      </TextLink>
       <TextLink href="/exercices" className="self-start">
         Catalogue des exercices
       </TextLink>

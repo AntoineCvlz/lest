@@ -7,7 +7,7 @@ Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé 
 > - **musculation** : catalogue de 701 exercices illustrés, saisie d'une série en un appui, minuteur de repos, records et programmes ;
 > - **corps et nutrition** : pesées, mensurations, photos de progression chiffrées, journal des repas (table Ciqual, code-barres Open Food Facts), objectifs calculés ;
 > - **autres sports et Bilan** : 13 sports, tableau de bord à l'accueil ;
-> - **mobile** : application installable, utilisable sans réseau (séance, repas, pesées, mensurations, activités), notification de fin de repos.
+> - **mobile** : application installable, utilisable sans réseau (séance, repas, pesées, mensurations), notification de fin de repos.
 >
 > Suite possible : application native réutilisant le client API typé, voir la [roadmap](CLAUDE.md#roadmap).
 
@@ -17,7 +17,7 @@ Suivi de prise de masse, de musculation et de sport, pensé pour être utilisé 
 - **Corps** : pesées et moyenne mobile sur 7 jours, mensurations, photos de progression chiffrées (archive ZIP téléchargeable).
 - **Nutrition** : journal des repas et de l'eau, aliments de la table Ciqual (Anses), produits Open Food Facts au scan du code-barres, aliments perso, objectifs caloriques et macros calculés et modifiables.
 - **Autres sports** : 13 sports (course, vélo, natation, sports collectifs, combat, escalade…), avec les mesures propres à chacun (dénivelé, longueurs, rounds…).
-- **Bilan** : à l'accueil, poids et rythme par rapport à l'objectif, activité des 8 dernières semaines, adhérence nutrition, volume par muscle ; chaque graphique a son résumé et son tableau.
+- **Bilan** : à l'accueil, poids et rythme par rapport à l'objectif, séances des 8 dernières semaines (durée et distance), adhérence nutrition, volume par muscle ; chaque graphique a son résumé et son tableau.
 
 Les données appartiennent à l'utilisateur : export CSV/JSON et suppression complète du compte.
 
@@ -26,7 +26,7 @@ Les données appartiennent à l'utilisateur : export CSV/JSON et suppression com
 Lest s'installe comme une application (« Ajouter à l'écran d'accueil ») et fonctionne sans réseau en salle :
 
 - les pages déjà ouvertes, le catalogue d'exercices et de sports déjà consulté, le programme, la séance en cours, le journal du jour et les aliments récents restent disponibles ;
-- une série, un exercice, une séance démarrée ou terminée, un repas, l'eau, une pesée, une mensuration ou une activité saisis sans réseau s'affichent tout de suite, sont gardés sur l'appareil et partent dans l'ordre au retour du réseau ; l'écran dit combien de saisies attendent ;
+- une série, un exercice, une séance démarrée ou terminée, un repas, l'eau, une pesée ou une mensuration saisis sans réseau s'affichent tout de suite, sont gardés sur l'appareil et partent dans l'ordre au retour du réseau ; l'écran dit combien de saisies attendent ;
 - notification de fin de repos, si vous l'activez, quand l'app est en arrière-plan (iOS : application installée, 16.4 ou plus).
 
 À savoir : ces données (saisies en attente comprises) sont gardées **en clair** sur l'appareil, 7 jours au plus, et effacées à la déconnexion ; leur protection est celle du téléphone (verrouillage, chiffrement du stockage). Choix et limites : [ADR 0015](docs/adr/0015-pwa-et-hors-ligne.md).
@@ -76,7 +76,7 @@ Détails : [architecture (C4)](docs/architecture.md) et les décisions dans [`do
 - [ADR 0009 — aliments : Ciqual en local, Open Food Facts au scan du code-barres](docs/adr/0009-aliments-ciqual-open-food-facts.md)
 - [ADR 0010 — journal alimentaire chiffré, aliment recopié à la saisie](docs/adr/0010-journal-alimentaire-chiffre.md)
 - [ADR 0011 — objectifs nutritionnels calculés et modifiables, données chiffrées](docs/adr/0011-objectifs-nutritionnels.md)
-- [ADR 0012 — activités : catalogue de sports fixe, métriques validées, valeurs chiffrées](docs/adr/0012-activites-catalogue-de-sports.md)
+- [ADR 0012 — activités : catalogue de sports fixe, métriques validées, valeurs chiffrées (remplacé par l'ADR 0017)](docs/adr/0012-activites-catalogue-de-sports.md)
 - [ADR 0013 — tableau de bord : lectures agrégées par les sélecteurs des domaines, en une route](docs/adr/0013-tableau-de-bord.md)
 - [ADR 0014 — Basic-Fit : les données du membre seulement, par un adaptateur isolé et désactivable](docs/adr/0014-integration-basic-fit.md)
 - [ADR 0015 — App installable et hors ligne, saisies en file d'attente](docs/adr/0015-pwa-et-hors-ligne.md)

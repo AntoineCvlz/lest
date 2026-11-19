@@ -1,4 +1,4 @@
-"""Période de lecture bornée, commune aux domaines (corps, activités) : de 2000 à demain, début
+"""Période de lecture bornée, commune aux domaines (corps, séances) : de 2000 à demain, début
 avant fin, 366 jours au plus, les 90 derniers jours par défaut."""
 
 from datetime import date, timedelta

@@ -3,7 +3,7 @@ import logging
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
@@ -19,7 +19,7 @@ from apps.accounts.selectors import get_one_rm_formula
 from apps.accounts.services import lock_account
 
 from . import repdb
-from .cardio import LEST_PREFIX
+from .cardio import CARDIO_EXERCISES, LEST_PREFIX
 from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
 from .measures import COLUMNS, MEASURES, OPTIONAL, RECORDS, WORKING_TYPES
 from .models import (
@@ -951,6 +951,73 @@ def recompute_all_records(*, owner: User) -> None:
     )
     with transaction.atomic():
         _recompute(owner, exercise_ids, kinds=frozenset({RecordKind.ESTIMATED_ONE_REP_MAX}))
+
+
+# --- Séances de cardio (ADR 0017) -------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CardioValues:
+    """Séance terminée d'un seul exercice de cardio de Lest (`training.cardio`, par sa clé)."""
+
+    sport: str
+    started_at: datetime
+    duration_s: int
+    distance_m: Decimal | None = None
+    avg_heart_rate: int | None = None
+    feeling: int | None = None
+    note: str | None = None
+
+
+def cardio_part_id(workout_id: UUID, role: str) -> UUID:
+    """Identifiant de l'exercice (`exercise`) ou de la série (`set`) d'une séance de cardio :
+    dérivé de celui de la séance, au format v4 (ADR 0003)."""
+    digest = hashlib.sha256(workout_id.bytes + role.encode()).digest()
+    return UUID(bytes=digest[:16], version=4)
+
+
+def put_cardio_workout(
+    *, owner: User, workout_id: UUID, values: CardioValues
+) -> tuple[Workout, bool]:
+    """Crée ou remplace une séance de cardio terminée de `owner` : l'exercice de Lest du sport,
+    une série de durée (et de distance si le sport en a). Rejouable : mêmes identifiants. Sert
+    au seed de démo ; la saisie de l'app passe par les routes de séance."""
+    kinds = {item.key: item.kind for item in CARDIO_EXERCISES}
+    exercise = Exercise.objects.get(source_id=f"{LEST_PREFIX}{values.sport}", owner__isnull=True)
+    ended = values.started_at + timedelta(seconds=values.duration_s)
+    exercise_id = cardio_part_id(workout_id, "exercise")
+    with transaction.atomic():
+        workout, created = put_workout(
+            owner=owner,
+            workout_id=workout_id,
+            started_at=values.started_at,
+            ended_at=ended,
+            details={
+                "name": exercise.name,
+                "avg_heart_rate": values.avg_heart_rate,
+                "feeling": values.feeling,
+            },
+        )
+        put_workout_exercise(
+            owner=owner,
+            workout_exercise_id=exercise_id,
+            workout_id=workout_id,
+            exercise_id=exercise.pk,
+            position=0,
+            details={"note": values.note},
+        )
+        put_set(
+            owner=owner,
+            set_id=cardio_part_id(workout_id, "set"),
+            workout_exercise_id=exercise_id,
+            values=SetValues(
+                position=0,
+                performed_at=ended,
+                duration_s=values.duration_s,
+                distance_m=values.distance_m if kinds[values.sport] != "duration" else None,
+            ),
+        )
+    return workout, created
 
 
 def rebuild_records(*, owner: User) -> int:
