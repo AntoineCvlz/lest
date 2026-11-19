@@ -133,32 +133,35 @@ function WeightBlock({ weight, system }: { weight: Weight; system: UnitSystem })
   );
 }
 
-/** Temps actif d'une semaine : musculation et autres sports. */
+/** Temps actif d'une semaine : toutes ses séances, musculation et cardio (ADR 0017). */
 function activeSeconds(week: Week): number {
-  return week.workout_duration_s + week.activity_duration_s;
+  return week.duration_s;
+}
+
+/** « 2 séances, 1 h 30, 5 km » : le contenu d'une semaine. */
+export function weekText(week: Week, system: UnitSystem): string {
+  const parts = [
+    `${String(week.workouts)} ${week.workouts > 1 ? "séances" : "séance"}`,
+    durationText(week.duration_s),
+  ];
+  if (week.distance_m > 0) {
+    parts.push(
+      `${formatNumber(metresToDistance(week.distance_m, system))}${NBSP}${DISTANCE_UNITS[system].symbol}`,
+    );
+  }
+  return parts.join(", ");
 }
 
 /** Résumé de la semaine en cours, nom de la figure. */
-export function weekSummary(week: Week | undefined): string {
-  if (!week || activeSeconds(week) === 0) return "Rien de noté cette semaine pour l’instant.";
-  const parts: string[] = [];
-  if (week.workouts > 0) {
-    parts.push(
-      `${String(week.workouts)} ${week.workouts > 1 ? "séances" : "séance"} de musculation (${durationText(week.workout_duration_s)})`,
-    );
-  }
-  if (week.activities > 0) {
-    parts.push(
-      `${String(week.activities)} ${week.activities > 1 ? "activités" : "activité"} d’autres sports (${durationText(week.activity_duration_s)})`,
-    );
-  }
-  return `Cette semaine : ${parts.join(" et ")}.`;
+export function weekSummary(week: Week | undefined, system: UnitSystem): string {
+  if (!week || week.workouts === 0) return "Rien de noté cette semaine pour l’instant.";
+  return `Cette semaine : ${weekText(week, system)}.`;
 }
 
 /** « 18 h 40 sur 8 semaines ; semaine la plus active : 28 sept. (2 h 52). » */
 export function periodSummary(weeks: readonly Week[]): string {
   const total = weeks.reduce((sum, w) => sum + activeSeconds(w), 0);
-  if (total === 0) return "Aucune activité notée sur 8 semaines.";
+  if (total === 0) return "Aucune séance notée sur 8 semaines.";
   const best = weeks.reduce((top, w) => (activeSeconds(w) > activeSeconds(top) ? w : top));
   return `${durationText(total)} sur 8${NBSP}semaines ; semaine la plus active : ${shortDay(best.week)} (${durationText(activeSeconds(best))}).`;
 }
@@ -170,7 +173,6 @@ const HEIGHT = 120;
 function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: UnitSystem }) {
   const highest = Math.max(1, ...weeks.map(activeSeconds));
   const slot = WIDTH / Math.max(1, weeks.length);
-  const unit = DISTANCE_UNITS[system].symbol;
   return (
     <section aria-labelledby="activity-title" className={SECTION}>
       <h2 id="activity-title" className={TITLE}>
@@ -178,7 +180,7 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
       </h2>
       <figure className="flex flex-col gap-3">
         <figcaption className="flex flex-col gap-1">
-          <span className="text-[17px] font-bold">{weekSummary(weeks.at(-1))}</span>
+          <span className="text-[17px] font-bold">{weekSummary(weeks.at(-1), system)}</span>
           <span className="text-ink-muted text-sm">{periodSummary(weeks)}</span>
         </figcaption>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1">
@@ -231,11 +233,8 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
               <th scope="col" className="py-2 pr-3 font-semibold">
                 Semaine du
               </th>
-              <th scope="col" className="py-2 pr-3 font-semibold">
-                Musculation
-              </th>
               <th scope="col" className="py-2 font-semibold">
-                Autres sports
+                Séances
               </th>
             </tr>
           </thead>
@@ -245,20 +244,7 @@ function ActivityBlock({ weeks, system }: { weeks: readonly Week[]; system: Unit
                 <th scope="row" className="py-2 pr-3 font-semibold">
                   {shortDay(week.week)}
                 </th>
-                <td className="py-2 pr-3">
-                  {week.workouts === 0
-                    ? NONE
-                    : `${String(week.workouts)} ${week.workouts > 1 ? "séances" : "séance"}, ${durationText(week.workout_duration_s)}`}
-                </td>
-                <td className="py-2">
-                  {week.activities === 0
-                    ? NONE
-                    : `${String(week.activities)} ${week.activities > 1 ? "activités" : "activité"}, ${durationText(week.activity_duration_s)}${
-                        week.distance_m > 0
-                          ? `, ${formatNumber(metresToDistance(week.distance_m, system))}${NBSP}${unit}`
-                          : ""
-                      }`}
-                </td>
+                <td className="py-2">{week.workouts === 0 ? NONE : weekText(week, system)}</td>
               </tr>
             ))}
           </tbody>

@@ -1,9 +1,13 @@
 """Écritures du domaine `activities` (ADR 0012) : idempotentes sous l'UUID du client, valeurs
-validées contre le catalogue des sports avant chiffrement."""
+validées contre le catalogue des sports avant chiffrement.
 
+Transition (ADR 0017) : chaque activité est recopiée en séance terminée de `training`, sous des
+identifiants dérivés du sien ; le Bilan lit les séances. L'app disparaît à la PR suivante."""
+
+import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -25,6 +29,8 @@ from apps.activities.models import (
     Activity,
 )
 from apps.activities.sports import SPORTS
+from apps.training import selectors as training_selectors
+from apps.training import services as training_services
 from common.period import EARLIEST
 
 
@@ -100,6 +106,7 @@ def put_activity(
         ).exclude(pk=activity_id).count() >= MAX_ACTIVITIES_PER_DAY:
             raise _invalid("activity_id", "too_many")
         activity = existing or Activity(id=activity_id, owner=owner)
+        previous_sport = activity.sport
         activity.date = values.day
         activity.sport = values.sport
         activity.duration_s = Decimal(values.duration_s)
@@ -110,10 +117,125 @@ def put_activity(
         activity.feeling = None if values.feeling is None else Decimal(values.feeling)
         activity.metrics = json.dumps(values.metrics, sort_keys=True)
         activity.save(force_insert=existing is None)
+        if existing is not None and previous_sport != values.sport:
+            # Autre exercice, autres colonnes : la séance recopiée repart de zéro.
+            training_services.delete_workout(
+                owner=owner, workout_id=copied_id(activity_id, "workout")
+            )
+        _copy_to_workout(activity)
     return activity, existing is None
 
 
 def delete_activity(*, owner: User, activity_id: UUID) -> None:
     """Supprime l'activité `activity_id` de `owner` ; sans effet si elle n'existe pas ou
-    appartient à un autre compte (idempotent)."""
-    Activity.objects.filter(owner=owner, pk=activity_id).delete()
+    appartient à un autre compte (idempotent). Sa séance recopiée part avec elle."""
+    with transaction.atomic():
+        if Activity.objects.filter(owner=owner, pk=activity_id).delete()[0]:
+            training_services.delete_workout(
+                owner=owner, workout_id=copied_id(activity_id, "workout")
+            )
+
+
+# --- Recopie en séances (ADR 0017) --------------------------------------------------------
+
+
+def copied_id(activity_id: UUID, role: str) -> UUID:
+    """Identifiant de la séance (`workout`), de son exercice (`exercise`) ou de sa série
+    (`set`) recopiés d'une activité : stable, au format v4 (ADR 0003)."""
+    digest = hashlib.sha256(f"lest-activity/{role}/{activity_id}".encode()).digest()
+    return UUID(bytes=digest[:16], version=4)
+
+
+def _whole(value: Decimal | None) -> int | None:
+    return None if value is None else int(value)
+
+
+def metrics_note(activity: Activity) -> str | None:
+    """Métriques du sport en texte (« Dénivelé positif : 320 m »), une par ligne ; la note de
+    l'exercice recopié, chiffrée comme toute note (ADR 0017)."""
+    sport = SPORTS[activity.sport]
+    lines = []
+    for key, value in sorted(activity.metric_values().items()):
+        metric = sport.metric(key)
+        if metric is not None:
+            lines.append(f"{metric.label} : {value}{f' {metric.unit}' if metric.unit else ''}")
+    return "\n".join(lines) or None
+
+
+def _copy_to_workout(activity: Activity) -> bool:
+    """Écrit la séance terminée qui reprend `activity` : début à midi (heure locale) du jour,
+    fin après la durée ; un exercice de cardio de Lest, une série. Renvoie `True` si la séance
+    est créée. Appelé dans la transaction de l'écriture de l'activité."""
+    exercise = training_selectors.cardio_exercises()[activity.sport]
+    owner = activity.owner
+    duration = int(activity.duration_s or 0)
+    started = datetime.combine(activity.date, time(12), tzinfo=timezone.get_current_timezone())
+    ended = started + timedelta(seconds=duration)
+    workout_id = copied_id(activity.pk, "workout")
+    exercise_id = copied_id(activity.pk, "exercise")
+    _, created = training_services.put_workout(
+        owner=owner,
+        workout_id=workout_id,
+        started_at=started,
+        ended_at=ended,
+        details={
+            "name": SPORTS[activity.sport].label,
+            "avg_heart_rate": _whole(activity.avg_heart_rate),
+            "feeling": _whole(activity.feeling),
+        },
+    )
+    training_services.put_workout_exercise(
+        owner=owner,
+        workout_exercise_id=exercise_id,
+        workout_id=workout_id,
+        exercise_id=exercise.pk,
+        position=0,
+        details={"note": metrics_note(activity)},
+    )
+    training_services.put_set(
+        owner=owner,
+        set_id=copied_id(activity.pk, "set"),
+        workout_exercise_id=exercise_id,
+        values=training_services.SetValues(
+            position=0,
+            performed_at=ended,
+            duration_s=duration,
+            distance_m=activity.distance_m if SPORTS[activity.sport].has_distance else None,
+        ),
+    )
+    return created
+
+
+@dataclass(frozen=True)
+class CopyReport:
+    activities: int
+    created: int
+
+
+def copy_activities_to_workouts() -> CopyReport:
+    """Recopie en séances les activités qui n'en ont pas encore (activités antérieures à la
+    recopie automatique). Rejouable : une séance déjà recopiée n'est pas réécrite (elle a pu
+    être modifiée depuis l'écran de séance)."""
+    activities = Activity.objects.select_related("owner").order_by("date", "created_at")
+    created = 0
+    total = 0
+    for activity in activities.iterator():
+        total += 1
+        workout_id = copied_id(activity.pk, "workout")
+        if training_selectors.get_workout(owner=activity.owner, workout_id=workout_id):
+            continue
+        with transaction.atomic():
+            created += _copy_to_workout(activity)
+    return CopyReport(activities=total, created=created)
+
+
+def missing_copies() -> int:
+    """Activités sans leur séance recopiée (0 attendu avant de supprimer l'app)."""
+    return sum(
+        1
+        for activity in Activity.objects.select_related("owner").iterator()
+        if training_selectors.get_workout(
+            owner=activity.owner, workout_id=copied_id(activity.pk, "workout")
+        )
+        is None
+    )

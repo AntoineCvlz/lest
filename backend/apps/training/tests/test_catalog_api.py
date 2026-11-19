@@ -11,7 +11,7 @@ from apps.training.models import Category, Equipment, ExerciseKind, Muscle, Name
 from apps.training.tests.factories import make_exercise
 from apps.training.tests.test_workouts_api import API, Athlete
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("empty_catalog")]
 
 
 @pytest.fixture

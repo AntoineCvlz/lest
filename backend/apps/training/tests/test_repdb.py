@@ -37,7 +37,7 @@ from apps.training.services import EmptyCatalogError, import_exercises, import_i
 from apps.training.tasks import import_exercises as import_task
 from apps.training.tests.test_workouts_api import API, STARTED, Athlete, start
 
-pytestmark = pytest.mark.django_db
+pytestmark = [pytest.mark.django_db, pytest.mark.usefixtures("empty_catalog")]
 
 BASE = "https://repdb.example/main"
 
@@ -332,7 +332,7 @@ def test_an_empty_catalog_changes_nothing() -> None:
     with pytest.raises(EmptyCatalogError):
         import_exercises(exercises=[])
 
-    assert Exercise.objects.get().is_active
+    assert Exercise.objects.get(source_id="test-press").is_active
 
 
 # --- Import des images ------------------------------------------------------------------------

@@ -9,7 +9,7 @@ from .models import ExerciseKind, RecordKind, SetType
 # Colonnes de mesure d'une série.
 MEASURES = ("weight_kg", "reps", "duration_s", "distance_m")
 
-# Colonnes exigées par type ; les autres doivent rester vides.
+# Colonnes de chaque type (exigées, sauf `OPTIONAL`) ; les autres doivent rester vides.
 COLUMNS: dict[str, frozenset[str]] = {
     ExerciseKind.WEIGHT_REPS: frozenset({"weight_kg", "reps"}),
     ExerciseKind.REPS: frozenset({"reps"}),
@@ -18,6 +18,12 @@ COLUMNS: dict[str, frozenset[str]] = {
     ExerciseKind.DURATION: frozenset({"duration_s"}),
     ExerciseKind.DISTANCE_DURATION: frozenset({"distance_m", "duration_s"}),
     ExerciseKind.WEIGHT_DISTANCE: frozenset({"weight_kg", "distance_m"}),
+}
+
+# Colonnes du type qu'une série peut laisser vides : une course sur tapis sans distance notée
+# garde sa durée (22 des 35 activités de la base de dev, recopiées en séances, ADR 0017).
+OPTIONAL: dict[str, frozenset[str]] = {
+    ExerciseKind.DISTANCE_DURATION: frozenset({"distance_m"}),
 }
 
 # Séries de travail : tout sauf l'échauffement (volume, records, séries comptées).

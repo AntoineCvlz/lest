@@ -22,6 +22,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from common.pagination import Page, paginate
 
+from .cardio import LEST_PREFIX
 from .measures import VOLUME_KINDS, WORKING_TYPES
 from .models import (
     Equipment,
@@ -82,6 +83,12 @@ def get_exercise(*, owner: User, exercise_id: UUID) -> Exercise | None:
         .prefetch_related("muscles", "secondary_muscles", "equipment", "images")
         .first()
     )
+
+
+def cardio_exercises() -> dict[str, Exercise]:
+    """Exercices de cardio de Lest (`training.cardio`) par clé de sport (`running`…)."""
+    rows = Exercise.objects.filter(owner__isnull=True, source_id__startswith=LEST_PREFIX)
+    return {row.source_id.removeprefix(LEST_PREFIX): row for row in rows if row.source_id}
 
 
 def list_custom_exercises(*, owner: User) -> list[Exercise]:
@@ -382,11 +389,13 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
 
 @dataclass(frozen=True)
 class WorkoutWeek:
-    """Séances terminées d'une semaine (lundi en heure locale) et leur durée totale."""
+    """Séances terminées d'une semaine (lundi en heure locale), leur durée totale et la distance
+    de leurs séries de travail (cardio, ADR 0017)."""
 
     week: date
     workouts: int
     duration_s: int
+    distance_m: Decimal = Decimal(0)
 
 
 @dataclass(frozen=True)
@@ -438,6 +447,17 @@ def weekly_training(
         _week(row["week"]): (int(row["count"]), int(row["duration"].total_seconds()))
         for row in workout_rows
     }
+    distance_rows = (
+        Set.objects.filter(
+            workout_exercise__workout__in=finished,
+            set_type__in=WORKING_TYPES,
+            distance_m__isnull=False,
+        )
+        .annotate(week=TruncWeek("workout_exercise__workout__started_at", tzinfo=zone))
+        .values("week")
+        .annotate(distance=Sum("distance_m"))
+    )
+    distances = {_week(row["week"]): Decimal(row["distance"]) for row in distance_rows}
     set_rows = (
         Set.objects.filter(
             workout_exercise__workout__in=finished,
@@ -469,7 +489,10 @@ def weekly_training(
         for row in set_rows
     }
     return (
-        [WorkoutWeek(week=w, workouts=c, duration_s=d) for w, (c, d) in sorted(weeks.items())],
+        [
+            WorkoutWeek(week=w, workouts=c, duration_s=d, distance_m=distances.get(w, Decimal(0)))
+            for w, (c, d) in sorted(weeks.items())
+        ],
         [
             MuscleWeek(week=w, muscle=m, sets=n, volume_kg=v)
             for (w, m), (n, v) in sorted(volume.items())

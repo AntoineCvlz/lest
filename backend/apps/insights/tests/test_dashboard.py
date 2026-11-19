@@ -127,7 +127,7 @@ def test_no_weigh_in_means_no_weight_figures() -> None:
 # --- Semaines et volume ----------------------------------------------------------------------
 
 
-def test_eight_weeks_of_workouts_and_other_sports(bench: Any) -> None:
+def test_eight_weeks_of_workouts_with_the_copied_activities(bench: Any) -> None:
     user = athlete()
     workout(user, MONDAY, [("60", 10, False)], bench)
     workout(user, MONDAY - timedelta(days=7), [("60", 10, False)], bench)
@@ -143,8 +143,8 @@ def test_eight_weeks_of_workouts_and_other_sports(bench: Any) -> None:
 
     assert [w.week for w in weeks][-1] == MONDAY
     assert len(weeks) == selectors.WEEKS
-    assert (weeks[-1].workouts, weeks[-1].workout_duration_s) == (1, 3600)
-    assert (weeks[-1].activities, weeks[-1].activity_duration_s) == (1, 1800)
+    # L'activité est une séance (recopie, ADR 0017) : 1 h de musculation et 30 min de course.
+    assert (weeks[-1].workouts, weeks[-1].duration_s) == (2, 3600 + 1800)
     assert weeks[-1].distance_m == Decimal(5000)
     assert weeks[-2].workouts == 1
     assert sum(w.workouts for w in weeks[:-2]) == 0
@@ -253,7 +253,7 @@ def test_b_never_sees_as_figures(client: Client, bench: Any) -> None:
 
     assert data["weight"]["trend_kg"] == 70.0
     assert data["muscles"] == []
-    assert sum(w["workouts"] + w["activities"] for w in data["weeks"]) == 0
+    assert sum(w["workouts"] for w in data["weeks"]) == 0
     assert sum(w["distance_m"] for w in data["weeks"]) == 0
     assert data["nutrition"]["last_28"]["logged_days"] == 0
 

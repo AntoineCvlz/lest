@@ -28,7 +28,8 @@ test("le Bilan accueille le compte, puis reflète une pesée et une activité", 
 
   await page.getByRole("link", { name: "Bilan" }).click();
   await expect(page.getByText(/^80\skg$/)).toBeVisible();
-  await expect(page.getByText(/^Cette semaine : 1 activité d’autres sports/)).toBeVisible();
+  // L'activité est recopiée en séance (ADR 0017).
+  await expect(page.getByText(/^Cette semaine : 1 séance, 45\smin\.$/)).toBeVisible();
   expect((await makeAxeBuilder().analyze()).violations).toEqual([]);
 
   // Le compte reste sur l'accueil : la déconnexion efface le Bilan.

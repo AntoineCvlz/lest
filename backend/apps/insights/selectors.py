@@ -7,7 +7,6 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from apps.accounts.models import User
 from apps.accounts.selectors import get_profile
-from apps.activities.selectors import list_activities
 from apps.body.selectors import WeightPoint, list_weights
 from apps.nutrition.selectors import Totals, daily_totals, targets_view
 from apps.training.selectors import MuscleWeek, weekly_training
@@ -38,12 +37,12 @@ class WeightInsight:
 
 
 @dataclass(frozen=True)
-class ActivityWeek:
+class TrainingWeek:
+    """Séances terminées d'une semaine : musculation et cardio ensemble (ADR 0017)."""
+
     week: date
     workouts: int
-    workout_duration_s: int
-    activities: int
-    activity_duration_s: int
+    duration_s: int
     distance_m: Decimal
 
 
@@ -67,7 +66,7 @@ class NutritionInsight:
 @dataclass(frozen=True)
 class Dashboard:
     weight: WeightInsight
-    weeks: list[ActivityWeek]
+    weeks: list[TrainingWeek]
     nutrition: NutritionInsight
     muscles: list[MuscleWeek]
 
@@ -103,24 +102,20 @@ def _weight(owner: User, today: date) -> WeightInsight:
     return WeightInsight(now.trend_kg, change_4w, change_12w, pace, goal, pace_range, status)
 
 
-def _weeks(owner: User, today: date) -> tuple[list[ActivityWeek], list[MuscleWeek]]:
+def _weeks(owner: User, today: date) -> tuple[list[TrainingWeek], list[MuscleWeek]]:
     first = _monday(today) - timedelta(weeks=WEEKS - 1)
     workouts, muscles = weekly_training(owner=owner, start=first, end=today)
     by_week = {w.week: w for w in workouts}
-    activities = list_activities(owner=owner, start=first, end=today)
     weeks = []
     for index in range(WEEKS):
         week = first + timedelta(weeks=index)
-        mine = [a for a in activities if _monday(a.date) == week]
         training = by_week.get(week)
         weeks.append(
-            ActivityWeek(
+            TrainingWeek(
                 week=week,
                 workouts=training.workouts if training else 0,
-                workout_duration_s=training.duration_s if training else 0,
-                activities=len(mine),
-                activity_duration_s=sum(int(a.duration_s or 0) for a in mine),
-                distance_m=sum((a.distance_m or Decimal(0) for a in mine), Decimal(0)),
+                duration_s=training.duration_s if training else 0,
+                distance_m=training.distance_m if training else Decimal(0),
             )
         )
     return weeks, muscles
@@ -159,7 +154,7 @@ def _nutrition(owner: User, today: date) -> NutritionInsight:
 
 
 def dashboard(*, owner: User, today: date) -> Dashboard:
-    """Tableau de bord de `owner` au jour `today` : poids et rythme, 8 semaines d'activité,
+    """Tableau de bord de `owner` au jour `today` : poids et rythme, 8 semaines de séances,
     adhérence nutrition sur 7 et 28 jours, volume par muscle sur 8 semaines."""
     weeks, muscles = _weeks(owner, today)
     return Dashboard(

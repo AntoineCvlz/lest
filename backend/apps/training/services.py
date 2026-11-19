@@ -19,8 +19,9 @@ from apps.accounts.selectors import get_one_rm_formula
 from apps.accounts.services import lock_account
 
 from . import repdb
+from .cardio import LEST_PREFIX
 from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
-from .measures import COLUMNS, MEASURES, RECORDS, WORKING_TYPES
+from .measures import COLUMNS, MEASURES, OPTIONAL, RECORDS, WORKING_TYPES
 from .models import (
     MAX_CUSTOM_EXERCISES,
     Category,
@@ -159,6 +160,7 @@ def import_exercises(*, exercises: Sequence[repdb.RepdbExercise]) -> ImportRepor
         deactivated = (
             Exercise.objects.filter(source_id__isnull=False, is_active=True)
             .exclude(source_id__in=[item.id for item in exercises])
+            .exclude(source_id__startswith=LEST_PREFIX)  # exercices de Lest, hors RepDB
             .update(is_active=False)
         )
     return ImportReport(created=created, updated=updated, deactivated=deactivated)
@@ -499,13 +501,14 @@ class SetValues:
 
 
 def _check_measures(values: SetValues, kind: str) -> None:
-    """Exige les colonnes du type `kind` et refuse les autres (422 `required` ou
-    `not_allowed`, sans les valeurs)."""
+    """Exige les colonnes du type `kind` (sauf `OPTIONAL`) et refuse les autres (422
+    `required` ou `not_allowed`, sans les valeurs)."""
     expected = COLUMNS[kind]
+    optional = OPTIONAL.get(kind, frozenset())
     errors: dict[str, ValidationError] = {}
     for column in MEASURES:
         filled = getattr(values, column) is not None
-        if column in expected and not filled:
+        if column in expected and column not in optional and not filled:
             errors[column] = ValidationError("Valeur attendue.", code="required")
         elif column not in expected and filled:
             errors[column] = ValidationError("Valeur hors du type.", code="not_allowed")

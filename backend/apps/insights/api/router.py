@@ -36,12 +36,12 @@ class WeightInsightOut(Schema):
     pace_status: Literal["below", "within", "above"] | None
 
 
-class ActivityWeekOut(Schema):
+class TrainingWeekOut(Schema):
+    """Séances terminées de la semaine, musculation et cardio ensemble (ADR 0017)."""
+
     week: date
     workouts: int
-    workout_duration_s: int
-    activities: int
-    activity_duration_s: int
+    duration_s: int
     distance_m: float
 
 
@@ -69,7 +69,7 @@ class MuscleWeekOut(Schema):
 
 class DashboardOut(Schema):
     weight: WeightInsightOut
-    weeks: list[ActivityWeekOut]
+    weeks: list[TrainingWeekOut]
     nutrition: NutritionInsightOut
     muscles: list[MuscleWeekOut]
 
