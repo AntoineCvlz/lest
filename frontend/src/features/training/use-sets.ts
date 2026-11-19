@@ -86,7 +86,7 @@ export function registerSetWrites(queryClient: QueryClient): void {
           weight_kg: set.weightKg.toFixed(2),
           reps: set.reps,
           rpe: set.rpe,
-          is_warmup: set.isWarmup,
+          set_type: set.isWarmup ? "warmup" : "normal",
           performed_at: set.performedAt,
         },
       });

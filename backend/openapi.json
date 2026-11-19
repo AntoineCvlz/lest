@@ -1967,30 +1967,59 @@
           "kind": {
             "enum": [
               "weight",
-              "e1rm"
+              "e1rm",
+              "volume",
+              "reps",
+              "duration",
+              "distance"
             ],
             "title": "Kind",
             "type": "string"
           },
-          "value_kg": {
-            "title": "Value Kg",
+          "value": {
+            "title": "Value",
             "type": "number"
           }
         },
         "required": [
           "kind",
-          "value_kg",
+          "value",
           "achieved_at"
         ],
         "title": "RecordOut",
         "type": "object"
       },
       "SetIn": {
+        "description": "Une série : seules les mesures du type de l'exercice (ADR 0017), les autres absentes.",
         "properties": {
-          "is_warmup": {
-            "default": false,
-            "title": "Is Warmup",
-            "type": "boolean"
+          "distance_m": {
+            "anyOf": [
+              {
+                "maximum": 1000000.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "maximum": 86400,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
           },
           "performed_at": {
             "format": "date-time",
@@ -2004,10 +2033,17 @@
             "type": "integer"
           },
           "reps": {
-            "maximum": 1000,
-            "minimum": 0,
-            "title": "Reps",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 1000,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
           },
           "rpe": {
             "anyOf": [
@@ -2026,6 +2062,17 @@
             ],
             "title": "Rpe"
           },
+          "set_type": {
+            "default": "normal",
+            "enum": [
+              "warmup",
+              "normal",
+              "drop",
+              "failure"
+            ],
+            "title": "Set Type",
+            "type": "string"
+          },
           "weight_kg": {
             "anyOf": [
               {
@@ -2035,6 +2082,9 @@
               },
               {
                 "type": "string"
+              },
+              {
+                "type": "null"
               }
             ],
             "title": "Weight Kg"
@@ -2048,8 +2098,6 @@
         "required": [
           "workout_exercise_id",
           "position",
-          "weight_kg",
-          "reps",
           "performed_at"
         ],
         "title": "SetIn",
@@ -2057,14 +2105,32 @@
       },
       "SetOut": {
         "properties": {
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
-          },
-          "is_warmup": {
-            "title": "Is Warmup",
-            "type": "boolean"
           },
           "performed_at": {
             "format": "date-time",
@@ -2083,8 +2149,15 @@
             "type": "array"
           },
           "reps": {
-            "title": "Reps",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reps"
           },
           "rpe": {
             "anyOf": [
@@ -2097,9 +2170,26 @@
             ],
             "title": "Rpe"
           },
+          "set_type": {
+            "enum": [
+              "warmup",
+              "normal",
+              "drop",
+              "failure"
+            ],
+            "title": "Set Type",
+            "type": "string"
+          },
           "weight_kg": {
-            "title": "Weight Kg",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight Kg"
           },
           "workout_exercise_id": {
             "format": "uuid",
@@ -2111,10 +2201,12 @@
           "id",
           "workout_exercise_id",
           "position",
+          "set_type",
           "weight_kg",
           "reps",
+          "duration_s",
+          "distance_m",
           "rpe",
-          "is_warmup",
           "performed_at",
           "records"
         ],

@@ -53,10 +53,12 @@ export function applySave(workout: WorkoutDetail, { id, position, set }: SaveSet
     id,
     workout_exercise_id: set.workoutExerciseId,
     position,
+    set_type: set.isWarmup ? "warmup" : "normal",
     weight_kg: set.weightKg,
     reps: set.reps,
+    duration_s: null,
+    distance_m: null,
     rpe: set.rpe,
-    is_warmup: set.isWarmup,
     performed_at: set.performedAt,
     // Recalculés par l'API (une modification peut retirer un record).
     records: [],

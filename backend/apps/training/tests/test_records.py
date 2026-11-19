@@ -30,9 +30,12 @@ def put_set(athlete: Athlete, item_id: UUID, minute: int, **overrides: Any) -> A
     return response.json()
 
 
-def history(athlete: Athlete, exercise: Exercise) -> list[tuple[str, float]]:
+def history(
+    athlete: Athlete, exercise: Exercise, kinds: tuple[str, ...] = ("weight", "e1rm")
+) -> list[tuple[str, float]]:
+    """Records de l'exercice, des types `kinds` (charge et 1RM par défaut)."""
     records = athlete.get(f"/exercises/{exercise.pk}/records/").json()["history"]
-    return [(record["kind"], record["value_kg"]) for record in records]
+    return [(record["kind"], record["value"]) for record in records if record["kind"] in kinds]
 
 
 @pytest.fixture
@@ -78,7 +81,7 @@ def test_a_set_announces_the_records_it_sets(alice: Athlete, bench: Exercise) ->
     first = put_set(alice, item_id, 5, weight_kg="80", reps=5)
     lighter = put_set(alice, item_id, 8, weight_kg="70", reps=5)
 
-    assert sorted(record["kind"] for record in first["records"]) == ["e1rm", "weight"]
+    assert sorted(record["kind"] for record in first["records"]) == ["e1rm", "volume", "weight"]
     assert lighter["records"] == []
 
 
@@ -100,7 +103,7 @@ def test_records_are_historised_in_the_order_sets_were_done(
 
 def test_warm_up_and_ties_set_no_record(alice: Athlete, bench: Exercise) -> None:
     _, item_id = start(alice, bench)
-    put_set(alice, item_id, 1, weight_kg="100", reps=5, is_warmup=True)
+    put_set(alice, item_id, 1, weight_kg="100", reps=5, set_type="warmup")
     put_set(alice, item_id, 5, weight_kg="80", reps=5)
 
     tie = put_set(alice, item_id, 8, weight_kg="80", reps=5)
@@ -117,7 +120,7 @@ def test_replaying_a_set_gives_the_same_records(alice: Athlete, bench: Exercise)
     replayed = put_set(alice, item_id, 5, set_id=set_id, weight_kg="80", reps=5)
 
     assert first["records"] == replayed["records"]
-    assert PersonalRecord.objects.count() == 2
+    assert PersonalRecord.objects.count() == 3  # charge, 1RM, volume de la série
 
 
 def test_lowering_or_deleting_a_set_withdraws_its_record(alice: Athlete, bench: Exercise) -> None:
@@ -210,8 +213,9 @@ def test_records_join_the_export(alice: Athlete, bench: Exercise) -> None:
 
     records = export_account(alice.user)["personal_records"]
 
-    assert [(record["kind"], record["value_kg"]) for record in records] == [
+    assert [(record["kind"], record["value"]) for record in records] == [
         ("e1rm", 93.33),
+        ("volume", 400.0),
         ("weight", 80.0),
     ]
     assert records[0]["exercise"] == "Développé couché"
@@ -221,7 +225,7 @@ def test_records_join_the_export(alice: Athlete, bench: Exercise) -> None:
 
 
 def snapshot(owner: Any) -> list[tuple[Any, ...]]:
-    return list(PersonalRecord.objects.filter(owner=owner).values_list("id", "kind", "value_kg"))
+    return list(PersonalRecord.objects.filter(owner=owner).values_list("id", "kind", "value"))
 
 
 def test_bob_writes_never_touch_alice_records(alice: Athlete, bench: Exercise) -> None:
@@ -320,4 +324,8 @@ def test_the_history_is_bounded_to_the_latest_records(
     for minute, weight in enumerate(("60", "70", "80"), start=1):
         put_set(alice, item_id, minute, weight_kg=weight, reps=13)  # charge seule : pas de 1RM
 
-    assert history(alice, bench) == [("weight", 70.0), ("weight", 80.0)]
+    # Les 2 derniers records, tous types : la dernière série bat la charge et le volume.
+    assert history(alice, bench, kinds=("weight", "volume")) == [
+        ("volume", 1040.0),
+        ("weight", 80.0),
+    ]

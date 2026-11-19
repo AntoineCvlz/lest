@@ -137,7 +137,7 @@ def test_each_listed_workout_is_summarised_without_warmups() -> None:
     item_id = str(uuid4())
     body = {"workout_id": workout, "exercise_id": str(squat.pk), "position": 2}
     assert alice.put(f"/workout-exercises/{item_id}/", body).status_code == 201
-    warmup = set_body(UUID(item_id), weight_kg="40", is_warmup=True)
+    warmup = set_body(UUID(item_id), weight_kg="40", set_type="warmup")
     assert alice.put(f"/sets/{uuid4()}/", warmup).status_code == 201
 
     items = {item["id"]: item for item in alice.get("/workouts/").json()["items"]}

@@ -1431,17 +1431,19 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "weight" | "e1rm";
-            /** Value Kg */
-            value_kg: number;
+            kind: "weight" | "e1rm" | "volume" | "reps" | "duration" | "distance";
+            /** Value */
+            value: number;
         };
-        /** SetIn */
+        /**
+         * SetIn
+         * @description Une série : seules les mesures du type de l'exercice (ADR 0017), les autres absentes.
+         */
         SetIn: {
-            /**
-             * Is Warmup
-             * @default false
-             */
-            is_warmup: boolean;
+            /** Distance M */
+            distance_m?: number | string | null;
+            /** Duration S */
+            duration_s?: number | null;
             /**
              * Performed At
              * Format: date-time
@@ -1450,11 +1452,17 @@ export interface components {
             /** Position */
             position: number;
             /** Reps */
-            reps: number;
+            reps?: number | null;
             /** Rpe */
             rpe?: number | string | null;
+            /**
+             * Set Type
+             * @default normal
+             * @enum {string}
+             */
+            set_type: "warmup" | "normal" | "drop" | "failure";
             /** Weight Kg */
-            weight_kg: number | string;
+            weight_kg?: number | string | null;
             /**
              * Workout Exercise Id
              * Format: uuid4
@@ -1463,13 +1471,15 @@ export interface components {
         };
         /** SetOut */
         SetOut: {
+            /** Distance M */
+            distance_m: number | null;
+            /** Duration S */
+            duration_s: number | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Is Warmup */
-            is_warmup: boolean;
             /**
              * Performed At
              * Format: date-time
@@ -1480,11 +1490,16 @@ export interface components {
             /** Records */
             records: components["schemas"]["RecordOut"][];
             /** Reps */
-            reps: number;
+            reps: number | null;
             /** Rpe */
             rpe: number | null;
+            /**
+             * Set Type
+             * @enum {string}
+             */
+            set_type: "warmup" | "normal" | "drop" | "failure";
             /** Weight Kg */
-            weight_kg: number;
+            weight_kg: number | null;
             /**
              * Workout Exercise Id
              * Format: uuid

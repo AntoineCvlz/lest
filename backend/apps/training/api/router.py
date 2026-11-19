@@ -21,6 +21,8 @@ from pydantic import UUID4, AfterValidator, AwareDatetime
 from apps.accounts.models import User
 from apps.training import selectors, services
 from apps.training.models import (
+    MAX_DISTANCE_M,
+    MAX_DURATION_S,
     MAX_REPS,
     MAX_WEIGHT_KG,
     Category,
@@ -30,6 +32,7 @@ from apps.training.models import (
     Muscle,
     PersonalRecord,
     Set,
+    SetType,
     Workout,
     WorkoutExercise,
 )
@@ -78,13 +81,25 @@ class WorkoutExerciseIn(Schema):
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
 
 
+# Valeurs de `SetType` (ADR 0017 ; un test vérifie qu'elles restent alignées).
+SetTypeName = Literal["warmup", "normal", "drop", "failure"]
+
+
 class SetIn(Schema):
+    """Une série : seules les mesures du type de l'exercice (ADR 0017), les autres absentes."""
+
     workout_exercise_id: ClientId
     position: int = Field(strict=True, ge=0, le=MAX_POSITION)
-    weight_kg: Decimal = Field(ge=0, le=MAX_WEIGHT_KG, max_digits=6, decimal_places=2)
-    reps: int = Field(strict=True, ge=0, le=MAX_REPS)
+    set_type: SetTypeName = "normal"
+    weight_kg: Decimal | None = Field(
+        default=None, ge=0, le=MAX_WEIGHT_KG, max_digits=6, decimal_places=2
+    )
+    reps: int | None = Field(default=None, strict=True, ge=0, le=MAX_REPS)
+    duration_s: int | None = Field(default=None, strict=True, ge=0, le=MAX_DURATION_S)
+    distance_m: Decimal | None = Field(
+        default=None, ge=0, le=MAX_DISTANCE_M, max_digits=8, decimal_places=1
+    )
     rpe: Decimal | None = Field(default=None, ge=1, le=10, multiple_of=0.5)
-    is_warmup: bool = False
     performed_at: Moment
 
 
@@ -164,9 +179,14 @@ class ExerciseFiltersOut(Schema):
     equipment: list[NamedOut]
 
 
+# Valeurs de `RecordKind` (un test vérifie qu'elles restent alignées).
+RecordKindName = Literal["weight", "e1rm", "volume", "reps", "duration", "distance"]
+
+
 class RecordOut(Schema):
-    kind: Literal["weight", "e1rm"]
-    value_kg: float
+    kind: RecordKindName
+    # Unité selon `kind` : kg (weight, e1rm, volume), répétitions, secondes ou mètres.
+    value: float
     achieved_at: datetime
 
 
@@ -174,10 +194,12 @@ class SetOut(Schema):
     id: UUID
     workout_exercise_id: UUID
     position: int
-    weight_kg: float
-    reps: int
+    set_type: SetTypeName
+    weight_kg: float | None
+    reps: int | None
+    duration_s: int | None
+    distance_m: float | None
     rpe: float | None
-    is_warmup: bool
     performed_at: datetime
     # Records établis par cette série (« Nouveau record » à l'écran).
     records: list[RecordOut]
@@ -278,19 +300,25 @@ def _set_out(one: Set) -> SetOut:
         id=one.pk,
         workout_exercise_id=one.workout_exercise_id,
         position=one.position,
-        weight_kg=float(one.weight_kg),
+        set_type=one.set_type,  # type: ignore[arg-type]  # contrainte en base
+        weight_kg=_float(one.weight_kg),
         reps=one.reps,
-        rpe=float(one.rpe) if one.rpe is not None else None,
-        is_warmup=one.is_warmup,
+        duration_s=one.duration_s,
+        distance_m=_float(one.distance_m),
+        rpe=_float(one.rpe),
         performed_at=one.performed_at,
         records=[_record_out(record) for record in one.records.all()],
     )
 
 
+def _float(value: Decimal | None) -> float | None:
+    return float(value) if value is not None else None
+
+
 def _record_out(record: PersonalRecord) -> RecordOut:
     return RecordOut(
         kind=record.kind,  # type: ignore[arg-type]  # garanti par la contrainte en base
-        value_kg=float(record.value_kg),
+        value=float(record.value),
         achieved_at=record.achieved_at,
     )
 
@@ -525,12 +553,16 @@ def write_set(request: HttpRequest, set_id: ClientId, payload: SetIn) -> Status[
             owner=_writer(request),
             set_id=set_id,
             workout_exercise_id=payload.workout_exercise_id,
-            position=payload.position,
-            weight_kg=payload.weight_kg,
-            reps=payload.reps,
-            rpe=payload.rpe,
-            is_warmup=payload.is_warmup,
-            performed_at=payload.performed_at,
+            values=services.SetValues(
+                position=payload.position,
+                performed_at=payload.performed_at,
+                set_type=SetType(payload.set_type),
+                weight_kg=payload.weight_kg,
+                reps=payload.reps,
+                duration_s=payload.duration_s,
+                distance_m=payload.distance_m,
+                rpe=payload.rpe,
+            ),
         )
     except services.NotFoundError as error:
         raise Http404 from error

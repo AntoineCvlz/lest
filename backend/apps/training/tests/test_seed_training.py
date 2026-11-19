@@ -9,7 +9,7 @@ from django.core.management import CommandError, call_command
 
 from apps.accounts.tests.factories import make_verified_user
 from apps.training import demo
-from apps.training.models import PersonalRecord, Program, ProgramExercise, Set, Workout
+from apps.training.models import PersonalRecord, Program, ProgramExercise, Set, SetType, Workout
 from apps.training.tests.factories import make_exercise
 
 pytestmark = pytest.mark.django_db
@@ -53,7 +53,7 @@ def test_compound_lifts_start_with_a_lighter_warm_up_set() -> None:
     first = demo.plan(today=TODAY)[0].exercises[0]
 
     warmup, *working = first.sets
-    assert warmup.is_warmup
+    assert warmup.set_type == SetType.WARMUP
     assert warmup.rpe is None
     assert all(warmup.weight_kg < one.weight_kg for one in working)
 

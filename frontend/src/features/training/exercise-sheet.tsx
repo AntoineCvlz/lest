@@ -6,27 +6,31 @@ import { useState } from "react";
 import { TextLink } from "@/features/auth/text-link";
 import { useProfile } from "@/features/profile/use-profile";
 import type { Schemas } from "@/shared/api/client";
-import { formatNumber } from "@/shared/lib/number";
-import { kilogramsToDisplay, WEIGHT_UNITS, type UnitSystem } from "@/shared/lib/units";
+import type { UnitSystem } from "@/shared/lib/units";
 import { Button } from "@/shared/ui/button";
 
 import { CATEGORY_LABELS } from "./categories";
 import { ExerciseImage } from "./exercise-image";
+import { recordValueText } from "./format";
 import { useExercise, useExerciseRecords } from "./use-exercise";
 
 export const EXERCISE_NOT_FOUND = "Cet exercice n’existe pas ou plus.";
 export const SHEET_UNAVAILABLE = "Fiche indisponible. Réessayez dans un instant.";
 export const NO_RECORDS =
   "Aucun record pour l’instant : ils apparaissent dès votre première série de travail.";
-const RECORD_LABELS = { weight: "Charge max", e1rm: "1RM estimé" } as const;
+const RECORD_LABELS = {
+  weight: "Charge max",
+  e1rm: "1RM estimé",
+  volume: "Volume d'une série",
+  reps: "Répétitions max",
+  duration: "Durée max",
+  distance: "Distance max",
+} as const;
+const RECORD_ORDER = ["weight", "e1rm", "volume", "reps", "duration", "distance"] as const;
 const SHOWN_AT_FIRST = 10;
 const DATE = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 
 type RecordOut = Schemas["RecordOut"];
-
-function weightText(kilograms: number, system: UnitSystem): string {
-  return `${formatNumber(kilogramsToDisplay(kilograms, system))} ${WEIGHT_UNITS[system].symbol}`;
-}
 
 function names(rows: { name: string }[]): string {
   return rows.map((row) => row.name).join(", ");
@@ -34,7 +38,7 @@ function names(rows: { name: string }[]): string {
 
 /** Meilleur record actuel de chaque type : le dernier de l'historique (amélioration stricte). */
 function bests(history: RecordOut[]): RecordOut[] {
-  return (["weight", "e1rm"] as const).flatMap((kind) => {
+  return RECORD_ORDER.flatMap((kind) => {
     const last = history.findLast((record) => record.kind === kind);
     return last ? [last] : [];
   });
@@ -66,7 +70,7 @@ function Records({ id, system }: { id: string; system: UnitSystem }) {
           <div key={record.kind} className="rounded-control bg-surface flex flex-col gap-1 p-4">
             <dt className="text-ink-muted text-sm">{RECORD_LABELS[record.kind]}</dt>
             <dd className="text-[28px] leading-none font-extrabold type-value [font-variant-numeric:tabular-nums]">
-              {weightText(record.value_kg, system)}
+              {recordValueText(record, system)}
             </dd>
             <dd className="text-ink-muted text-sm">{DATE.format(new Date(record.achieved_at))}</dd>
           </div>
@@ -97,7 +101,7 @@ function Records({ id, system }: { id: string; system: UnitSystem }) {
             >
               <td className="py-2">{DATE.format(new Date(record.achieved_at))}</td>
               <td className="py-2">{RECORD_LABELS[record.kind]}</td>
-              <td className="py-2 text-right font-bold">{weightText(record.value_kg, system)}</td>
+              <td className="py-2 text-right font-bold">{recordValueText(record, system)}</td>
             </tr>
           ))}
         </tbody>

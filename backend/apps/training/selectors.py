@@ -22,6 +22,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from common.pagination import Page, paginate
 
+from .measures import VOLUME_KINDS, WORKING_TYPES
 from .models import (
     Equipment,
     Exercise,
@@ -132,7 +133,8 @@ class WorkoutSummary:
     volume_kg: Decimal
 
 
-_WORKING = Q(exercises__sets__is_warmup=False)
+_WORKING = Q(exercises__sets__set_type__in=WORKING_TYPES)
+_COUNTS_IN_VOLUME = _WORKING & Q(exercises__exercise__kind__in=VOLUME_KINDS)
 _VOLUME = ExpressionWrapper(
     F("exercises__sets__weight_kg") * F("exercises__sets__reps"),
     output_field=DecimalField(max_digits=12, decimal_places=2),
@@ -154,7 +156,7 @@ def list_workouts(
         exercise_count=Count("exercises", distinct=True),
         working_set_count=Count("exercises__sets", filter=_WORKING),
         volume_kg=Coalesce(
-            Sum(_VOLUME, filter=_WORKING),
+            Sum(_VOLUME, filter=_COUNTS_IN_VOLUME),
             Value(Decimal(0)),
             output_field=DecimalField(max_digits=12, decimal_places=2),
         ),
@@ -216,20 +218,21 @@ def get_workout(*, owner: User, workout_id: UUID) -> Workout | None:
 
 def working_sets(sets: list[Set]) -> list[Set]:
     """Séries de travail : l'échauffement ne compte ni dans le volume ni dans les records."""
-    return [one for one in sets if not one.is_warmup]
+    return [one for one in sets if one.set_type in WORKING_TYPES]
 
 
 def workout_volume_kg(workout: Workout) -> Decimal:
-    """Volume : somme de poids * reps des séries de travail (CLAUDE.md). Recalculé à chaque
-    lecture : une série modifiée ou rejouée donne le même résultat (ADR 0003)."""
-    return sum(
-        (
-            one.weight_kg * one.reps
-            for exercise in workout.exercises.all()
-            for one in working_sets(list(exercise.sets.all()))
-        ),
-        Decimal(0),
-    )
+    """Volume : somme de poids * reps des séries de travail, pour les types à charge (CLAUDE.md,
+    ADR 0017). Recalculé à chaque lecture : une série modifiée ou rejouée donne le même
+    résultat (ADR 0003)."""
+    total = Decimal(0)
+    for item in workout.exercises.all():
+        if item.exercise.kind not in VOLUME_KINDS:
+            continue
+        for one in working_sets(list(item.sets.all())):
+            if one.weight_kg is not None and one.reps is not None:
+                total += one.weight_kg * one.reps
+    return total
 
 
 # Historique borné : les plus récents seulement (pagination par curseur avec l'écran).
@@ -245,13 +248,17 @@ def records_history(*, owner: User, exercise_id: UUID) -> list[PersonalRecord]:
     return list(reversed(latest))
 
 
+def _number(value: Decimal | None) -> float | None:
+    return float(value) if value is not None else None
+
+
 def export_records(*, owner: User) -> list[dict[str, Any]]:
     """Records de `owner` pour l'export RGPD (dérivés de ses séries)."""
     return [
         {
             "exercise": record.exercise.name,
             "kind": record.kind,
-            "value_kg": float(record.value_kg),
+            "value": float(record.value),
             "achieved_at": record.achieved_at.isoformat(),
         }
         for record in PersonalRecord.objects.filter(owner=owner).select_related("exercise")
@@ -329,10 +336,12 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
                     "target_reps": item.target_reps,
                     "sets": [
                         {
-                            "weight_kg": float(one.weight_kg),
+                            "set_type": one.set_type,
+                            "weight_kg": _number(one.weight_kg),
                             "reps": one.reps,
-                            "rpe": float(one.rpe) if one.rpe is not None else None,
-                            "is_warmup": one.is_warmup,
+                            "duration_s": one.duration_s,
+                            "distance_m": _number(one.distance_m),
+                            "rpe": _number(one.rpe),
                             "performed_at": one.performed_at.isoformat(),
                         }
                         for one in item.sets.all()
@@ -409,18 +418,23 @@ def weekly_training(
     set_rows = (
         Set.objects.filter(
             workout_exercise__workout__in=finished,
-            is_warmup=False,
+            set_type__in=WORKING_TYPES,
             workout_exercise__exercise__muscles__isnull=False,
         )
         .annotate(week=TruncWeek("workout_exercise__workout__started_at", tzinfo=zone))
         .values("week", "workout_exercise__exercise__muscles__name")
         .annotate(
             sets=Count("id"),
-            volume=Sum(
-                ExpressionWrapper(
-                    F("weight_kg") * F("reps"),
-                    output_field=DecimalField(max_digits=14, decimal_places=2),
-                )
+            volume=Coalesce(
+                Sum(
+                    ExpressionWrapper(
+                        F("weight_kg") * F("reps"),
+                        output_field=DecimalField(max_digits=14, decimal_places=2),
+                    ),
+                    filter=Q(workout_exercise__exercise__kind__in=VOLUME_KINDS),
+                ),
+                Value(Decimal(0)),
+                output_field=DecimalField(max_digits=14, decimal_places=2),
             ),
         )
     )

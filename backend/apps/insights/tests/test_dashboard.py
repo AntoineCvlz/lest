@@ -20,7 +20,7 @@ from apps.insights import selectors
 from apps.nutrition import services as nutrition
 from apps.nutrition.models import Food, FoodSource, Meal
 from apps.training import services as training
-from apps.training.models import Muscle
+from apps.training.models import Muscle, SetType
 from apps.training.tests.factories import make_exercise
 
 pytestmark = pytest.mark.django_db
@@ -69,12 +69,13 @@ def workout(user: User, day: date, sets: list[tuple[str, int, bool]], exercise: 
             owner=user,
             set_id=uuid4(),
             workout_exercise_id=item_id,
-            position=position,
-            weight_kg=Decimal(kg),
-            reps=reps,
-            rpe=None,
-            is_warmup=warmup,
-            performed_at=at(day, 18),
+            values=training.SetValues(
+                position=position,
+                performed_at=at(day, 18),
+                set_type=SetType.WARMUP if warmup else SetType.NORMAL,
+                weight_kg=Decimal(kg),
+                reps=reps,
+            ),
         )
 
 
