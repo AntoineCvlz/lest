@@ -35,3 +35,8 @@ HEADLESS_FRONTEND_URLS = {
     "account_signup": f"{FRONTEND_URL}/inscription",
     "account_reset_password": f"{FRONTEND_URL}/mot-de-passe-oublie",
 }
+
+# Les tests calculent le code TOTP de la fenêtre courante (30 s) : si la vérification tombe
+# dans la suivante, le code serait refusé au hasard. Une fenêtre de tolérance en test seulement ;
+# la production garde le défaut d'allauth (0), sans recul ni avance.
+MFA_TOTP_TOLERANCE = 1
