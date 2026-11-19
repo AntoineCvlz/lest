@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.utils import timezone
 
 from apps.training import demo, services
+from apps.training.measures import COLUMNS
 from apps.training.models import Exercise
 
 DEMO_EMAIL = "demo@example.com"
@@ -27,9 +28,12 @@ class Command(BaseCommand):
         owner = get_user_model().objects.filter(email=email).first()
         if owner is None:
             raise CommandError(f"Compte {email} introuvable : lancer d'abord seed_demo.")
-        catalog = {
-            exercise.source_id: exercise.pk
-            for exercise in Exercise.objects.filter(source_id__in=demo.SOURCE_IDS, is_active=True)
+        exercises = Exercise.objects.filter(source_id__in=demo.SOURCE_IDS, is_active=True)
+        catalog = {exercise.source_id: exercise.pk for exercise in exercises}
+        # Le programme prévoit des charges ; un exercice au poids du corps n'en reçoit pas
+        # (le type vient du catalogue, ADR 0017).
+        loaded = {
+            exercise.source_id for exercise in exercises if "weight_kg" in COLUMNS[exercise.kind]
         }
         missing = sorted(set(demo.SOURCE_IDS) - set(catalog))
         if missing:
@@ -83,7 +87,7 @@ class Command(BaseCommand):
                             position=one.position,
                             performed_at=one.performed_at,
                             set_type=one.set_type,
-                            weight_kg=one.weight_kg,
+                            weight_kg=one.weight_kg if item.source_id in loaded else None,
                             reps=one.reps,
                             rpe=one.rpe,
                         ),
