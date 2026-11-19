@@ -92,6 +92,7 @@ describe("ProfileForm", () => {
           goal: "maintain",
           unit_system: "metric",
           one_rm_formula: "epley",
+          default_rest_seconds: 120,
           onboarded_at: "2026-10-28T09:00:00Z",
         }}
         submitLabel="Enregistrer"
@@ -115,6 +116,7 @@ describe("ProfileForm", () => {
           goal: "gain",
           unit_system: "metric",
           one_rm_formula: "epley",
+          default_rest_seconds: 120,
           onboarded_at: "2026-10-28T09:00:00Z",
         }}
         submitLabel="Enregistrer"

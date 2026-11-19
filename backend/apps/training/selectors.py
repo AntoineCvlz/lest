@@ -248,6 +248,10 @@ def records_history(*, owner: User, exercise_id: UUID) -> list[PersonalRecord]:
     return list(reversed(latest))
 
 
+def _whole(value: Decimal | None) -> int | None:
+    return int(value) if value is not None else None
+
+
 def _number(value: Decimal | None) -> float | None:
     return float(value) if value is not None else None
 
@@ -328,9 +332,17 @@ def export_workouts(*, owner: User) -> list[dict[str, Any]]:
         {
             "started_at": workout.started_at.isoformat(),
             "ended_at": workout.ended_at.isoformat() if workout.ended_at else None,
+            # Note, fréquence cardiaque et ressenti déchiffrés pour l'export (ADR 0017).
+            "name": workout.name,
+            "note": workout.note,
+            "avg_heart_rate": _whole(workout.avg_heart_rate),
+            "feeling": _whole(workout.feeling),
             "exercises": [
                 {
                     "exercise": item.exercise.name,
+                    "rest_seconds": item.rest_seconds,
+                    "superset": item.superset,
+                    "note": item.note,
                     # Cible recopiée du programme : seule trace une fois le programme supprimé.
                     "target_sets": item.target_sets,
                     "target_reps": item.target_reps,

@@ -318,4 +318,6 @@ def test_the_migration_keeps_warm_ups_and_record_values() -> None:
     assert migrated.get(pk=warmup.pk).set_type == "warmup"
     assert migrated.get(pk=working.pk).set_type == "normal"
     assert new.get_model("training", "PersonalRecord").objects.get().value == Decimal(100)
+    # Retour au schéma courant : les tests suivants en dépendent.
+    migrate(MigrationExecutor(connection).loader.graph.leaf_nodes())
     Workout.objects.filter(pk=workout.pk).delete()

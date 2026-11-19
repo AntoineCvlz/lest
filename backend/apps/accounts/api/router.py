@@ -37,6 +37,8 @@ class ProfileIn(Schema):
     unit_system: UnitSystemValue
     # Absente : formule actuelle gardée (le formulaire de profil ne la remet pas à zéro).
     one_rm_formula: OneRepMaxFormulaValue | None = None
+    # Absent : repos actuel gardé (120 s à la création).
+    default_rest_seconds: int | None = Field(default=None, strict=True, ge=15, le=600)
 
 
 class ProfileOut(Schema):
@@ -44,6 +46,7 @@ class ProfileOut(Schema):
     goal: GoalValue
     unit_system: UnitSystemValue
     one_rm_formula: OneRepMaxFormulaValue
+    default_rest_seconds: int
     onboarded_at: datetime
 
 
@@ -53,6 +56,7 @@ def _profile_out(profile: Profile) -> ProfileOut:
         goal=profile.goal,  # type: ignore[arg-type]  # garanti par la contrainte en base
         unit_system=profile.unit_system,  # type: ignore[arg-type]
         one_rm_formula=profile.one_rm_formula,  # type: ignore[arg-type]
+        default_rest_seconds=profile.default_rest_seconds,
         onboarded_at=profile.onboarded_at,
     )
 
@@ -79,6 +83,7 @@ def write_profile(request: HttpRequest, payload: ProfileIn) -> ProfileOut:
         goal=payload.goal,
         unit_system=payload.unit_system,
         one_rm_formula=payload.one_rm_formula,
+        default_rest_seconds=payload.default_rest_seconds,
     )
     return _profile_out(profile)
 

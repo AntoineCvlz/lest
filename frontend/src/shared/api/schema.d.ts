@@ -1228,6 +1228,8 @@ export interface components {
         };
         /** ProfileIn */
         ProfileIn: {
+            /** Default Rest Seconds */
+            default_rest_seconds?: number | null;
             /**
              * Goal
              * @enum {string}
@@ -1245,6 +1247,8 @@ export interface components {
         };
         /** ProfileOut */
         ProfileOut: {
+            /** Default Rest Seconds */
+            default_rest_seconds: number;
             /**
              * Goal
              * @enum {string}
@@ -1346,6 +1350,11 @@ export interface components {
              */
             exercise_id: string;
             exercise_image: components["schemas"]["ImageOut"] | null;
+            /**
+             * Exercise Kind
+             * @enum {string}
+             */
+            exercise_kind: "weight_reps" | "reps" | "weighted_reps" | "assisted_reps" | "duration" | "distance_duration" | "weight_distance";
             /** Exercise Name */
             exercise_name: string;
             /** Exercise Name Language */
@@ -1653,15 +1662,23 @@ export interface components {
         };
         /** WorkoutDetailOut */
         WorkoutDetailOut: {
+            /** Avg Heart Rate */
+            avg_heart_rate: number | null;
             /** Ended At */
             ended_at: string | null;
             /** Exercises */
             exercises: components["schemas"]["WorkoutExerciseDetailOut"][];
+            /** Feeling */
+            feeling: number | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string | null;
             /** Program Day Id */
             program_day_id: string | null;
             /**
@@ -1685,6 +1702,11 @@ export interface components {
              */
             exercise_id: string;
             exercise_image: components["schemas"]["ImageOut"] | null;
+            /**
+             * Exercise Kind
+             * @enum {string}
+             */
+            exercise_kind: "weight_reps" | "reps" | "weighted_reps" | "assisted_reps" | "duration" | "distance_duration" | "weight_distance";
             /** Exercise Name */
             exercise_name: string;
             /** Exercise Name Language */
@@ -1694,10 +1716,16 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Note */
+            note: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds: number | null;
             /** Sets */
             sets: components["schemas"]["SetOut"][];
+            /** Superset */
+            superset: number | null;
             /** Target Reps */
             target_reps: number | null;
             /** Target Sets */
@@ -1708,15 +1736,24 @@ export interface components {
              */
             workout_id: string;
         };
-        /** WorkoutExerciseIn */
+        /**
+         * WorkoutExerciseIn
+         * @description Exercice de séance. Repos, superset et note (ADR 0017) : absent, gardé ; `null`, effacé.
+         */
         WorkoutExerciseIn: {
             /**
              * Exercise Id
              * Format: uuid
              */
             exercise_id: string;
+            /** Note */
+            note?: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds?: number | null;
+            /** Superset */
+            superset?: number | null;
             /**
              * Workout Id
              * Format: uuid4
@@ -1735,18 +1772,36 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Note */
+            note: string | null;
             /** Position */
             position: number;
+            /** Rest Seconds */
+            rest_seconds: number | null;
+            /** Superset */
+            superset: number | null;
             /**
              * Workout Id
              * Format: uuid
              */
             workout_id: string;
         };
-        /** WorkoutIn */
+        /**
+         * WorkoutIn
+         * @description Séance. Nom, note, fréquence cardiaque et ressenti (ADR 0017) : un champ absent garde sa
+         *     valeur, `null` l'efface (la file hors ligne renvoie la séance sans eux).
+         */
         WorkoutIn: {
+            /** Avg Heart Rate */
+            avg_heart_rate?: number | null;
             /** Ended At */
             ended_at?: string | null;
+            /** Feeling */
+            feeling?: number | null;
+            /** Name */
+            name?: string | null;
+            /** Note */
+            note?: string | null;
             /** Program Day Id */
             program_day_id?: string | null;
             /**
@@ -1757,13 +1812,21 @@ export interface components {
         };
         /** WorkoutOut */
         WorkoutOut: {
+            /** Avg Heart Rate */
+            avg_heart_rate: number | null;
             /** Ended At */
             ended_at: string | null;
+            /** Feeling */
+            feeling: number | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string | null;
             /** Program Day Id */
             program_day_id: string | null;
             /**
@@ -1793,15 +1856,23 @@ export interface components {
         };
         /** WorkoutSummaryOut */
         WorkoutSummaryOut: {
+            /** Avg Heart Rate */
+            avg_heart_rate: number | null;
             /** Ended At */
             ended_at: string | null;
             /** Exercise Count */
             exercise_count: number;
+            /** Feeling */
+            feeling: number | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Name */
+            name: string;
+            /** Note */
+            note: string | null;
             /** Program Day Id */
             program_day_id: string | null;
             /**

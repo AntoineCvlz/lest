@@ -111,6 +111,7 @@ def export_account(user: User) -> dict[str, Any]:
                 "goal": profile.goal,
                 "unit_system": profile.unit_system,
                 "one_rm_formula": profile.one_rm_formula,
+                "default_rest_seconds": profile.default_rest_seconds,
                 "onboarded_at": profile.onboarded_at.isoformat(),
             }
             if profile

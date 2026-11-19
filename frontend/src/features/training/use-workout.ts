@@ -233,6 +233,11 @@ export function useStartWorkout() {
         started_at: new Date().toISOString(),
         ended_at: null,
         program_day_id: day?.id ?? null,
+        // Nom de la séance type, comme l'API à la création (ADR 0017).
+        name: day?.name ?? "",
+        note: null,
+        avg_heart_rate: null,
+        feeling: null,
       };
       const exercises = await Promise.all(
         (day?.exercises ?? []).map(async (planned) => ({
@@ -242,7 +247,11 @@ export function useStartWorkout() {
           exercise_name: planned.exercise_name,
           exercise_name_language: planned.exercise_name_language,
           exercise_category: planned.exercise_category,
+          exercise_kind: planned.exercise_kind,
           exercise_image: planned.exercise_image,
+          rest_seconds: null,
+          superset: null,
+          note: null,
           position: planned.position,
           target_sets: planned.target_sets,
           target_reps: planned.target_reps,
@@ -270,7 +279,11 @@ export function useAddExercise(workout: WorkoutDetail | undefined) {
         exercise_name: exercise.name,
         exercise_name_language: exercise.name_language,
         exercise_category: exercise.category,
+        exercise_kind: exercise.kind,
         exercise_image: exercise.image,
+        rest_seconds: null,
+        superset: null,
+        note: null,
         position,
         target_sets: null,
         target_reps: null,
