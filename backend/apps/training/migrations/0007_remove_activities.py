@@ -29,7 +29,7 @@ def check_and_drop(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
     with connection.cursor() as cursor:
         if ACTIVITY_TABLE not in connection.introspection.table_names(cursor):
             return
-        cursor.execute(f"SELECT id FROM {ACTIVITY_TABLE}")  # noqa: S608  # nom constant
+        cursor.execute("SELECT id FROM activities_activity")
         activity_ids = [UUID(str(row[0])) for row in cursor.fetchall()]
     expected = {copied_workout_id(activity_id) for activity_id in activity_ids}
     workout_model = apps.get_model("training", "Workout")
@@ -39,7 +39,7 @@ def check_and_drop(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
         raise RuntimeError(
             f"{missing} activités sans leur séance : lancer `copy_activities` avant de migrer."
         )
-    schema_editor.execute(f"DROP TABLE {ACTIVITY_TABLE}")
+    schema_editor.execute("DROP TABLE activities_activity")
 
 
 def delete_content_types(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
