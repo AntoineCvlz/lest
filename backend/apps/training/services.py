@@ -412,7 +412,10 @@ def put_workout_exercise(
         if exercise is None:
             raise _unknown("exercise_id")
         # Ses séries sont saisies pour un type : un exercice d'un autre type ne les reprend pas.
-        with_sets = WorkoutExercise.objects.filter(pk=workout_exercise_id, sets__isnull=False)
+        # Lignes du compte seulement : celle d'un autre compte répond 404 (`_put`), jamais 422.
+        with_sets = WorkoutExercise.objects.filter(
+            pk=workout_exercise_id, workout__owner=owner, sets__isnull=False
+        )
         if with_sets.exclude(exercise__kind=exercise.kind).exists():
             raise ValidationError(
                 {"exercise_id": ValidationError("Type différent.", code="kind_mismatch")}

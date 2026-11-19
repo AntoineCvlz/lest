@@ -216,6 +216,26 @@ def test_an_exercise_with_sets_is_only_swapped_for_one_of_the_same_kind(alice: A
     assert swap(make_exercise(name="Squat")).status_code == 200
 
 
+def test_another_account_cannot_probe_a_workout_exercise_through_its_kind(
+    alice: Athlete,
+) -> None:
+    _, alice_item = start(alice, make_exercise())
+    put(alice, alice_item, weight_kg="80", reps=8)
+    bob = Athlete()
+    bob_workout, _ = start(bob, make_exercise(name="Squat"))
+
+    probe = bob.put(
+        f"/workout-exercises/{alice_item}/",
+        {
+            "workout_id": str(bob_workout),
+            "exercise_id": str(exercise_of(ExerciseKind.DURATION).pk),
+            "position": 0,
+        },
+    )
+
+    assert probe.status_code == 404  # comme un identifiant inconnu, sans révéler le type
+
+
 # --- Reconstruction, énumérations, migration -----------------------------------------------------
 
 
