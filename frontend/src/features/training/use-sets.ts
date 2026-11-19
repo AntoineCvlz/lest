@@ -53,10 +53,16 @@ export function useLastSets(exerciseId: string, currentWorkoutId: string) {
   });
 }
 
+/**
+ * Série saisie : les colonnes du type de l'exercice (`set-columns.ts`), les autres à `null`.
+ * `durationS` et `distanceM` absents : saisie mise en file avant les types d'exercice.
+ */
 export interface NewSet {
   workoutExerciseId: string;
-  weightKg: number;
-  reps: number;
+  weightKg: number | null;
+  reps: number | null;
+  durationS?: number | null;
+  distanceM?: number | null;
   rpe: number | null;
   isWarmup: boolean;
   /** Moment de la série ; une modification garde celui d'origine. */
@@ -77,14 +83,17 @@ export function registerSetWrites(queryClient: QueryClient): void {
     mutationFn: async (variables) => {
       assertStillQueued(queryClient, variables);
       const { account, id, position, set } = variables;
+      const distance = set.distanceM ?? null;
       const { data, response } = await fetchClient.PUT("/api/v1/sets/{set_id}/", {
         params: { path: { set_id: id } },
         headers: accountHeaders(account),
         body: {
           workout_exercise_id: set.workoutExerciseId,
           position,
-          weight_kg: set.weightKg.toFixed(2),
+          weight_kg: set.weightKg === null ? null : set.weightKg.toFixed(2),
           reps: set.reps,
+          duration_s: set.durationS ?? null,
+          distance_m: distance === null ? null : distance.toFixed(1),
           rpe: set.rpe,
           set_type: set.isWarmup ? "warmup" : "normal",
           performed_at: set.performedAt,
