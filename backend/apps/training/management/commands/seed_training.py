@@ -79,12 +79,14 @@ class Command(BaseCommand):
                         owner=owner,
                         set_id=one.id,
                         workout_exercise_id=item.id,
-                        position=one.position,
-                        weight_kg=one.weight_kg,
-                        reps=one.reps,
-                        rpe=one.rpe,
-                        is_warmup=one.is_warmup,
-                        performed_at=one.performed_at,
+                        values=services.SetValues(
+                            position=one.position,
+                            performed_at=one.performed_at,
+                            set_type=one.set_type,
+                            weight_kg=one.weight_kg,
+                            reps=one.reps,
+                            rpe=one.rpe,
+                        ),
                     )
         sets = sum(len(item.sets) for workout in workouts for item in workout.exercises)
         self.stdout.write(

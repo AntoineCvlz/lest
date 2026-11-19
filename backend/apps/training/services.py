@@ -20,6 +20,7 @@ from apps.accounts.services import lock_account
 
 from . import repdb
 from .images import FORMAT_VERSION, ImageRejectedError, NormalizedImage, normalize
+from .measures import COLUMNS, MEASURES, RECORDS, WORKING_TYPES
 from .models import (
     MAX_CUSTOM_EXERCISES,
     Category,
@@ -35,6 +36,7 @@ from .models import (
     ProgramExercise,
     RecordKind,
     Set,
+    SetType,
     Workout,
     WorkoutExercise,
 )
@@ -409,6 +411,12 @@ def put_workout_exercise(
         exercise = _visible_exercise(owner, exercise_id)
         if exercise is None:
             raise _unknown("exercise_id")
+        # Ses séries sont saisies pour un type : un exercice d'un autre type ne les reprend pas.
+        with_sets = WorkoutExercise.objects.filter(pk=workout_exercise_id, sets__isnull=False)
+        if with_sets.exclude(exercise__kind=exercise.kind).exists():
+            raise ValidationError(
+                {"exercise_id": ValidationError("Type différent.", code="kind_mismatch")}
+            )
         return {"workout": workout, "exercise": exercise}
 
     with transaction.atomic():
@@ -425,23 +433,45 @@ def put_workout_exercise(
     return item, created
 
 
+@dataclass(frozen=True)
+class SetValues:
+    """Une série telle que saisie : seules les colonnes du type de l'exercice sont remplies."""
+
+    position: int
+    performed_at: datetime
+    set_type: SetType = SetType.NORMAL
+    weight_kg: Decimal | None = None
+    reps: int | None = None
+    duration_s: int | None = None
+    distance_m: Decimal | None = None
+    rpe: Decimal | None = None
+
+
+def _check_measures(values: SetValues, kind: str) -> None:
+    """Exige les colonnes du type `kind` et refuse les autres (422 `required` ou
+    `not_allowed`, sans les valeurs)."""
+    expected = COLUMNS[kind]
+    errors: dict[str, ValidationError] = {}
+    for column in MEASURES:
+        filled = getattr(values, column) is not None
+        if column in expected and not filled:
+            errors[column] = ValidationError("Valeur attendue.", code="required")
+        elif column not in expected and filled:
+            errors[column] = ValidationError("Valeur hors du type.", code="not_allowed")
+    if errors:
+        raise ValidationError(errors)
+
+
 def put_set(
-    *,
-    owner: User,
-    set_id: UUID,
-    workout_exercise_id: UUID,
-    position: int,
-    weight_kg: Decimal,
-    reps: int,
-    rpe: Decimal | None,
-    is_warmup: bool,
-    performed_at: datetime,
+    *, owner: User, set_id: UUID, workout_exercise_id: UUID, values: SetValues
 ) -> tuple[Set, bool]:
-    """Crée ou remplace une série d'un exercice de séance de `owner`."""
+    """Crée ou remplace une série d'un exercice de séance de `owner`. Les mesures suivent le
+    type de l'exercice (ADR 0017) : colonne manquante ou en trop, 422."""
 
     def parents() -> dict[str, Any]:
         workout_exercise = (
             WorkoutExercise.objects.select_for_update()
+            .select_related("exercise")
             .filter(pk=workout_exercise_id, workout__owner=owner)
             .first()
         )
@@ -449,6 +479,7 @@ def put_set(
             raise _unknown("workout_exercise_id")
         if workout_exercise.sets.exclude(pk=set_id).count() >= MAX_SETS_PER_EXERCISE:
             raise _too_many("workout_exercise_id")
+        _check_measures(values, workout_exercise.exercise.kind)
         return {"workout_exercise": workout_exercise}
 
     with transaction.atomic():
@@ -458,12 +489,14 @@ def put_set(
             pk=set_id,
             owned=models.Q(workout_exercise__workout__owner=owner),
             values={
-                "position": position,
-                "weight_kg": weight_kg,
-                "reps": reps,
-                "rpe": rpe,
-                "is_warmup": is_warmup,
-                "performed_at": performed_at,
+                "position": values.position,
+                "set_type": values.set_type,
+                "weight_kg": values.weight_kg,
+                "reps": values.reps,
+                "duration_s": values.duration_s,
+                "distance_m": values.distance_m,
+                "rpe": values.rpe,
+                "performed_at": values.performed_at,
             },
             parents=parents,
         )
@@ -620,6 +653,35 @@ def _recompute(owner: User, exercise_ids: set[UUID], kinds: frozenset[str] = ALL
         PersonalRecord.objects.bulk_create(_build_records(owner, exercise_id, formula, kinds))
 
 
+def _record_values(
+    kind: str,
+    weight_kg: Decimal | None,
+    reps: int | None,
+    duration_s: int | None,
+    distance_m: Decimal | None,
+    formula: str,
+) -> dict[RecordKind, Decimal | None]:
+    """Valeur de chaque record suivi pour le type `kind` (ADR 0017) ; `None` quand la série ne
+    le mesure pas (charge nulle, aucune répétition…)."""
+    load = weight_kg if weight_kg is not None and weight_kg > 0 else None
+    lifted = load is not None and reps is not None and reps >= 1
+    values: dict[RecordKind, Decimal | None] = {
+        RecordKind.HEAVIEST: load,
+        RecordKind.ESTIMATED_ONE_REP_MAX: None,
+        RecordKind.SET_VOLUME: None,
+        RecordKind.MOST_REPS: Decimal(reps) if reps else None,
+        RecordKind.LONGEST_DURATION: Decimal(duration_s) if duration_s else None,
+        RecordKind.LONGEST_DISTANCE: distance_m if distance_m else None,
+    }
+    if load is not None and reps is not None and lifted:
+        values[RecordKind.ESTIMATED_ONE_REP_MAX] = estimate_one_rep_max(load, reps, formula)
+        values[RecordKind.SET_VOLUME] = load * reps
+    elif kind != ExerciseKind.WEIGHT_DISTANCE:
+        # Une charge sans répétition n'a rien soulevé (la marche du fermier se mesure en distance).
+        values[RecordKind.HEAVIEST] = None
+    return {record: values[record] for record in RECORDS[kind]}
+
+
 def _build_records(
     owner: User, exercise_id: UUID, formula: str, kinds: frozenset[str]
 ) -> list[PersonalRecord]:
@@ -627,27 +689,26 @@ def _build_records(
     Historique des records de `owner` pour un exercice, depuis ses séries.
 
     Recalculé, jamais incrémenté (ADR 0003) : une série modifiée, supprimée ou rejouée donne
-    toujours le même historique. Séries de travail seulement, d'au moins une répétition et
-    avec charge, dans l'ordre où elles ont été faites ; un record n'est battu que strictement.
+    toujours le même historique. Séries de travail seulement, records suivis selon le type de
+    l'exercice (`measures.RECORDS`), dans l'ordre où elles ont été faites ; un record n'est
+    battu que strictement.
     """
+    exercise_kind = Exercise.objects.filter(pk=exercise_id).values_list("kind", flat=True).first()
+    if exercise_kind is None:
+        return []
     sets = (
         Set.objects.filter(
             workout_exercise__workout__owner=owner,
             workout_exercise__exercise_id=exercise_id,
-            is_warmup=False,
-            reps__gte=1,
-            weight_kg__gt=0,
+            set_type__in=WORKING_TYPES,
         )
         .order_by("performed_at", "id")
-        .values_list("id", "weight_kg", "reps", "performed_at")
+        .values_list("id", "weight_kg", "reps", "duration_s", "distance_m", "performed_at")
     )
     best: dict[str, Decimal] = {}
     records: list[PersonalRecord] = []
-    for set_id, weight_kg, reps, performed_at in sets.iterator():
-        values = {
-            RecordKind.HEAVIEST: weight_kg,
-            RecordKind.ESTIMATED_ONE_REP_MAX: estimate_one_rep_max(weight_kg, reps, formula),
-        }
+    for set_id, weight_kg, reps, duration_s, distance_m, performed_at in sets.iterator():
+        values = _record_values(exercise_kind, weight_kg, reps, duration_s, distance_m, formula)
         for kind, value in values.items():
             if kind in kinds and value is not None and value > best.get(kind, Decimal(0)):
                 best[kind] = value
@@ -656,7 +717,7 @@ def _build_records(
                         owner=owner,
                         exercise_id=exercise_id,
                         kind=kind,
-                        value_kg=value,
+                        value=value,
                         set_id=set_id,
                         achieved_at=performed_at,
                     )
@@ -672,6 +733,17 @@ def recompute_all_records(*, owner: User) -> None:
     )
     with transaction.atomic():
         _recompute(owner, exercise_ids, kinds=frozenset({RecordKind.ESTIMATED_ONE_REP_MAX}))
+
+
+def rebuild_records(*, owner: User) -> int:
+    """Tous les records de `owner`, reconstruits depuis ses séries (nouveaux types de record,
+    ADR 0017). Rejouable ; renvoie le nombre de records."""
+    exercise_ids = set(
+        WorkoutExercise.objects.filter(workout__owner=owner).values_list("exercise_id", flat=True)
+    )
+    with transaction.atomic():
+        _recompute(owner, exercise_ids)
+    return PersonalRecord.objects.filter(owner=owner).count()
 
 
 # --- Images du catalogue (ADR 0006) -----------------------------------------------------------

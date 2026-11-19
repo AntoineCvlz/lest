@@ -24,8 +24,8 @@ const sheet = {
   images: [] as object[],
 };
 
-function record(kind: "weight" | "e1rm", value_kg: number, day: number) {
-  return { kind, value_kg, achieved_at: `2026-10-${String(day).padStart(2, "0")}T18:00:00Z` };
+function record(kind: "weight" | "e1rm", value: number, day: number) {
+  return { kind, value, achieved_at: `2026-10-${String(day).padStart(2, "0")}T18:00:00Z` };
 }
 
 function api({ history = [] as object[], unit_system = "metric" } = {}) {

@@ -149,7 +149,7 @@ function OngoingWorkout({
                     <span className="text-ink-muted block text-sm">
                       {item.target_sets === null
                         ? setCount(item.sets.length)
-                        : `${String(item.sets.filter((one) => !one.is_warmup).length)} sur ${String(item.target_sets)} séries, cible ${String(item.target_sets)} × ${String(item.target_reps)}`}
+                        : `${String(item.sets.filter((one) => one.set_type !== "warmup").length)} sur ${String(item.target_sets)} séries, cible ${String(item.target_sets)} × ${String(item.target_reps)}`}
                     </span>
                   </span>
                 </button>

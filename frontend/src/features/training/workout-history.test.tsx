@@ -32,7 +32,9 @@ function set(position: number, overrides: object = {}) {
     weight_kg: 80,
     reps: 8,
     rpe: null,
-    is_warmup: false,
+    set_type: "normal" as const,
+    duration_s: null,
+    distance_m: null,
     performed_at: "2026-10-29T17:10:00Z",
     records: [],
     ...overrides,
@@ -43,7 +45,7 @@ describe("format", () => {
   it("écrit les durées et les séries comme à l'écran", () => {
     expect(durationText("2026-10-29T17:00:00Z", "2026-10-29T17:45:00Z")).toBe("45 min");
     expect(durationText("2026-10-29T17:00:00Z", "2026-10-29T18:05:00Z")).toBe("1 h 05");
-    expect(setLine(set(0, { rpe: 8.5, is_warmup: true }), 1, "metric")).toBe(
+    expect(setLine(set(0, { rpe: 8.5, set_type: "warmup" }), 1, "metric")).toBe(
       "Série 1 : 80 kg × 8, RPE 8,5, échauffement",
     );
   });
@@ -129,7 +131,7 @@ describe("WorkoutDetail", () => {
               sets: [
                 set(0),
                 set(1, {
-                  records: [{ kind: "weight", value_kg: 80, achieved_at: "2026-10-29T17:12:00Z" }],
+                  records: [{ kind: "weight", value: 80, achieved_at: "2026-10-29T17:12:00Z" }],
                 }),
               ],
             },

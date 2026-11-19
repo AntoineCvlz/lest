@@ -183,6 +183,9 @@ class ExerciseImage(models.Model):
 
 MAX_WEIGHT_KG = 1000
 MAX_REPS = 1000
+# Série de durée ou de distance (ADR 0017) : 24 h, 1 000 km.
+MAX_DURATION_S = 24 * 60 * 60
+MAX_DISTANCE_M = 1_000_000
 
 
 # Cibles d'un exercice de programme : séries x répétitions.
@@ -320,17 +323,30 @@ class WorkoutExercise(models.Model):
         return f"Exercice de séance {self.pk}"
 
 
+class SetType(models.TextChoices):
+    """Rôle d'une série (ADR 0017) ; l'échauffement ne compte ni au volume ni aux records."""
+
+    WARMUP = "warmup", "Échauffement"
+    NORMAL = "normal", "Normale"
+    DROP = "drop", "Dégressive"
+    FAILURE = "failure", "À l'échec"
+
+
 class Set(models.Model):
     id = models.UUIDField(primary_key=True, editable=False)
     workout_exercise = models.ForeignKey(
         WorkoutExercise, on_delete=models.CASCADE, related_name="sets"
     )
     position = models.PositiveSmallIntegerField()
-    weight_kg = models.DecimalField(max_digits=6, decimal_places=2)
-    reps = models.PositiveSmallIntegerField()
+    # Colonnes du type de l'exercice seulement, les autres vides (ADR 0017, vérifié par le
+    # service). Charge, lest ou assistance selon le type ; durée en secondes, distance en mètres.
+    weight_kg = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+    reps = models.PositiveSmallIntegerField(null=True, blank=True)
+    duration_s = models.PositiveIntegerField(null=True, blank=True)
+    distance_m = models.DecimalField(max_digits=8, decimal_places=1, null=True, blank=True)
     # Effort perçu (1 à 10, par demi-points), facultatif.
     rpe = models.DecimalField(max_digits=3, decimal_places=1, null=True, blank=True)
-    is_warmup = models.BooleanField(default=False)
+    set_type = models.CharField(max_length=8, choices=SetType, default=SetType.NORMAL)
     # Heure réelle de la série, fournie par le client (hors ligne compris, ADR 0003).
     performed_at = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -340,11 +356,34 @@ class Set(models.Model):
         ordering = ("position", "performed_at")
         constraints: ClassVar[list[models.BaseConstraint]] = [
             models.CheckConstraint(
-                condition=models.Q(weight_kg__gte=0, weight_kg__lte=MAX_WEIGHT_KG),
+                condition=models.Q(weight_kg__isnull=True)
+                | models.Q(weight_kg__gte=0, weight_kg__lte=MAX_WEIGHT_KG),
                 name="training_set_weight_range",
             ),
             models.CheckConstraint(
-                condition=models.Q(reps__lte=MAX_REPS), name="training_set_reps_range"
+                condition=models.Q(reps__isnull=True) | models.Q(reps__lte=MAX_REPS),
+                name="training_set_reps_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(duration_s__isnull=True)
+                | models.Q(duration_s__lte=MAX_DURATION_S),
+                name="training_set_duration_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(distance_m__isnull=True)
+                | models.Q(distance_m__gte=0, distance_m__lte=MAX_DISTANCE_M),
+                name="training_set_distance_range",
+            ),
+            # Une série mesure toujours quelque chose.
+            models.CheckConstraint(
+                condition=models.Q(reps__isnull=False)
+                | models.Q(duration_s__isnull=False)
+                | models.Q(distance_m__isnull=False),
+                name="training_set_measured",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(set_type__in=SetType.values),
+                name="training_set_type_valid",
             ),
             models.CheckConstraint(
                 condition=models.Q(rpe__isnull=True) | models.Q(rpe__gte=1, rpe__lte=10),
@@ -360,8 +399,15 @@ class Set(models.Model):
 
 
 class RecordKind(models.TextChoices):
+    """Unité de `PersonalRecord.value` : kg (charge, 1RM, volume d'une série), répétitions,
+    secondes ou mètres."""
+
     HEAVIEST = "weight", "Charge maximale"
     ESTIMATED_ONE_REP_MAX = "e1rm", "1RM estimé"
+    SET_VOLUME = "volume", "Volume d'une série"
+    MOST_REPS = "reps", "Répétitions maximales"
+    LONGEST_DURATION = "duration", "Durée la plus longue"
+    LONGEST_DISTANCE = "distance", "Distance la plus longue"
 
 
 class PersonalRecord(models.Model):
@@ -374,7 +420,7 @@ class PersonalRecord(models.Model):
     # RESTRICT : jamais supprimé tant qu'il sert, sauf avec le compte (exercice perso, cascade).
     exercise = models.ForeignKey(Exercise, on_delete=models.RESTRICT, related_name="+")
     kind = models.CharField(max_length=8, choices=RecordKind)
-    value_kg = models.DecimalField(max_digits=7, decimal_places=2)
+    value = models.DecimalField(max_digits=12, decimal_places=2)
     # Série qui l'a établi ; supprimée, les records de l'exercice sont recalculés.
     set = models.ForeignKey(Set, on_delete=models.CASCADE, related_name="records")
     achieved_at = models.DateTimeField()

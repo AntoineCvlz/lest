@@ -11,6 +11,7 @@ from decimal import Decimal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from apps.training.models import SetType
 from common.demo import draw as _draw
 from common.demo import stable_id as _id
 
@@ -114,7 +115,7 @@ class PlannedSet:
     weight_kg: Decimal
     reps: int
     rpe: Decimal | None
-    is_warmup: bool
+    set_type: SetType
     performed_at: datetime
 
 
@@ -164,7 +165,7 @@ def plan(*, today: date) -> list[PlannedWorkout]:
                             weight_kg=_round(load / 2, lift.step_kg),
                             reps=lift.reps + 2,
                             rpe=None,
-                            is_warmup=True,
+                            set_type=SetType.WARMUP,
                             performed_at=moment,
                         )
                     )
@@ -181,7 +182,7 @@ def plan(*, today: date) -> list[PlannedWorkout]:
                             weight_kg=load,
                             reps=lift.reps - (1 + int(_draw("reps", *key) * 2) if missed else 0),
                             rpe=Decimal(RPES[int(_draw("rpe", *key) * len(RPES))]),
-                            is_warmup=False,
+                            set_type=SetType.NORMAL,
                             performed_at=moment,
                         )
                     )

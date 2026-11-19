@@ -55,7 +55,7 @@ def set_body(workout_exercise_id: UUID, **overrides: Any) -> dict[str, Any]:
         "weight_kg": "80",
         "reps": 8,
         "rpe": 8.5,
-        "is_warmup": False,
+        "set_type": "normal",
         "performed_at": "2026-10-29T18:05:00+01:00",
         **overrides,
     }
@@ -152,7 +152,7 @@ def test_an_unknown_exercise_is_refused(alice: Athlete) -> None:
 
 def test_the_volume_counts_working_sets_only(alice: Athlete, bench: Exercise) -> None:
     workout_id, item_id = start(alice, bench)
-    alice.put(f"/sets/{uuid4()}/", set_body(item_id, weight_kg="40", reps=10, is_warmup=True))
+    alice.put(f"/sets/{uuid4()}/", set_body(item_id, weight_kg="40", reps=10, set_type="warmup"))
     alice.put(f"/sets/{uuid4()}/", set_body(item_id, position=1, weight_kg="80", reps=8))
     alice.put(f"/sets/{uuid4()}/", set_body(item_id, position=2, weight_kg="82.5", reps=6))
 
@@ -302,10 +302,12 @@ def test_the_export_contains_the_workouts(alice: Athlete, bench: Exercise) -> No
 
     assert workout["exercises"][0]["exercise"] == "Développé couché"
     assert workout["exercises"][0]["sets"][0] | {"performed_at": None} == {
+        "set_type": "normal",
         "weight_kg": 80.0,
         "reps": 8,
+        "duration_s": None,
+        "distance_m": None,
         "rpe": 8.5,
-        "is_warmup": False,
         "performed_at": None,
     }
 

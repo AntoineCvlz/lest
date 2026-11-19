@@ -15,7 +15,9 @@ function set(id: string, reps: number): Schemas["SetOut"] {
     weight_kg: 80,
     reps,
     rpe: null,
-    is_warmup: false,
+    set_type: "normal" as const,
+    duration_s: null,
+    distance_m: null,
     performed_at: "2026-11-09T18:00:00Z",
     records: [],
   };

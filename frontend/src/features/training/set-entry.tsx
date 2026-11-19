@@ -16,7 +16,7 @@ import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { Stepper } from "@/shared/ui/stepper";
 
 import { ExerciseImage } from "./exercise-image";
-import { recordsLine, RECORD_LABELS, setLine, setText, weightText } from "./format";
+import { recordsLine, RECORD_LABELS, recordValueText, setLine, setText } from "./format";
 import { RestNotificationToggle, RestTimer } from "./rest-timer";
 import type { RestTimer as Timer } from "./use-rest-timer";
 import { nextSet, useDeleteSet, useLastSets, useSaveSet } from "./use-sets";
@@ -61,12 +61,12 @@ export interface Suggestion {
  */
 export function prefill(item: Item, lastSets: SetOut[], system: UnitSystem): Suggestion {
   const ownLast = item.sets.at(-1);
-  const working = lastSets.filter((one) => !one.is_warmup);
+  const working = lastSets.filter((one) => one.set_type !== "warmup");
   const targetReps = item.target_reps;
   if (ownLast) {
     return {
-      weight: kilogramsToDisplay(ownLast.weight_kg, system),
-      reps: targetReps ?? ownLast.reps,
+      weight: kilogramsToDisplay(ownLast.weight_kg ?? 0, system),
+      reps: targetReps ?? ownLast.reps ?? DEFAULT_REPS,
       reason: null,
     };
   }
@@ -74,12 +74,12 @@ export function prefill(item: Item, lastSets: SetOut[], system: UnitSystem): Sug
   if (!reference) {
     return { weight: EMPTY_BAR[system], reps: targetReps ?? DEFAULT_REPS, reason: null };
   }
-  const weight = kilogramsToDisplay(reference.weight_kg, system);
+  const weight = kilogramsToDisplay(reference.weight_kg ?? 0, system);
   if (targetReps === null || item.target_sets === null) {
-    return { weight, reps: reference.reps, reason: null };
+    return { weight, reps: reference.reps ?? DEFAULT_REPS, reason: null };
   }
   const reached =
-    working.length >= item.target_sets && working.every((one) => one.reps >= targetReps);
+    working.length >= item.target_sets && working.every((one) => (one.reps ?? 0) >= targetReps);
   const unit = WEIGHT_UNITS[system];
   return reached
     ? {
@@ -96,7 +96,7 @@ export function prefill(item: Item, lastSets: SetOut[], system: UnitSystem): Sug
 
 /** « Cible : 4 × 8, série 2 sur 4. » (séries de travail : l'échauffement ne compte pas). */
 export function targetText(sets: number, reps: number, done: SetOut[]): string {
-  const working = done.filter((one) => !one.is_warmup).length;
+  const working = done.filter((one) => one.set_type !== "warmup").length;
   const progress =
     working >= sets
       ? "toutes les séries sont faites"
@@ -148,7 +148,7 @@ function SetForm({
 
   function recordsText(saved: SetOut): string {
     const records = saved.records.map(
-      (record) => `${RECORD_LABELS[record.kind]} ${weightText(record.value_kg, system)}`,
+      (record) => `${RECORD_LABELS[record.kind]} ${recordValueText(record, system)}`,
     );
     return records.length > 0 ? ` Nouveau record : ${records.join(", ")}.` : "";
   }
@@ -335,7 +335,7 @@ export function SetEntry({
   onClose: () => void;
 }) {
   const lastSets = useLastSets(item.exercise_id, workoutId);
-  const previous = (lastSets.data ?? []).filter((one) => !one.is_warmup);
+  const previous = (lastSets.data ?? []).filter((one) => one.set_type !== "warmup");
   const suggestion = lastSets.isPending ? null : prefill(item, lastSets.data ?? [], system);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [announce, setAnnounce] = useState("");
@@ -424,10 +424,10 @@ export function SetEntry({
           initial={
             editing
               ? {
-                  weight: kilogramsToDisplay(editing.set.weight_kg, system),
-                  reps: editing.set.reps,
+                  weight: kilogramsToDisplay(editing.set.weight_kg ?? 0, system),
+                  reps: editing.set.reps ?? DEFAULT_REPS,
                   rpe: editing.set.rpe ?? undefined,
-                  warmup: editing.set.is_warmup,
+                  warmup: editing.set.set_type === "warmup",
                 }
               : {
                   weight: suggestion?.weight ?? 0,

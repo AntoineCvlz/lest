@@ -28,7 +28,9 @@ function set(weight_kg: number, reps: number, overrides: Partial<Schemas["SetOut
     weight_kg,
     reps,
     rpe: null,
-    is_warmup: false,
+    set_type: "normal" as const,
+    duration_s: null,
+    distance_m: null,
     performed_at: "2026-10-23T18:00:00Z",
     records: [],
     ...overrides,
@@ -105,7 +107,7 @@ function valueOf(group: string): string {
 
 describe("prefill", () => {
   it("reprend la dernière série de la séance, sinon la première série de travail de la fois d'avant", () => {
-    const warmup = set(40, 10, { is_warmup: true });
+    const warmup = set(40, 10, { set_type: "warmup" });
     expect(prefill(item([set(85, 6)]), [set(80, 8)], "metric")).toEqual({
       weight: 85,
       reps: 6,
@@ -129,7 +131,7 @@ describe("prefill avec une cible de programme", () => {
   });
 
   it("propose un pas de plus quand toutes les séries ont atteint la cible", () => {
-    const last = [set(40, 10, { is_warmup: true }), set(80, 8), set(80, 9), set(80, 8)];
+    const last = [set(40, 10, { set_type: "warmup" }), set(80, 8), set(80, 9), set(80, 8)];
 
     expect(prefill(target(), last, "metric")).toEqual({
       weight: 82.5,
@@ -165,7 +167,7 @@ describe("prefill avec une cible de programme", () => {
 
 describe("targetText", () => {
   it("donne la cible et l'avancement, échauffement exclu", () => {
-    expect(targetText(4, 8, [set(40, 10, { is_warmup: true }), set(80, 8)])).toBe(
+    expect(targetText(4, 8, [set(40, 10, { set_type: "warmup" }), set(80, 8)])).toBe(
       "Cible : 4 × 8, série 2 sur 4.",
     );
     expect(targetText(1, 8, [set(80, 8)])).toBe("Cible : 1 × 8, toutes les séries sont faites.");
@@ -200,7 +202,7 @@ describe("SetEntry", () => {
         weight_kg: "82.50",
         reps: 8,
         rpe: 8.5,
-        is_warmup: false,
+        set_type: "normal",
       });
     });
     expect(path).toMatch(UUID_V4);
@@ -240,8 +242,8 @@ describe("SetEntry", () => {
         HttpResponse.json(
           set(20, 8, {
             records: [
-              { kind: "weight", value_kg: 20, achieved_at: "2026-10-30T17:10:00Z" },
-              { kind: "e1rm", value_kg: 25.33, achieved_at: "2026-10-30T17:10:00Z" },
+              { kind: "weight", value: 20, achieved_at: "2026-10-30T17:10:00Z" },
+              { kind: "e1rm", value: 25.33, achieved_at: "2026-10-30T17:10:00Z" },
             ],
           }),
           { status: 201 },
@@ -330,7 +332,7 @@ describe("SetEntry", () => {
     server.use(
       http.put("*/api/v1/sets/:id/", async ({ request }) => {
         body = (await request.json()) as Record<string, unknown>;
-        return HttpResponse.json(set(20, 8, { is_warmup: true }), { status: 201 });
+        return HttpResponse.json(set(20, 8, { set_type: "warmup" }), { status: 201 });
       }),
     );
     const user = userEvent.setup();
@@ -340,7 +342,7 @@ describe("SetEntry", () => {
     await user.click(screen.getByRole("button", { name: "Valider la série" }));
 
     await waitFor(() => {
-      expect(body.is_warmup).toBe(true);
+      expect(body.set_type).toBe("warmup");
     });
     expect(screen.getByRole("checkbox", { name: "Série d’échauffement" })).not.toBeChecked();
   });
