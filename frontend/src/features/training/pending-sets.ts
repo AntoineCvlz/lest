@@ -4,6 +4,7 @@ import { isWrite, pendingWrites, QUEUED_KEY } from "@/features/offline/queue";
 import type { Schemas } from "@/shared/api/client";
 
 import { ADD_EXERCISE, applyAddExercise, type AddExerciseVariables } from "./pending-workouts";
+import type { NewSet } from "./use-sets";
 
 type WorkoutDetail = Schemas["WorkoutDetailOut"];
 type SetOut = Schemas["SetOut"];
@@ -17,14 +18,8 @@ export interface SaveSetVariables {
   workoutId: string;
   id: string;
   position: number;
-  set: {
-    workoutExerciseId: string;
-    weightKg: number;
-    reps: number;
-    rpe: number | null;
-    isWarmup: boolean;
-    performedAt: string;
-  };
+  // `NewSet` avec son heure fixée à la saisie.
+  set: NewSet & { performedAt: string };
 }
 
 export interface DeleteSetVariables {
@@ -56,8 +51,8 @@ export function applySave(workout: WorkoutDetail, { id, position, set }: SaveSet
     set_type: set.isWarmup ? "warmup" : "normal",
     weight_kg: set.weightKg,
     reps: set.reps,
-    duration_s: null,
-    distance_m: null,
+    duration_s: set.durationS ?? null,
+    distance_m: set.distanceM ?? null,
     rpe: set.rpe,
     performed_at: set.performedAt,
     // Recalculés par l'API (une modification peut retirer un record).

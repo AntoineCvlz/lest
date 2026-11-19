@@ -5,12 +5,7 @@ import { useEffect, useId, useRef, useState } from "react";
 
 import type { Schemas } from "@/shared/api/client";
 import { formatNumber, stepValue } from "@/shared/lib/number";
-import {
-  displayToKilograms,
-  kilogramsToDisplay,
-  WEIGHT_UNITS,
-  type UnitSystem,
-} from "@/shared/lib/units";
+import { kilogramsToDisplay, WEIGHT_UNITS, type UnitSystem } from "@/shared/lib/units";
 import { Button } from "@/shared/ui/button";
 import { ChoiceGroup } from "@/shared/ui/choice-group";
 import { Stepper } from "@/shared/ui/stepper";
@@ -18,6 +13,17 @@ import { Stepper } from "@/shared/ui/stepper";
 import { ExerciseImage } from "./exercise-image";
 import { recordsLine, RECORD_LABELS, recordValueText, setLine, setText } from "./format";
 import { RestNotificationToggle, RestTimer } from "./rest-timer";
+import {
+  COLUMNS,
+  defaultMeasures,
+  distanceIsOptional,
+  distanceUnit,
+  type ExerciseKind,
+  type Measures,
+  measuresOf,
+  measuresToSet,
+  WEIGHT_LABELS,
+} from "./set-columns";
 import type { RestTimer as Timer } from "./use-rest-timer";
 import { nextSet, useDeleteSet, useLastSets, useSaveSet } from "./use-sets";
 
@@ -33,16 +39,45 @@ const EMPTY_BAR = { metric: 20, imperial: 45 } as const;
 const DEFAULT_REPS = 8;
 const MAX_REPS = 100;
 const MAX_WEIGHT_KG = 1000;
+const MAX_MINUTES = 24 * 60;
 
 function editButtonId(one: SetOut): string {
   return `modifier-${one.id}`;
 }
 
-interface Values {
-  weight: number;
-  reps: number;
+interface Values extends Measures {
   rpe?: number;
   warmup: boolean;
+}
+
+/** Types où la charge progresse d'un pas quand la cible est atteinte (pas l'assistance). */
+function isProgressive(kind: ExerciseKind): boolean {
+  return kind === "weight_reps" || kind === "weighted_reps";
+}
+
+/**
+ * Valeurs proposées pour la prochaine série, selon le type de l'exercice : charge et
+ * répétitions par `prefill` pour les types à charge croissante, sinon les valeurs de la
+ * dernière série (de la séance, sinon de la dernière fois), sinon celles par défaut.
+ */
+export function initialMeasures(
+  item: Item,
+  lastSets: SetOut[],
+  system: UnitSystem,
+): { values: Measures; reason: string | null } {
+  const kind = item.exercise_kind;
+  const fallback = defaultMeasures(kind, system);
+  const working = lastSets.filter((one) => one.set_type !== "warmup");
+  const reference = item.sets.at(-1) ?? working.at(0) ?? lastSets.at(0);
+  const base = reference ? measuresOf(reference, kind, system, fallback) : fallback;
+  if (!isProgressive(kind)) {
+    return { values: { ...base, reps: item.target_reps ?? base.reps }, reason: null };
+  }
+  const suggestion = prefill(item, lastSets, system);
+  return {
+    values: { ...base, weight: reference ? suggestion.weight : base.weight, reps: suggestion.reps },
+    reason: suggestion.reason,
+  };
 }
 
 /** Charge et répétitions proposées, et pourquoi (`null` : rien à expliquer). */
@@ -132,14 +167,22 @@ function SetForm({
 }) {
   const save = useSaveSet(workoutId);
   const remove = useDeleteSet(workoutId);
+  const kind = item.exercise_kind;
   const [weight, setWeight] = useState(initial.weight);
   const [reps, setReps] = useState(initial.reps);
+  const [minutes, setMinutes] = useState(initial.minutes);
+  const [seconds, setSeconds] = useState(initial.seconds);
+  const [distance, setDistance] = useState(initial.distance);
   const [rpe, setRpe] = useState<number | undefined>(initial.rpe);
   const [warmup, setWarmup] = useState(initial.warmup);
   const [confirming, setConfirming] = useState(false);
   const warmupId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const unit = WEIGHT_UNITS[system];
+  const distanceIn = distanceUnit(kind, system);
+  const columns = COLUMNS[kind];
+  // La première colonne est la valeur principale (grande) ; les autres, secondaires.
+  const sizeOf = (column: (typeof columns)[number]) => (columns[0] === column ? "lg" : "md");
 
   // En modification, le focus va au titre du formulaire : on sait ce qu'on modifie.
   useEffect(() => {
@@ -165,8 +208,7 @@ function SetForm({
         position,
         set: {
           workoutExerciseId: item.id,
-          weightKg: displayToKilograms(weight, system),
-          reps,
+          ...measuresToSet({ weight, reps, minutes, seconds, distance }, kind, system),
           rpe: rpe ?? null,
           isWarmup: warmup,
           performedAt: editing?.set.performed_at,
@@ -215,27 +257,77 @@ function SetForm({
           {`Modifier la série ${String(editing.number)}`}
         </h3>
       )}
-      <Stepper
-        label="Charge"
-        value={weight}
-        onChange={setWeight}
-        step={unit.step}
-        min={0}
-        max={kilogramsToDisplay(MAX_WEIGHT_KG, system)}
-        unit={unit.name}
-        stepUnit={unit.name}
-      />
-      <Stepper
-        label="Répétitions"
-        value={reps}
-        onChange={setReps}
-        step={1}
-        min={1}
-        max={MAX_REPS}
-        unit="répétitions"
-        stepUnit="répétition"
-        size="md"
-      />
+      {columns.includes("weight") && (
+        <Stepper
+          label={WEIGHT_LABELS[kind]}
+          value={weight}
+          onChange={setWeight}
+          step={unit.step}
+          min={0}
+          max={kilogramsToDisplay(MAX_WEIGHT_KG, system)}
+          unit={unit.name}
+          stepUnit={unit.name}
+          size={sizeOf("weight")}
+        />
+      )}
+      {columns.includes("distance") && (
+        <div className="flex flex-col gap-2">
+          <Stepper
+            label="Distance"
+            value={distance}
+            onChange={setDistance}
+            step={distanceIn.step}
+            min={0}
+            max={distanceIn.max}
+            unit={distanceIn.name}
+            stepUnit={distanceIn.stepName}
+            size={sizeOf("distance")}
+          />
+          {distanceIsOptional(kind) && (
+            <p className="text-ink-muted text-sm">À 0, la distance n’est pas notée.</p>
+          )}
+        </div>
+      )}
+      {columns.includes("reps") && (
+        <Stepper
+          label="Répétitions"
+          value={reps}
+          onChange={setReps}
+          step={1}
+          min={1}
+          max={MAX_REPS}
+          unit="répétitions"
+          stepUnit="répétition"
+          size="md"
+        />
+      )}
+      {columns.includes("duration") && (
+        <fieldset className="flex flex-col gap-4">
+          <legend className="mb-2 font-semibold">Durée</legend>
+          <Stepper
+            label="Minutes"
+            value={minutes}
+            onChange={setMinutes}
+            step={1}
+            min={0}
+            max={MAX_MINUTES}
+            unit="minutes"
+            stepUnit="minute"
+            size="md"
+          />
+          <Stepper
+            label="Secondes"
+            value={seconds}
+            onChange={setSeconds}
+            step={5}
+            min={0}
+            max={55}
+            unit="secondes"
+            stepUnit="secondes"
+            size="md"
+          />
+        </fieldset>
+      )}
       <div className="flex flex-col gap-2">
         <ChoiceGroup
           legend="Effort ressenti (RPE), facultatif"
@@ -336,7 +428,8 @@ export function SetEntry({
 }) {
   const lastSets = useLastSets(item.exercise_id, workoutId);
   const previous = (lastSets.data ?? []).filter((one) => one.set_type !== "warmup");
-  const suggestion = lastSets.isPending ? null : prefill(item, lastSets.data ?? [], system);
+  const suggestion = lastSets.isPending ? null : initialMeasures(item, lastSets.data ?? [], system);
+  const fallback = defaultMeasures(item.exercise_kind, system);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [announce, setAnnounce] = useState("");
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -424,16 +517,11 @@ export function SetEntry({
           initial={
             editing
               ? {
-                  weight: kilogramsToDisplay(editing.set.weight_kg ?? 0, system),
-                  reps: editing.set.reps ?? DEFAULT_REPS,
+                  ...measuresOf(editing.set, item.exercise_kind, system, fallback),
                   rpe: editing.set.rpe ?? undefined,
                   warmup: editing.set.set_type === "warmup",
                 }
-              : {
-                  weight: suggestion?.weight ?? 0,
-                  reps: suggestion?.reps ?? 0,
-                  warmup: false,
-                }
+              : { ...(suggestion?.values ?? fallback), warmup: false }
           }
           timer={timer}
           editing={editing ?? undefined}

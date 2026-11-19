@@ -486,3 +486,77 @@ describe("SetEntry", () => {
     expect(timer.start).not.toHaveBeenCalled();
   });
 });
+
+describe("SetEntry selon le type d'exercice (ADR 0017)", () => {
+  function captureSet() {
+    const sent: { body: Record<string, unknown> } = { body: {} };
+    server.use(
+      http.put("*/api/v1/sets/:id/", async ({ request }) => {
+        sent.body = (await request.json()) as Record<string, unknown>;
+        return HttpResponse.json(set(0, 0), { status: 201 });
+      }),
+    );
+    return sent;
+  }
+
+  it("saisit une course : durée, distance facultative en kilomètres", async () => {
+    lastTime([]);
+    const sent = captureSet();
+    const user = userEvent.setup();
+    renderEntry({ ...item(), exercise_name: "Course à pied", exercise_kind: "distance_duration" });
+
+    expect(await screen.findByRole("group", { name: "Durée" })).toBeVisible();
+    expect(screen.queryByRole("group", { name: "Charge" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Répétitions" })).not.toBeInTheDocument();
+    expect(screen.getByText("À 0, la distance n’est pas notée.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "+1 minute" }));
+    await user.click(screen.getByRole("button", { name: "Valider la série" }));
+
+    await waitFor(() => {
+      expect(sent.body).toMatchObject({
+        weight_kg: null,
+        reps: null,
+        duration_s: 31 * 60,
+        distance_m: null,
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: "+0,1 kilomètre" }));
+    await user.click(screen.getByRole("button", { name: "Valider la série" }));
+    await waitFor(() => {
+      expect(sent.body).toMatchObject({ distance_m: "100.0" });
+    });
+  });
+
+  it("saisit un gainage en minutes et secondes", async () => {
+    lastTime([set(0, 0, { weight_kg: null, reps: null, duration_s: 75 })]);
+    const sent = captureSet();
+    const user = userEvent.setup();
+    renderEntry({ ...item(), exercise_name: "Gainage", exercise_kind: "duration" });
+
+    expect(await screen.findByText("La dernière fois : 1:15.")).toBeVisible();
+    expect(valueOf("Minutes")).toContain("1");
+    expect(valueOf("Secondes")).toContain("15");
+    await user.click(screen.getByRole("button", { name: "+5 secondes" }));
+    await user.click(screen.getByRole("button", { name: "Valider la série" }));
+
+    await waitFor(() => {
+      expect(sent.body).toMatchObject({ weight_kg: null, reps: null, duration_s: 80 });
+    });
+  });
+
+  it("nomme la charge d'une traction lestée et part de zéro", async () => {
+    lastTime([]);
+    const sent = captureSet();
+    const user = userEvent.setup();
+    renderEntry({ ...item(), exercise_name: "Traction lestée", exercise_kind: "weighted_reps" });
+
+    expect(await screen.findByRole("group", { name: "Lest" })).toBeVisible();
+    expect(valueOf("Lest")).toContain("0");
+    await user.click(screen.getByRole("button", { name: "Valider la série" }));
+
+    await waitFor(() => {
+      expect(sent.body).toMatchObject({ weight_kg: "0.00", reps: 8, duration_s: null });
+    });
+  });
+});
